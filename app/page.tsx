@@ -10,6 +10,7 @@ export default function SpareSetuApp() {
   const [activeTab, setActiveTab] = useState("search");
   const [loading, setLoading] = useState(true);
 
+  // --- 1. AUTH LOGIC ---
   useEffect(() => {
     const initAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -21,42 +22,18 @@ export default function SpareSetuApp() {
       setLoading(false);
     };
     initAuth();
-
-    const { data: authListener } = supabase.auth.onAuthStateChanged(async (event, session) => {
-      if (session) {
-        setUser(session.user);
-        const { data } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
-        setProfile(data);
-      } else {
-        setUser(null);
-        setProfile(null);
-      }
-    });
-
-    return () => authListener.subscription.unsubscribe();
   }, []);
 
-  // --- SEEDING LOGIC ---
-  const seedDatabase = async () => {
-    if (!confirm("Kya aap pura Master Catalog database mein upload karna chahte hain?")) return;
-    const formatted = masterCatalog.map(item => ({
-      item: `${item.make} ${item.sub} ${item.model}`.trim(),
-      cat: item.cat, sub: item.sub, make: item.make, model: item.model, spec: item.spec,
-      qty: 0, unit: 'Nos', holder_unit: 'Master Catalog'
-    }));
-    const { error } = await supabase.from('inventory').insert(formatted);
-    if (error) alert("Error: " + error.message);
-    else alert("Success! Catalog Sync ho gaya.");
-  };
-
   if (loading) return <div className="h-screen flex items-center justify-center bg-[#0f172a] text-white font-bold uppercase tracking-widest">SpareSetu Loading...</div>;
-
   if (!user) return <AuthView />;
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#f1f5f9]">
+      {/* SIDEBAR */}
       <aside className="w-64 bg-white hidden md:flex flex-col shadow-xl border-r border-slate-200">
-        <div className="p-6 border-b font-industrial font-bold uppercase tracking-wider text-slate-800">SpareSetu Menu</div>
+        <div className="p-6 border-b font-industrial font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
+           <i className="fa-solid fa-layer-group text-orange-500"></i> SPARESETU
+        </div>
         <nav className="flex-1 px-3 mt-4 space-y-1">
           <button onClick={() => setActiveTab("search")} className={`nav-item w-full text-left p-3 rounded-lg flex items-center gap-3 font-medium text-sm transition ${activeTab === "search" ? "active-nav" : "text-slate-600"}`}>
             <i className="fa-solid fa-globe"></i> Global Search
@@ -66,7 +43,6 @@ export default function SpareSetuApp() {
           </button>
         </nav>
         <div className="p-4 border-t">
-          <button onClick={seedDatabase} className="w-full mb-3 py-2 text-[10px] bg-orange-100 text-orange-600 font-bold rounded-lg border border-orange-200 uppercase">Sync Master Data</button>
           <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border border-slate-100 mb-2">
             <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-white font-bold text-xs">{profile?.name?.charAt(0)}</div>
             <div className="overflow-hidden">
@@ -74,7 +50,7 @@ export default function SpareSetuApp() {
               <div className="text-xs font-bold text-slate-700 truncate">{profile?.name}</div>
             </div>
           </div>
-          <button onClick={() => supabase.auth.signOut()} className="w-full py-2 text-xs text-red-500 hover:bg-red-50 font-bold rounded-lg">Logout</button>
+          <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="w-full py-2 text-xs text-red-500 hover:bg-red-50 font-bold rounded-lg transition">Logout</button>
         </div>
       </aside>
 
@@ -93,17 +69,18 @@ export default function SpareSetuApp() {
   );
 }
 
+// --- MY STORE: DATA ENTRY VIA DROPDOWNS ---
 function MyStoreView({ profile }: any) {
   const [myItems, setMyItems] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
   
-  // States for Cascading Selects
+  // State for Cascading Selects
   const [selCat, setSelCat] = useState("");
   const [selSub, setSelSub] = useState("");
   const [selMake, setSelMake] = useState("");
   const [selModel, setSelModel] = useState("");
   const [selSpec, setSelSpec] = useState("");
-  const [qty, setQty] = useState<number | string>("");
+  const [qty, setQty] = useState<any>("");
 
   useEffect(() => { fetchMyStock(); }, [profile]);
 
@@ -112,6 +89,7 @@ function MyStoreView({ profile }: any) {
     if (data) setMyItems(data);
   };
 
+  // Dropdown Logic based on masterdata.js
   const categories = [...new Set(masterCatalog.map(i => i.cat))];
   const subs = [...new Set(masterCatalog.filter(i => i.cat === selCat).map(i => i.sub))];
   const makes = [...new Set(masterCatalog.filter(i => i.cat === selCat && i.sub === selSub).map(i => i.make))];
@@ -119,23 +97,28 @@ function MyStoreView({ profile }: any) {
   const specs = [...new Set(masterCatalog.filter(i => i.cat === selCat && i.sub === selSub && i.make === selMake && i.model === selModel).map(i => i.spec))];
 
   const handleSave = async () => {
-    if (!selSpec || !qty) return alert("Sahi details select karein!");
+    if (!selSpec || !qty) return alert("Poori details select karein!");
     const itemName = `${selMake} ${selSub} ${selModel}`.trim();
+    
     const { error } = await supabase.from("inventory").insert([{
       item: itemName, cat: selCat, sub: selSub, make: selMake, model: selModel, spec: selSpec,
-      qty: parseInt(qty as string), unit: 'Nos', holder_unit: profile.unit, holder_uid: profile.id
+      qty: parseInt(qty), unit: 'Nos', holder_unit: profile.unit, holder_uid: profile.id,
+      holder_name: profile.name, timestamp: new Date().toISOString()
     }]);
+
     if (!error) {
-      alert("Item added!"); fetchMyStock(); setQty(""); // Only reset qty for "Add More" flow
-    } else { alert(error.message); }
+      alert("Stock Saved! Aap agla item add kar sakte hain."); 
+      fetchMyStock(); 
+      setQty(""); // Reset quantity for next entry, modal stays open
+    } else alert(error.message);
   };
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="space-y-6">
       <div className="flex justify-between items-center bg-white p-6 rounded-xl border shadow-sm">
         <div>
           <h2 className="text-xl font-bold text-slate-800">My Local Store</h2>
-          <p className="text-sm text-slate-500 font-bold bg-blue-50 px-2 rounded inline-block mt-1 uppercase tracking-tighter">Managing Zone: {profile?.unit}</p>
+          <p className="text-xs text-slate-500 font-bold bg-blue-50 px-2 rounded mt-1 uppercase tracking-tighter">Location: {profile?.unit}</p>
         </div>
         <button onClick={() => setShowModal(true)} className="iocl-btn text-white px-6 py-2.5 rounded-xl font-bold shadow-md hover:shadow-lg transition">Add New Stock</button>
       </div>
@@ -143,11 +126,13 @@ function MyStoreView({ profile }: any) {
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
         <table className="w-full text-left border-collapse">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold border-b">
-            <tr><th className="p-5 pl-8">Item Details</th><th className="p-5">Spec</th><th className="p-5 text-center">Stock</th></tr>
+            <tr><th className="p-5">Item Details</th><th className="p-5">Spec</th><th className="p-5 text-center">Stock</th></tr>
           </thead>
-          <tbody className="divide-y text-sm text-slate-700">
-            {myItems.map(i => (
-              <tr key={i.id} className="hover:bg-slate-50"><td className="p-5 pl-8 font-bold text-slate-800">{i.item} <div className="text-[10px] text-slate-400 font-bold uppercase">{i.cat}</div></td><td className="p-5"><span className="bg-slate-100 border px-2 py-1 rounded text-[11px] font-medium text-slate-600">{i.spec}</span></td><td className="p-5 text-center font-bold text-blue-600">{i.qty} {i.unit}</td></tr>
+          <tbody className="divide-y text-sm">
+            {myItems.length === 0 ? (
+              <tr><td colSpan={3} className="p-10 text-center text-slate-400">Aapka store khali hai. Stock add karein.</td></tr>
+            ) : myItems.map(i => (
+              <tr key={i.id} className="hover:bg-slate-50"><td className="p-5 font-bold text-slate-800">{i.item}<div className="text-[10px] text-slate-400 font-bold uppercase">{i.cat}</div></td><td className="p-5"><span className="bg-slate-100 border px-2 py-0.5 rounded text-[11px] font-medium text-slate-600">{i.spec}</span></td><td className="p-5 text-center font-bold text-emerald-600">{i.qty}</td></tr>
             ))}
           </tbody>
         </table>
@@ -155,28 +140,28 @@ function MyStoreView({ profile }: any) {
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-8 relative modal-container">
-            <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-slate-400 text-xl font-bold">×</button>
-            <h3 className="text-lg font-bold text-slate-800 mb-6 border-b pb-2 uppercase tracking-wide">Add Stock Item</h3>
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-8 relative modal-container scale-100">
+            <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-slate-400 font-bold text-xl">✕</button>
+            <h3 className="text-lg font-bold text-slate-800 mb-6 border-b pb-2 uppercase tracking-wide">Select Items to Add</h3>
             <div className="space-y-4">
-              <select className="w-full p-3 border rounded-lg text-sm font-bold bg-slate-50" onChange={(e)=>{setSelCat(e.target.value); setSelSub(""); setSelMake(""); setSelModel(""); setSelSpec("");}}>
-                <option value="">Select Category</option>
+              <select className="w-full p-3 border rounded-lg text-sm bg-slate-50" onChange={(e)=>{setSelCat(e.target.value); setSelSub(""); setSelMake(""); setSelModel(""); setSelSpec("");}}>
+                <option value="">-- Category --</option>
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
               <select className="w-full p-3 border rounded-lg text-sm bg-white" disabled={!selCat} onChange={(e)=>{setSelSub(e.target.value); setSelMake(""); setSelModel(""); setSelSpec("");}}>
-                <option value="">Select Sub-Category</option>
+                <option value="">-- Sub-Category --</option>
                 {subs.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
               <select className="w-full p-3 border rounded-lg text-sm bg-white" disabled={!selSub} onChange={(e)=>{setSelMake(e.target.value); setSelModel(""); setSelSpec("");}}>
-                <option value="">Select Make</option>
+                <option value="">-- Make --</option>
                 {makes.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
               <select className="w-full p-3 border rounded-lg text-sm bg-white" disabled={!selMake} onChange={(e)=>{setSelModel(e.target.value); setSelSpec("");}}>
-                <option value="">Select Model</option>
+                <option value="">-- Model --</option>
                 {models.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
               <select className="w-full p-3 border rounded-lg text-sm bg-white" disabled={!selModel} onChange={(e)=>setSelSpec(e.target.value)}>
-                <option value="">Select Spec</option>
+                <option value="">-- Specification --</option>
                 {specs.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
               <input type="number" placeholder="Quantity" value={qty} className="w-full p-3 border rounded-lg text-lg font-bold outline-none focus:border-orange-500" onChange={(e)=>setQty(e.target.value)} />
@@ -189,6 +174,7 @@ function MyStoreView({ profile }: any) {
   );
 }
 
+// --- GLOBAL SEARCH: ONLY SHOWS USER-ADDED DATA ---
 function InventoryView() {
   const [items, setItems] = useState<any[]>([]);
   const [search, setSearch] = useState("");
@@ -196,6 +182,7 @@ function InventoryView() {
 
   useEffect(() => {
     const fetchAll = async () => {
+      // Seed push karne ki zaroorat nahi, ye wahi dikhayega jo database mein hai
       const { data } = await supabase.from("inventory").select("*").order("item", { ascending: true });
       if (data) setItems(data);
       setFetching(false);
@@ -203,15 +190,18 @@ function InventoryView() {
     fetchAll();
   }, []);
 
-  const filtered = items.filter(i => i.item.toLowerCase().includes(search.toLowerCase()) || i.spec.toLowerCase().includes(search.toLowerCase()));
+  const filtered = items.filter(i => 
+    i.item.toLowerCase().includes(search.toLowerCase()) || 
+    i.spec.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
-    <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden animate-fade-in">
       <div className="p-6 border-b border-slate-100 bg-slate-50/50">
         <h2 className="text-lg font-bold text-slate-800 mb-4 tracking-tight">Global Inventory Search</h2>
         <div className="relative">
           <i className="fa-solid fa-search absolute left-4 top-3.5 text-slate-400"></i>
-          <input type="text" placeholder="Search Parts (Bearing, Cable, ML-2)..." className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-lg focus:border-orange-500 outline-none text-sm transition shadow-sm" onChange={(e) => setSearch(e.target.value)} />
+          <input type="text" placeholder="Search Part Name or Specification..." className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-lg focus:border-orange-500 outline-none text-sm transition shadow-sm" onChange={(e) => setSearch(e.target.value)} />
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -221,9 +211,16 @@ function InventoryView() {
           </thead>
           <tbody className="divide-y text-sm text-slate-700 bg-white">
             {fetching ? (
-              <tr><td colSpan={4} className="p-10 text-center text-slate-400 italic">Connecting to Refinery Database...</td></tr>
+              <tr><td colSpan={4} className="p-10 text-center text-slate-400 italic">Syncing with Refinery database...</td></tr>
+            ) : filtered.length === 0 ? (
+              <tr><td colSpan={4} className="p-10 text-center text-slate-400">Koi stock nahi mila. Users ke data add karne ka intezaar karein.</td></tr>
             ) : filtered.map((item) => (
-              <tr key={item.id} className="hover:bg-slate-50 transition"><td className="p-5 pl-8"><div className="font-bold text-slate-800">{item.item}</div><div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{item.cat}</div></td><td className="p-5"><span className="bg-slate-100 border px-2 py-1 rounded text-[11px] font-medium text-slate-600 shadow-sm">{item.spec}</span></td><td className="p-5 text-center font-bold text-blue-600">{item.qty} {item.unit}</td><td className="p-5 pr-8 text-center text-[10px] font-bold text-slate-500 uppercase tracking-tighter bg-slate-50 border">{item.holder_unit}</td></tr>
+              <tr key={item.id} className="hover:bg-slate-50 transition border-b border-slate-50">
+                <td className="p-5 pl-8 font-bold text-slate-800">{item.item}<div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{item.cat}</div></td>
+                <td className="p-5"><span className="bg-slate-100 border px-2 py-1 rounded text-[11px] font-medium text-slate-600 shadow-sm">{item.spec}</span></td>
+                <td className="p-5 text-center font-bold text-blue-600">{item.qty} Nos</td>
+                <td className="p-5 pr-8 text-center text-[10px] font-bold text-slate-500 uppercase tracking-tighter bg-slate-50 border">{item.holder_unit}</td>
+              </tr>
             ))}
           </tbody>
         </table>
@@ -232,6 +229,7 @@ function InventoryView() {
   );
 }
 
+// --- AUTH VIEW (LOGIN/REGISTER) ---
 function AuthView() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -245,13 +243,13 @@ function AuthView() {
       if (error) alert(error.message);
     } else {
       const { error } = await supabase.auth.signUp({ email, password: pass, options: { data: { name, unit } } });
-      if (error) alert(error.message); else alert("Account Created! Login karein.");
+      if (error) alert(error.message); else alert("Registration successful! Login karein.");
     }
   };
 
   return (
     <div className="fixed inset-0 flex items-center justify-center login-bg p-4">
-      <div className="w-full max-w-md login-card rounded-2xl p-8 border-t-4 border-orange-500 shadow-2xl">
+      <div className="w-full max-w-md login-card rounded-2xl p-8 border-t-4 border-orange-500 shadow-2xl animate-fade-in">
         <h1 className="text-center font-industrial text-2xl font-bold text-white mb-6 uppercase tracking-widest">{isLogin ? "Secure Login" : "Register"}</h1>
         <div className="space-y-4">
           {!isLogin && (
@@ -259,16 +257,20 @@ function AuthView() {
               <input type="text" placeholder="Full Name" className="w-full p-3 rounded-lg login-input text-sm outline-none" onChange={(e) => setName(e.target.value)} />
               <select className="w-full p-3 rounded-lg login-input text-sm outline-none bg-slate-900 text-white" onChange={(e) => setUnit(e.target.value)}>
                 <option value="">Select Your Zone</option>
-                <option value="Electrical Planning">Electrical Planning</option>
                 <option value="RUP - South Block">RUP - South Block</option>
+                <option value="Electrical Planning">Electrical Planning</option>
                 <option value="LAB">LAB</option>
+                <option value="MSQU">MSQU</option>
+                {/* Aap baaki zones bhi yahan add kar sakte hain index.html ke hisaab se */}
               </select>
             </>
           )}
           <input type="email" placeholder="Official Email" className="w-full p-3 rounded-lg login-input text-sm outline-none" onChange={(e) => setEmail(e.target.value)} />
           <input type="password" placeholder="Password" className="w-full p-3 rounded-lg login-input text-sm outline-none" onChange={(e) => setPass(e.target.value)} />
-          <button onClick={handleAuth} className="w-full h-12 iocl-btn text-white font-bold rounded-lg shadow-lg uppercase">{isLogin ? "Login" : "Register"}</button>
-          <div className="text-center mt-4 border-t border-white/10 pt-4"><button onClick={() => setIsLogin(!isLogin)} className="text-white text-xs font-bold underline">{isLogin ? "Create Account" : "Back to Login"}</button></div>
+          <button onClick={handleAuth} className="w-full h-12 iocl-btn text-white font-bold rounded-lg shadow-lg uppercase">{isLogin ? "Secure Access" : "Register Now"}</button>
+          <div className="text-center mt-4 border-t border-white/10 pt-4">
+            <button onClick={() => setIsLogin(!isLogin)} className="text-white text-xs font-bold underline">{isLogin ? "Need an Account? Create One" : "Already Registered? Login"}</button>
+          </div>
         </div>
       </div>
     </div>
