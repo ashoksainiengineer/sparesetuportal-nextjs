@@ -548,11 +548,19 @@ await supabase
   .eq('id', item_id);
     }
     if (status === 'returned') {
-       const { data: item } = await supabase.from('inventory').select('qty').eq('id', item_id).single();
-       await supabase.from('inventory').update({ qty: item.qty + qty }).eq('id', item_id);
-       await supabase.from('requests').delete().eq('id', id);
-       return;
-    }
+  const { data: item } = await supabase.from('inventory').select('qty').eq('id', item_id).single();
+  
+  // Yeh safety check add karein
+  if (!item) {
+    console.error("Item not found");
+    return;
+  }
+
+  // Ab item.qty safe hai
+  await supabase.from('inventory').update({ qty: item.qty + qty }).eq('id', item_id);
+  await supabase.from('requests').delete().eq('id', id);
+  return;
+}
     await supabase.from('requests').update({ status }).eq('id', id);
   };
 
