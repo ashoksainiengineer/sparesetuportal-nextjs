@@ -21,7 +21,6 @@ export default function SpareSetuApp() {
       setLoading(false);
     };
 
-    // FIXED: onAuthStateChange
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) {
         setUser(session.user);
@@ -100,7 +99,7 @@ export default function SpareSetuApp() {
               </div>
             </div>
             <div className="text-left md:text-right">
-              <h2 className="font-industrial text-2xl text-orange-500 tracking-[0.1em] font-bold">SPARE SETU PORTAL</h2>
+              <h2 className="font-industrial text-2xl text-orange-500 tracking-[0.1em] font-bold uppercase">Spare Setu Portal</h2>
             </div>
           </div>
         </header>
@@ -122,7 +121,7 @@ function AuthView() {
   const [enteredOtp, setEnteredOtp] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
 
-  // Clear inputs when switching views to prevent overlap
+  // Clear inputs when switching views to prevent auto-fill overlap
   const switchAuthView = (newView: "login" | "register" | "forgot" | "otp") => {
     setEnteredOtp("");
     setView(newView);
@@ -187,16 +186,32 @@ function AuthView() {
           {view === "register" && (
             <>
               <div className="relative"><i className="fa-solid fa-user absolute left-4 top-3.5 text-slate-400"></i><input type="text" placeholder="Full Name" value={name} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm" onChange={(e)=>setName(e.target.value)} /></div>
-              <div className="relative"><i className="fa-solid fa-building absolute left-4 top-3.5 text-slate-400"></i>
+              <div className="relative">
+                <i className="fa-solid fa-building absolute left-4 top-3.5 text-slate-400"></i>
                 <select className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm bg-slate-900 text-slate-300" value={unit} onChange={(e)=>setUnit(e.target.value)}>
                   <option value="">Select Your Zone</option>
                   <option value="RUP - South Block">RUP - South Block</option>
                   <option value="RUP - North Block">RUP - North Block</option>
                   <option value="LAB">LAB</option>
                   <option value="MSQU">MSQU</option>
+                  <option value="AU-5">AU-5</option>
+                  <option value="BS-VI">BS-VI</option>
+                  <option value="GR-II & NBA">GR-II & NBA</option>
+                  <option value="GR-I">GR-I</option>
+                  <option value="OM&S">OM&S</option>
+                  <option value="OLD SRU & CETP">OLD SRU & CETP</option>
                   <option value="Electrical Planning">Electrical Planning</option>
-                  <option value="GHC">GHC</option>
+                  <option value="Electrical Testing">Electrical Testing</option>
+                  <option value="Electrical Workshop">Electrical Workshop</option>
+                  <option value="FCC">FCC</option>
+                  <option value="GRE">GRE</option>
+                  <option value="CGP-I">CGP-I</option>
+                  <option value="CGP-II & TPS">CGP-II & TPS</option>
+                  <option value="Water Block & Bitumen">Water Block & Bitumen</option>
                   <option value="Township - Estate Office">Township - Estate Office</option>
+                  <option value="AC Section">AC Section</option>
+                  <option value="GHC">GHC</option>
+                  <option value="DHUMAD">DHUMAD</option>
                 </select>
               </div>
             </>
@@ -206,7 +221,7 @@ function AuthView() {
             <div className="relative">
               <i className="fa-solid fa-key absolute left-4 top-3.5 text-slate-400"></i>
               <input type="text" placeholder="Enter 6-Digit OTP" value={enteredOtp} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm text-center font-bold tracking-[0.5em]" onChange={(e)=>setEnteredOtp(e.target.value)} />
-              <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase">Enter OTP sent to {email}</p>
+              <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase">OTP sent to {email}</p>
             </div>
           ) : (
             <div className="relative">
@@ -220,7 +235,7 @@ function AuthView() {
           )}
           
           <button onClick={handleAuth} disabled={authLoading} className="w-full h-12 mt-6 iocl-btn text-white font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 uppercase tracking-widest">
-            {authLoading ? "Processing..." : view === "login" ? "Secure Login →" : view === "register" ? "Send OTP" : view === "otp" ? "Verify & Register" : "Send Link"}
+            {authLoading ? "Wait..." : view === "login" ? "Secure Login →" : view === "register" ? "Send OTP" : view === "otp" ? "Verify & Register" : "Send Reset Link"}
           </button>
 
           <div className="mt-6 text-center border-t border-white/10 pt-4">
@@ -265,7 +280,7 @@ function MyStoreView({ profile }: any) {
     const itemName = `${selMake} ${selSub} ${selModel}`.trim();
     const { error } = await supabase.from("inventory").insert([{
       item: itemName, cat: selCat, sub: selSub, make: selMake, model: selModel, spec: selSpec,
-      qty: parseInt(qty), unit: 'Nos', holder_unit: profile.unit, holder_uid: profile.id, holder_name: profile.name
+      qty: parseInt(qty), unit: 'Nos', holder_unit: profile.unit, holder_uid: profile.id, holder_name: profile.name, timestamp: new Date().toISOString()
     }]);
     if (!error) { alert("Stock Saved!"); fetchMyStock(); setQty(""); }
   };
@@ -283,7 +298,7 @@ function MyStoreView({ profile }: any) {
           </thead>
           <tbody className="divide-y text-sm">
             {myItems.map(i => (
-              <tr key={i.id} className="hover:bg-slate-50 transition">
+              <tr key={i.id} className="hover:bg-slate-50 transition border-b border-slate-50">
                 <td className="p-5 pl-8 font-bold text-slate-800">{i.item}<div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{i.cat}</div></td>
                 <td className="p-5"><span className="bg-slate-100 border px-2 py-1 rounded text-[11px] font-medium text-slate-600 shadow-sm">{i.spec}</span></td>
                 <td className="p-5 text-center font-bold text-emerald-600">{i.qty} Nos</td>
