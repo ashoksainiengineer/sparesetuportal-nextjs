@@ -10,32 +10,37 @@ export default function SpareSetuApp() {
   const [activeTab, setActiveTab] = useState("search");
   const [loading, setLoading] = useState(true);
 
-  // --- AUTH LISTENER ---
+  // --- AUTH & PROFILE LISTENER ---
   useEffect(() => {
-    const initAuth = async () => {
+    const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         setUser(session.user);
-        const { data } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
-        setProfile(data);
+        fetchProfile(session.user.id);
       }
       setLoading(false);
     };
-    initAuth();
 
-    const { data: authListener } = supabase.auth.onAuthStateChanged(async (event, session) => {
+    // FIXED: Supabase uses onAuthStateChange
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) {
         setUser(session.user);
-        const { data } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
-        setProfile(data);
+        fetchProfile(session.user.id);
       } else {
         setUser(null);
         setProfile(null);
       }
+      setLoading(false);
     });
 
+    getSession();
     return () => authListener.subscription.unsubscribe();
   }, []);
+
+  const fetchProfile = async (uid: string) => {
+    const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
+    if (data) setProfile(data);
+  };
 
   if (loading) {
     return (
@@ -89,14 +94,17 @@ export default function SpareSetuApp() {
         <header className="header-bg text-white sticky top-0 z-30 shadow-md">
           <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-6">
-              <div className="iocl-logo-container hidden md:flex" style={{ fontSize: '10px' }}>
-                <div className="iocl-circle"><div className="iocl-band"><span className="iocl-hindi-text">इंडियनऑयल</span></div></div>
+              {/* EXACT HEADER LOGO */}
+              <div className="iocl-logo-container hidden md:flex flex-col items-center" style={{ fontSize: '10px' }}>
+                <div className="iocl-circle">
+                    <div className="iocl-band"><span className="iocl-hindi-text">इंडियनऑयल</span></div>
+                </div>
                 <div className="iocl-english-text" style={{ color: 'white', fontWeight: 800 }}>IndianOil</div>
                 <div className="font-script text-orange-400 text-[10px] mt-1 whitespace-nowrap">The Energy of India</div>
               </div>
               <div className="flex flex-col items-center"> 
                 <h1 className="font-industrial text-3xl md:text-4xl uppercase tracking-wider leading-none font-bold text-center">Gujarat Refinery</h1>
-                <p className="font-hindi text-blue-400 text-sm font-bold tracking-wide mt-1 text-center">जहाँ प्रगति ही जीवन सार hai</p>
+                <p className="font-hindi text-blue-400 text-sm font-bold tracking-wide mt-1 text-center">जहाँ प्रगति ही जीवन सार है</p>
               </div>
             </div>
             <div className="text-left md:text-right">
@@ -113,7 +121,7 @@ export default function SpareSetuApp() {
   );
 }
 
-// --- AUTH VIEW (Login/Register/Forgot) ---
+// --- AUTH VIEW (Exact original design) ---
 function AuthView() {
   const [view, setView] = useState<"login" | "register" | "forgot">("login");
   const [email, setEmail] = useState("");
@@ -126,19 +134,23 @@ function AuthView() {
       const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
       if (error) alert(error.message);
     } else if (view === "register") {
-      const { error } = await supabase.auth.signUp({ email, password: pass, options: { data: { name, unit } } });
+      const { error } = await supabase.auth.signUp({ 
+        email, password: pass, 
+        options: { data: { name, unit } } 
+      });
       if (error) alert(error.message); else { alert("Account Created! Please Login."); setView("login"); }
     } else {
       const { error } = await supabase.auth.resetPasswordForEmail(email);
-      if (error) alert(error.message); else alert("OTP Link Sent to Email!");
+      if (error) alert(error.message); else alert("Reset link sent to your email!");
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 login-bg">
-      <div className="w-full max-w-md login-card rounded-2xl shadow-2xl p-8 fade-in border-t-4 border-orange-500 relative">
+      <div className="w-full max-w-md login-card rounded-2xl shadow-2xl p-8 fade-in border-t-4 border-orange-500 text-center relative">
         <div className="text-center mb-6">
           <div className="flex justify-center mb-4">
+            {/* EXACT LOGIN LOGO */}
             <div className="iocl-logo-container" style={{ fontSize: '14px' }}>
               <div className="iocl-circle"><div className="iocl-band"><span className="iocl-hindi-text">इंडियनऑयल</span></div></div>
               <div className="iocl-english-text" style={{ marginTop: '8px' }}>IndianOil</div>
@@ -155,12 +167,15 @@ function AuthView() {
               <div className="relative"><i className="fa-solid fa-user absolute left-4 top-3.5 text-slate-400"></i><input type="text" placeholder="Full Name" className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm" onChange={(e)=>setName(e.target.value)} /></div>
               <div className="relative">
                 <i className="fa-solid fa-building absolute left-4 top-3.5 text-slate-400"></i>
-                <select className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm bg-slate-900 text-white" onChange={(e)=>setUnit(e.target.value)}>
+                <select className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm bg-slate-900 text-slate-300" onChange={(e)=>setUnit(e.target.value)}>
                   <option value="">Select Your Zone</option>
-                  <option value="RUP - South Block">RUP - South Block</option>
                   <option value="Electrical Planning">Electrical Planning</option>
+                  <option value="RUP - South Block">RUP - South Block</option>
                   <option value="LAB">LAB</option>
                   <option value="MSQU">MSQU</option>
+                  <option value="AU-5">AU-5</option>
+                  <option value="Electrical Testing">Electrical Testing</option>
+                  <option value="FCC">FCC</option>
                 </select>
               </div>
             </>
@@ -168,25 +183,22 @@ function AuthView() {
           <div className="relative"><i className="fa-solid fa-envelope absolute left-4 top-3.5 text-slate-400"></i><input type="email" placeholder="Official Email ID" className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm" onChange={(e)=>setEmail(e.target.value)} /></div>
           {view !== "forgot" && <div className="relative"><i className="fa-solid fa-lock absolute left-4 top-3.5 text-slate-400"></i><input type="password" placeholder="Password" className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm" onChange={(e)=>setPass(e.target.value)} /></div>}
           
-          {view === "login" && (
-            <div className="text-right">
-              <button onClick={()=>setView("forgot")} className="text-xs text-orange-500 font-bold hover:text-orange-400 transition">Forgot Password?</button>
-            </div>
-          )}
+          {view === "login" && <div className="text-right"><button onClick={()=>setView("forgot")} className="text-xs text-orange-500 font-bold hover:text-orange-400 transition underline">Forgot Password?</button></div>}
 
           <button onClick={handleAuth} className="w-full h-12 mt-6 iocl-btn text-white font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 uppercase">
-            {view === "login" ? "Secure Login →" : view === "register" ? "Create Account" : "Send Link"}
+            {view === "login" ? "Secure Login →" : view === "register" ? "Create Account" : "Send Reset Link"}
           </button>
 
           <div className="mt-6 text-center border-t border-white/10 pt-4">
             <p className="text-xs text-slate-400">
-              {view === "login" ? "New User? " : "Already have account? "}
+              {view === "login" ? "New User? " : "Already registered? "}
               <button onClick={() => setView(view === "login" ? "register" : "login")} className="text-white hover:text-orange-500 font-bold underline ml-1">
                 {view === "login" ? "Create Account" : "Back to Login"}
               </button>
             </p>
           </div>
           
+          {/* EXACT DEVELOPER CREDITS IN HINDI */}
           <div className="mt-8 pt-4 border-t border-white/10 text-center">
             <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider mb-1">Developed By</p>
             <p className="text-[11px] text-slate-300 font-bold tracking-wide font-hindi">
@@ -210,7 +222,7 @@ function MyStoreView({ profile }: any) {
   const [selSpec, setSelSpec] = useState("");
   const [qty, setQty] = useState<any>("");
 
-  useEffect(() => { fetchMyStock(); }, [profile]);
+  useEffect(() => { if (profile) fetchMyStock(); }, [profile]);
 
   const fetchMyStock = async () => {
     const { data } = await supabase.from("inventory").select("*").eq("holder_uid", profile.id).order("id", { ascending: false });
@@ -224,7 +236,7 @@ function MyStoreView({ profile }: any) {
   const specs = [...new Set(masterCatalog.filter(i => i.cat === selCat && i.sub === selSub && i.make === selMake && i.model === selModel).map(i => i.spec))];
 
   const handleSave = async () => {
-    if (!selSpec || !qty) return alert("Sahi details bhariye!");
+    if (!selSpec || !qty) return alert("Poori details select karein!");
     const itemName = `${selMake} ${selSub} ${selModel}`.trim();
     const { error } = await supabase.from("inventory").insert([{
       item: itemName, cat: selCat, sub: selSub, make: selMake, model: selModel, spec: selSpec,
@@ -248,12 +260,12 @@ function MyStoreView({ profile }: any) {
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold border-b">
             <tr><th className="p-5 pl-8">Item Details</th><th className="p-5">Spec</th><th className="p-5 text-center">Stock</th></tr>
           </thead>
-          <tbody className="divide-y text-sm text-slate-700">
+          <tbody className="divide-y text-sm">
             {myItems.map(i => (
               <tr key={i.id} className="hover:bg-slate-50 transition">
                 <td className="p-5 pl-8 font-bold text-slate-800">{i.item}<div className="text-[10px] text-slate-400 font-bold uppercase">{i.cat}</div></td>
-                <td className="p-5"><span className="bg-slate-100 border px-2 py-0.5 rounded text-[11px] font-medium text-slate-600">{i.spec}</span></td>
-                <td className="p-5 text-center font-bold text-emerald-600">{i.qty}</td>
+                <td className="p-5"><span className="bg-slate-100 border px-2 py-0.5 rounded text-[11px] font-medium">{i.spec}</span></td>
+                <td className="p-5 text-center font-bold text-emerald-600">{i.qty} Nos</td>
               </tr>
             ))}
           </tbody>
@@ -267,7 +279,7 @@ function MyStoreView({ profile }: any) {
             <h3 className="text-lg font-bold text-slate-800 mb-6 border-b pb-2 uppercase tracking-wide">Add Stock Item</h3>
             <div className="space-y-4">
               <select className="w-full p-3 border rounded-lg text-sm bg-slate-50" onChange={(e)=>{setSelCat(e.target.value); setSelSub(""); setSelMake(""); setSelModel(""); setSelSpec("");}}>
-                <option value="">-- Select Category --</option>
+                <option value="">-- Category --</option>
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
               <select className="w-full p-3 border rounded-lg text-sm bg-white" disabled={!selCat} onChange={(e)=>{setSelSub(e.target.value); setSelMake(""); setSelModel(""); setSelSpec("");}}>
@@ -287,7 +299,7 @@ function MyStoreView({ profile }: any) {
                 {specs.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
               <input type="number" placeholder="Quantity" value={qty} className="w-full p-3 border rounded-lg text-lg font-bold outline-none focus:border-orange-500" onChange={(e)=>setQty(e.target.value)} />
-              <button onClick={handleSave} className="w-full py-4 iocl-btn text-white font-bold rounded-xl shadow-lg uppercase">Save & Add More</button>
+              <button onClick={handleSave} className="w-full py-4 iocl-btn text-white font-bold rounded-xl shadow-lg uppercase tracking-wider">Save & Add More</button>
             </div>
           </div>
         </div>
@@ -300,43 +312,14 @@ function MyStoreView({ profile }: any) {
 function InventoryView() {
   const [items, setItems] = useState<any[]>([]);
   const [search, setSearch] = useState("");
-
-  useEffect(() => {
-    const fetchAll = async () => {
-      const { data } = await supabase.from("inventory").select("*").order("item", { ascending: true });
-      if (data) setItems(data);
-    };
-    fetchAll();
-  }, []);
-
+  useEffect(() => { const fetchAll = async () => { const { data } = await supabase.from("inventory").select("*").order("item", { ascending: true }); if (data) setItems(data); }; fetchAll(); }, []);
   const filtered = items.filter(i => i.item.toLowerCase().includes(search.toLowerCase()) || i.spec.toLowerCase().includes(search.toLowerCase()));
-
   return (
     <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden animate-fade-in">
       <div className="p-6 border-b border-slate-100 bg-slate-50/50">
         <h2 className="text-lg font-bold text-slate-800 mb-4 tracking-tight">Global Inventory Search</h2>
-        <div className="relative">
-          <i className="fa-solid fa-search absolute left-4 top-3.5 text-slate-400"></i>
-          <input type="text" placeholder="Search Part Name or Spec..." className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-lg focus:border-orange-500 outline-none text-sm transition shadow-sm" onChange={(e) => setSearch(e.target.value)} />
-        </div>
+        <div className="relative"><i className="fa-solid fa-search absolute left-4 top-3.5 text-slate-400"></i><input type="text" placeholder="Search Part Name or Spec..." className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-lg focus:border-orange-500 outline-none text-sm transition shadow-sm" onChange={(e) => setSearch(e.target.value)} /></div>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
-          <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold border-b">
-            <tr><th className="p-5 pl-8">Item Description</th><th className="p-5">Spec</th><th className="p-5 text-center">Stock</th><th className="p-5 pr-8 text-center">Location</th></tr>
-          </thead>
-          <tbody className="divide-y text-sm text-slate-700 bg-white">
-            {filtered.map((item) => (
-              <tr key={item.id} className="hover:bg-slate-50 transition border-b border-slate-50">
-                <td className="p-5 pl-8 font-bold text-slate-800">{item.item}<div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{item.cat}</div></td>
-                <td className="p-5"><span className="bg-slate-100 border px-2 py-1 rounded text-[11px] font-medium text-slate-600 shadow-sm">{item.spec}</span></td>
-                <td className="p-5 text-center font-bold text-blue-600">{item.qty} Nos</td>
-                <td className="p-5 pr-8 text-center text-[10px] font-bold text-slate-500 uppercase tracking-tighter bg-slate-50 border">{item.holder_unit}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
+      <div className="overflow-x-auto"><table className="w-full text-left border-collapse"><thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold border-b"><tr><th className="p-5 pl-8">Item Description</th><th className="p-5">Spec</th><th className="p-5 text-center">Stock</th><th className="p-5 pr-8 text-center">Location</th></tr></thead><tbody className="divide-y text-sm text-slate-700 bg-white">{filtered.map((item) => (<tr key={item.id} className="hover:bg-slate-50 transition border-b border-slate-50"><td className="p-5 pl-8 font-bold text-slate-800">{item.item}<div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{item.cat}</div></td><td className="p-5"><span className="bg-slate-100 border px-2 py-1 rounded text-[11px] font-medium text-slate-600 shadow-sm">{item.spec}</span></td><td className="p-5 text-center font-bold text-blue-600">{item.qty} Nos</td><td className="p-5 pr-8 text-center text-[10px] font-bold text-slate-500 uppercase tracking-tighter bg-slate-50 border">{item.holder_unit}</td></tr>))}</tbody></table></div></section>
   );
 }
