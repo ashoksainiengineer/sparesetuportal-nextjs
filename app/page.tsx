@@ -523,9 +523,29 @@ function ReturnsSection({ profile }: any) {
 
   const handleAction = async (id: number, status: string, item_id: number, qty: number) => {
     if (status === 'approved') {
-       const { data: item } = await supabase.from('inventory').select('qty').eq('id', item_id).single();
-       if (item.qty < qty) return alert("Low Stock!");
-       await supabase.from('inventory').update({ qty: item.qty - qty }).eq('id', item_id);
+     // Purana code change karke aise likhein:
+const { data: item, error } = await supabase
+  .from('inventory')
+  .select('qty')
+  .eq('id', item_id)
+  .single();
+
+// 1. Check karein ki koi error toh nahi aaya ya item null toh nahi hai
+if (error || !item) {
+  console.error("Item not found or error fetching stock", error);
+  return alert("Error checking stock!");
+}
+
+// 2. Ab 'item' safe hai, ab qty check karein
+if (item.qty < qty) {
+  return alert("Low Stock!");
+}
+
+// 3. Update karein
+await supabase
+  .from('inventory')
+  .update({ qty: item.qty - qty })
+  .eq('id', item_id);
     }
     if (status === 'returned') {
        const { data: item } = await supabase.from('inventory').select('qty').eq('id', item_id).single();
