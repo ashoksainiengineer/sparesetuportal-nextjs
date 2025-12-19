@@ -42,7 +42,7 @@ export default function SpareSetuApp() {
   };
 
   if (loading) return (
-    <div className="fixed inset-0 z-[60] bg-[#0f172a] flex flex-col items-center justify-center">
+    <div className="fixed inset-0 z-[60] bg-[#0f172a] flex flex-col items-center justify-center transition-opacity duration-500">
       <div className="iocl-logo-container mb-4 animate-pulse" style={{ fontSize: '20px' }}>
         <div className="iocl-circle"><div className="iocl-band"><span className="iocl-hindi-text">इंडियनऑयल</span></div></div>
       </div>
@@ -57,7 +57,9 @@ export default function SpareSetuApp() {
       {/* --- SIDEBAR (ALL 5 TABS) --- */}
       <aside className="w-64 bg-white hidden md:flex flex-col flex-shrink-0 z-20 shadow-xl border-r border-slate-200">
         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-          <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-orange-600"><i className="fa-solid fa-layer-group"></i></div>
+          <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-orange-600">
+            <i className="fa-solid fa-layer-group"></i>
+          </div>
           <span className="text-lg font-bold text-slate-800 font-industrial uppercase tracking-wide">Menu</span>
         </div>
         <nav className="flex-1 px-3 space-y-1 mt-4">
@@ -65,7 +67,7 @@ export default function SpareSetuApp() {
             { id: 'search', label: 'Global Search', icon: 'fa-globe' },
             { id: 'mystore', label: 'My Local Store', icon: 'fa-warehouse' },
             { id: 'analysis', label: 'Monthly Analysis', icon: 'fa-chart-pie' },
-            { id: 'usage', label: 'My Usage History', icon: 'fa-clock-rotate-left' },
+            { id: 'usage', label: 'My Usage', icon: 'fa-clock-rotate-left' },
             { id: 'returns', label: 'Returns & Udhaari', icon: 'fa-hand-holding-hand' }
           ].map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`nav-item w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-medium ${activeTab === tab.id ? 'active-nav' : 'text-slate-600'}`}>
@@ -78,7 +80,7 @@ export default function SpareSetuApp() {
             <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-white font-bold text-xs">{profile?.name?.charAt(0)}</div>
             <div className="overflow-hidden"><p className="text-[9px] text-slate-400 font-bold uppercase">Logged in</p><div className="text-xs font-bold text-slate-700 truncate">{profile?.name}</div></div>
           </div>
-          <button onClick={() => supabase.auth.signOut().then(()=>window.location.reload())} className="w-full py-2 text-xs text-red-500 hover:bg-red-50 font-bold rounded-lg transition">Logout</button>
+          <button onClick={() => supabase.auth.signOut().then(()=>window.location.reload())} className="w-full py-2 text-xs text-red-500 hover:bg-red-50 font-bold rounded-lg transition border border-red-100">Logout</button>
         </div>
       </aside>
 
@@ -122,20 +124,19 @@ function AuthView() {
       const { error } = await supabase.auth.signInWithPassword({ email: form.email, password: form.pass });
       if (error) alert(error.message);
     } else if (view === "register") {
-      if (!form.name || !form.unit || !form.email) { alert("Details bhariye!"); setAuthLoading(false); return; }
+      if (!form.name || !form.unit || !form.email) { alert("Sari details bhariye!"); setAuthLoading(false); return; }
       
-      // Step 1: Check allowed_users for Zone Mapping Security
       const { data: allowed } = await supabase.from('allowed_users').select('*').eq('email', form.email).eq('unit', form.unit).single();
       if (!allowed) { alert("Access Denied: Email mapping not found for this zone."); setAuthLoading(false); return; }
 
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       setForm({ ...form, generatedOtp: otp });
       const res = await fetch('/api/send-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.name, email: form.email, otp }) });
-      if (res.ok) { alert("OTP Sent!"); setView("otp"); } else alert("OTP Send Failed");
+      if (res.ok) { alert("OTP sent to your email!"); setView("otp"); } else alert("OTP Send Failed");
     } else if (view === "otp") {
       if (form.enteredOtp === form.generatedOtp) {
         const { error } = await supabase.auth.signUp({ email: form.email, password: form.pass, options: { data: { name: form.name, unit: form.unit } } });
-        if (error) alert(error.message); else { alert("Account Created!"); setView("login"); }
+        if (error) alert(error.message); else { alert("Account Created! Login Now."); setView("login"); }
       } else alert("Wrong OTP");
     }
     setAuthLoading(false);
@@ -144,10 +145,9 @@ function AuthView() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 login-bg">
       <div className="w-full max-w-md login-card rounded-2xl shadow-2xl p-8 border-t-4 border-orange-500 text-center relative">
-        <div className="flex justify-center mb-4"><div className="iocl-logo-container" style={{fontSize:'14px'}}><div className="iocl-circle"><div className="iocl-band"><span className="iocl-hindi-text">इंडियनऑयल</span></div></div><div className="iocl-english-text" style={{marginTop:'8px'}}>IndianOil</div></div></div>
         <h1 className="font-industrial text-2xl font-bold text-white uppercase tracking-wider">Gujarat Refinery</h1>
-        <p className="font-hindi text-blue-400 text-sm font-bold mt-1">जहाँ प्रगति ही जीवन सार है</p>
-        <div className="mt-6 space-y-4">
+        <p className="font-hindi text-blue-400 text-sm font-bold mt-1 mb-6">जहाँ प्रगति ही जीवन सार है</p>
+        <div className="space-y-4">
           {view === "register" && (
             <>
               <input type="text" placeholder="Full Name" className="w-full p-3 rounded-lg login-input text-sm" onChange={e=>setForm({...form, name:e.target.value})} />
@@ -157,7 +157,7 @@ function AuthView() {
               </select>
             </>
           )}
-          {view === "otp" ? <input type="text" placeholder="Enter OTP" className="w-full p-3 rounded-lg login-input text-center text-xl tracking-[0.5em] text-white" onChange={e=>setForm({...form, enteredOtp:e.target.value})} /> : <input type="email" placeholder="Email ID" className="w-full p-3 rounded-lg login-input text-sm" onChange={e=>setForm({...form, email:e.target.value})} />}
+          {view === "otp" ? <input type="text" placeholder="Enter OTP" className="w-full p-3 rounded-lg login-input text-center text-xl tracking-[0.5em] text-white" onChange={e=>setForm({...form, enteredOtp:e.target.value})} /> : <input type="email" placeholder="Official Email ID" value={form.email} className="w-full p-3 rounded-lg login-input text-sm" onChange={e=>setForm({...form, email:e.target.value})} />}
           {view !== "otp" && <input type="password" placeholder="Password" className="w-full p-3 rounded-lg login-input text-sm" onChange={e=>setForm({...form, pass:e.target.value})} />}
           <button onClick={handleAuth} className="w-full h-12 mt-4 iocl-btn text-white font-bold rounded-lg shadow-lg uppercase tracking-widest">{authLoading ? "..." : "Continue"}</button>
           <button onClick={()=>setView(view==='login'?'register':'login')} className="text-xs text-slate-400 mt-4 underline">{view==='login'?'Create Account':'Back to Login'}</button>
@@ -171,7 +171,7 @@ function AuthView() {
   );
 }
 
-// --- GLOBAL SEARCH (TOTAL STOCK + BREAKDOWN MODAL) ---
+// --- GLOBAL SEARCH (TOTAL STOCK + SUMMARY MODAL) ---
 function GlobalSearchView({ profile }: any) {
   const [items, setItems] = useState<any[]>([]);
   const [contributors, setContributors] = useState<any[]>([]);
@@ -182,9 +182,9 @@ function GlobalSearchView({ profile }: any) {
   const [breakdown, setBreakdown] = useState<any>(null);
 
   useEffect(() => { 
-    const fetch = async () => { const { data } = await supabase.from("inventory").select("*"); if (data) setItems(data); };
+    const fetchAll = async () => { const { data } = await supabase.from("inventory").select("*"); if (data) setItems(data); };
     const fetchLead = async () => { const { data } = await supabase.from("profiles").select("name, unit, item_count").order("item_count", { ascending: false }).limit(3); if (data) setContributors(data); };
-    fetch(); fetchLead();
+    fetchAll(); fetchLead();
   }, []);
 
   const grouped: any = {};
@@ -195,6 +195,8 @@ function GlobalSearchView({ profile }: any) {
     grouped[key].holders.push(i);
   });
 
+  const availableSubCats = [...new Set(items.filter(i => selCat === "all" || selCat === "zero" ? true : i.cat === selCat).map(i => i.sub))].sort();
+
   const filtered = Object.values(grouped).filter((i: any) => {
     const matchSearch = i.item.toLowerCase().includes(search.toLowerCase()) || i.spec.toLowerCase().includes(search.toLowerCase());
     const matchCat = selCat === "all" ? true : (selCat === "zero" ? i.totalQty === 0 : i.cat === selCat);
@@ -202,13 +204,26 @@ function GlobalSearchView({ profile }: any) {
     return matchSearch && matchCat && matchSub;
   });
 
-  const availableSubCats = [...new Set(items.filter(i => selCat === "all" || selCat === "zero" ? true : i.cat === selCat).map(i => i.sub))].sort();
+  const summaryMap: any = {};
+  filtered.forEach((i: any) => {
+    const key = `${i.cat}||${i.sub}`;
+    if (!summaryMap[key]) summaryMap[key] = { cat: i.cat, sub: i.sub, total: 0 };
+    summaryMap[key].total += i.totalQty;
+  });
+
+  const exportCSV = () => {
+    const csv = "Item,Category,Sub-Category,Total Stock,Spec\n" + filtered.map((i:any) => `"${i.item}","${i.cat}","${i.sub}","${i.totalQty}","${i.spec}"`).join("\n");
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'Global_Stock.csv'; a.click();
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Top Contributors UI */}
       <section className="bg-white p-4 rounded-xl border flex flex-wrap items-center gap-4 shadow-sm">
-        <h2 className="text-sm font-bold flex items-center gap-2 uppercase tracking-tight text-slate-700"><i className="fa-solid fa-trophy text-yellow-500"></i> Top Contributors</h2>
-        <div className="flex gap-3 overflow-x-auto flex-1 pb-1">{contributors.map((c, idx) => (<div key={idx} className="bg-slate-50 p-2 rounded-lg border flex items-center gap-3 min-w-[180px] shadow-sm transition hover:scale-105"><div className="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs border-2 border-orange-400">{c.name.charAt(0)}</div><div><p className="text-xs font-bold text-slate-800 truncate">{c.name}</p><p className="text-[9px] text-slate-400">{c.unit}</p><p className="text-[9px] font-bold text-green-600 uppercase tracking-tighter">{c.item_count || 0} Items Added</p></div></div>))}</div>
+        <h2 className="text-sm font-bold flex items-center gap-2 uppercase text-slate-700"><i className="fa-solid fa-trophy text-yellow-500"></i> Top Contributors</h2>
+        <div className="flex gap-3 overflow-x-auto flex-1 pb-1">{contributors.map((c, idx) => (<div key={idx} className="bg-slate-50 p-2 rounded-lg border flex items-center gap-3 min-w-[180px] shadow-sm"><div className="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs border-2 border-orange-400">{c.name.charAt(0)}</div><div><p className="text-xs font-bold text-slate-800 truncate">{c.name}</p><p className="text-[9px] text-slate-400">{c.unit}</p><p className="text-[9px] font-bold text-green-600 uppercase tracking-tighter">{c.item_count || 0} Items Added</p></div></div>))}</div>
       </section>
 
       <section className="bg-white rounded-xl shadow-sm border overflow-hidden">
@@ -226,7 +241,7 @@ function GlobalSearchView({ profile }: any) {
              </select>
              <div className="flex gap-2 ml-auto">
                 <button onClick={()=>setShowSummary(true)} className="bg-indigo-600 text-white px-3 py-2 rounded-md text-xs font-bold shadow-sm flex items-center gap-2"><i className="fa-solid fa-chart-pie"></i> Stock Summary</button>
-                <button onClick={()=>alert("Logic coming soon")} className="bg-emerald-600 text-white px-3 py-2 rounded-md text-xs font-bold shadow-sm flex items-center gap-2"><i className="fa-solid fa-file-csv"></i> Export CSV</button>
+                <button onClick={exportCSV} className="bg-emerald-600 text-white px-3 py-2 rounded-md text-xs font-bold shadow-sm flex items-center gap-2"><i className="fa-solid fa-file-csv"></i> Export CSV</button>
              </div>
         </div>
         <div className="overflow-x-auto"><table className="w-full text-left">
@@ -240,7 +255,7 @@ function GlobalSearchView({ profile }: any) {
                   {i.totalQty === 0 ? <span className="text-red-600 font-black text-[10px] uppercase bg-red-100 px-2 py-1 rounded border border-red-200">Out of Stock</span> : 
                   <button onClick={()=>setBreakdown(i)} className="bg-blue-50 text-blue-700 px-4 py-1.5 rounded-lg border border-blue-200 font-bold hover:bg-blue-100 transition shadow-sm flex items-center gap-2 mx-auto">{i.totalQty} Nos <i className="fa-solid fa-chevron-right text-[9px]"></i></button>}
                 </td>
-                <td className="p-4 text-center text-[10px] font-bold text-slate-400 uppercase italic">View Info</td>
+                <td className="p-4 text-center text-[10px] font-bold text-slate-400 uppercase italic">Breakdown</td>
               </tr>
             ))}
           </tbody>
@@ -253,15 +268,10 @@ function GlobalSearchView({ profile }: any) {
             <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-scale-in max-h-[80vh] flex flex-col">
                 <div className="bg-indigo-50 px-6 py-4 border-b flex justify-between items-center"><h3 className="text-lg font-bold text-indigo-900">Total Stock Summary (All Zones)</h3><button onClick={()=>setShowSummary(false)} className="text-slate-400 hover:text-red-500 font-bold text-xl">✕</button></div>
                 <div className="overflow-y-auto p-4 space-y-4">
-                    {[...new Set(items.map(i=>i.cat))].sort().map(cat => (
-                        <div key={cat} className="border rounded-xl overflow-hidden shadow-sm">
-                            <div className="bg-slate-100 p-3 text-xs font-black text-slate-600 uppercase tracking-widest">{cat}</div>
-                            <table className="w-full text-sm"><tbody className="divide-y">
-                                {[...new Set(items.filter(i=>i.cat===cat).map(i=>i.sub))].sort().map(sub => {
-                                    const qty = items.filter(i=>i.cat===cat && i.sub===sub).reduce((sum, item)=>sum+item.qty, 0);
-                                    return (<tr key={sub} className="hover:bg-slate-50"><td className="p-3 pl-6 text-slate-600">{sub}</td><td className="p-3 text-right pr-6 font-bold text-indigo-600">{qty} Nos</td></tr>)
-                                })}
-                            </tbody></table>
+                    {Object.entries(summaryMap).map(([key, row]: any) => (
+                        <div key={key} className="border rounded-xl overflow-hidden shadow-sm">
+                            <div className="bg-slate-100 p-2 text-[10px] font-black text-slate-600 uppercase tracking-widest">{row.cat}</div>
+                            <table className="w-full text-sm"><tbody className="divide-y"><tr className="hover:bg-slate-50"><td className="p-3 pl-6 text-slate-600">{row.sub}</td><td className="p-3 text-right pr-6 font-bold text-indigo-600">{row.total} Nos</td></tr></tbody></table>
                         </div>
                     ))}
                 </div>
@@ -285,7 +295,7 @@ function GlobalSearchView({ profile }: any) {
                         <td className="p-4 font-bold text-slate-700">{h.holder_unit}</td>
                         <td className="p-4 flex items-center gap-2 text-slate-500"><div className="w-6 h-6 rounded-full bg-slate-200 text-[10px] flex items-center justify-center font-bold">{h.holder_name?.charAt(0)}</div>{h.holder_name}</td>
                         <td className="p-4 text-right font-bold text-indigo-600">{h.qty} Nos</td>
-                        <td className="p-4 text-center">{h.holder_uid === profile?.id ? <span className="text-[10px] text-green-500 font-bold uppercase italic">Your Stock</span> : <button className="bg-orange-500 text-white px-3 py-1 rounded text-xs font-bold shadow-sm hover:bg-orange-600 transition" onClick={()=>alert(`Request sent to ${h.holder_name}`)}>Request</button>}</td>
+                        <td className="p-4 text-center">{h.holder_uid === profile?.id ? <span className="text-[10px] text-green-500 font-bold uppercase italic">Your Stock</span> : <button className="bg-orange-500 text-white px-3 py-1 rounded text-xs font-bold shadow-sm hover:bg-orange-600 transition" onClick={()=>alert(`Request logic coming soon`)}>Request</button>}</td>
                      </tr>
                    ))}
                  </tbody>
@@ -298,11 +308,12 @@ function GlobalSearchView({ profile }: any) {
   );
 }
 
-// --- MY LOCAL STORE (ALERTS + AUTO-SELECT DROPDOWNS + CONSUME) ---
+// --- MY LOCAL STORE (RESTOCK ALERT + AUTO-SELECT + MANAGE) ---
 function MyStoreView({ profile, fetchProfile }: any) {
   const [myItems, setMyItems] = useState<any[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [consumeItem, setConsumeItem] = useState<any>(null);
+  const [editItem, setEditItem] = useState<any>(null); // FIXED
   const [form, setForm] = useState({ cat: "", sub: "", make: "", model: "", spec: "", qty: "", isManual: false });
   const [search, setSearch] = useState("");
   const [selCat, setSelCat] = useState("all");
@@ -317,20 +328,8 @@ function MyStoreView({ profile, fetchProfile }: any) {
   const filteredItems = myItems.filter(i => (i.item.toLowerCase().includes(search.toLowerCase()) || i.spec.toLowerCase().includes(search.toLowerCase())) && (selCat === 'all' ? true : i.cat === selCat));
   const outOfStockCount = myItems.filter(i => i.qty === 0).length;
 
-  // Auto-Select Logic
-  const categories = [...new Set(masterCatalog.map(i => i.cat))].sort();
-  const subs = [...new Set(masterCatalog.filter(i => i.cat === form.cat).map(i => i.sub))].sort();
-  const makes = [...new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub).map(i => i.make))].sort();
-  const models = [...new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make).map(i => i.model))].sort();
-  const specs = [...new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make && i.model === form.model).map(i => i.spec))].sort();
-
-  useEffect(() => { if (form.cat && subs.length === 1 && !form.sub) setForm(f => ({...f, sub: subs[0]})); }, [form.cat, subs]);
-  useEffect(() => { if (form.sub && makes.length === 1 && !form.make) setForm(f => ({...f, make: makes[0]})); }, [form.sub, makes]);
-  useEffect(() => { if (form.make && models.length === 1 && !form.model) setForm(f => ({...f, model: models[0]})); }, [form.make, models]);
-  useEffect(() => { if (form.model && specs.length === 1 && !form.spec) setForm(f => ({...f, spec: specs[0]})); }, [form.model, specs]);
-
   const handleSave = async () => {
-    if (!form.spec || !form.qty) return alert("Fill all details!");
+    if (!form.spec || !form.qty) return alert("Sari details bhariye!");
     const itemName = form.isManual ? form.model : `${form.make} ${form.sub} ${form.model}`.trim();
     const { error } = await supabase.from("inventory").insert([{
       item: itemName, cat: form.cat || "Manual Entry", sub: form.sub || "-", make: form.make || "-", model: form.model || "-", spec: form.spec,
@@ -343,58 +342,78 @@ function MyStoreView({ profile, fetchProfile }: any) {
     } else alert(error.message);
   };
 
-  const handleConsume = async () => {
-    const qtyInput = (document.getElementById('cQty') as HTMLInputElement).value;
-    const qtyToConsume = parseInt(qtyInput);
-    if (!qtyToConsume || qtyToConsume > consumeItem.qty) return alert("Invalid Quantity!");
-    
-    const { error: updateErr } = await supabase.from("inventory").update({ qty: consumeItem.qty - qtyToConsume }).eq('id', consumeItem.id);
-    if (!updateErr) {
-        // Log to usage_logs
-        await supabase.from("usage_logs").insert([{ item_name: consumeItem.item, category: consumeItem.cat, spec: consumeItem.spec, qty_consumed: qtyToConsume, consumer_uid: profile.id, consumer_name: profile.name, consumer_unit: profile.unit }]);
-        alert("Consumed!"); fetch(); setConsumeItem(null);
-    }
+  const updateQty = async (id: any, newQty: number, logUsage = false) => {
+    const { error } = await supabase.from("inventory").update({ qty: newQty }).eq('id', id);
+    if (!error) {
+      if(logUsage && consumeItem) {
+        await supabase.from("usage_logs").insert([{ item_name: consumeItem.item, category: consumeItem.cat, spec: consumeItem.spec, qty_consumed: consumeItem.qty - newQty, consumer_uid: profile.id, consumer_name: profile.name, consumer_unit: profile.unit }]);
+      }
+      alert("Updated!"); fetch(); setConsumeItem(null); setEditItem(null); 
+    } else alert(error.message);
+  };
+
+  // Auto-Select Logic
+  const categories = [...new Set(masterCatalog.map(i => i.cat))].sort();
+  const subs = [...new Set(masterCatalog.filter(i => i.cat === form.cat).map(i => i.sub))].sort();
+  const makes = [...new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub).map(i => i.make))].sort();
+  const models = [...new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make).map(i => i.model))].sort();
+  const specs = [...new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make && i.model === form.model).map(i => i.spec))].sort();
+
+  useEffect(() => { if (form.cat && subs.length === 1 && !form.sub) setForm(f => ({...f, sub: subs[0]})); }, [form.cat, subs]);
+  useEffect(() => { if (form.sub && makes.length === 1 && !form.make) setForm(f => ({...f, make: makes[0]})); }, [form.sub, makes]);
+  useEffect(() => { if (form.make && models.length === 1 && !form.model) setForm(f => ({...f, model: models[0]})); }, [form.make, models]);
+  useEffect(() => { if (form.model && specs.length === 1 && !form.spec) setForm(f => ({...f, spec: specs[0]})); }, [form.model, specs]);
+
+  const exportMyCSV = () => {
+    const csv = "Category,Item Name,Spec,Qty\n" + myItems.map(i => `"${i.cat}","${i.item}","${i.spec}","${i.qty}"`).join("\n");
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'My_Store.csv'; a.click();
   };
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="animate-fade-in space-y-6 pb-10">
+      {/* RESTOCK WARNING */}
       {outOfStockCount > 0 && (
-        <div className="bg-red-50 border border-red-200 p-4 rounded-xl flex items-start gap-3 shadow-sm animate-bounce">
+        <div className="bg-red-50 border border-red-200 p-4 rounded-xl flex items-start gap-3 animate-fade-in shadow-sm">
           <i className="fa-solid fa-triangle-exclamation text-red-500 text-xl mt-1"></i>
-          <div><h3 className="font-bold text-red-800 text-sm uppercase">Action Needed: Restock Required</h3><p className="text-xs text-red-600 font-bold">{outOfStockCount} items are out of stock. Please update inventory.</p></div>
+          <div><h3 className="font-bold text-red-800 text-sm uppercase leading-tight">Action Needed: Restock Required</h3><p className="text-xs text-red-600 font-bold">{outOfStockCount} items are out of stock. Please update inventory.</p></div>
         </div>
       )}
 
       <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl border shadow-sm">
-        <div><h2 className="text-xl font-bold text-slate-800 font-industrial uppercase">My Local Store</h2><p className="text-xs font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-1 uppercase tracking-tighter inline-block">ZONE: {profile?.unit}</p></div>
-        <button onClick={() => setShowAddModal(true)} className="iocl-btn text-white px-6 py-2.5 rounded-xl font-bold shadow-md flex items-center gap-2"><i className="fa-solid fa-plus"></i> Add New Stock</button>
+        <div><h2 className="text-xl font-bold text-slate-800 font-industrial uppercase tracking-wide">My Local Store</h2><p className="text-xs font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-1 uppercase tracking-tighter inline-block">ZONE: {profile?.unit}</p></div>
+        <div className="flex gap-2">
+            <button onClick={exportMyCSV} className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition flex items-center gap-2"><i className="fa-solid fa-file-csv"></i> Export CSV</button>
+            <button onClick={() => setShowAddModal(true)} className="iocl-btn text-white px-6 py-2.5 rounded-xl font-bold shadow-md hover:scale-105 transition flex items-center gap-2"><i className="fa-solid fa-plus"></i> Add New Stock</button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b bg-slate-50/80 flex flex-wrap items-center gap-2">
-             <div className="relative flex-grow md:w-64"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Search My Store..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none" onChange={(e)=>setSearch(e.target.value)} /></div>
+             <div className="relative flex-grow md:w-64"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Filter My Store..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none focus:ring-1 focus:ring-orange-500" onChange={(e)=>setSearch(e.target.value)} /></div>
              <select className="border rounded-md text-xs font-bold p-2 bg-white" onChange={(e)=>setSelCat(e.target.value)}>
                 <option value="all">Filter: All Categories</option>
                 {[...new Set(myItems.map(i => i.cat))].sort().map(c => <option key={c} value={c}>{c}</option>)}
              </select>
         </div>
-        <table className="w-full text-left">
+        <div className="overflow-x-auto"><table className="w-full text-left">
           <thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b uppercase"><tr><th className="p-5">Category</th><th className="p-5">Item Details</th><th className="p-5">Spec</th><th className="p-5 text-center">Qty</th><th className="p-5 text-center">Manage</th></tr></thead>
           <tbody className="divide-y text-sm">
             {filteredItems.map(i => (
               <tr key={i.id} className={`${i.qty === 0 ? 'bg-red-50/30' : 'hover:bg-slate-50'} transition border-b border-slate-50`}>
-                <td className="p-5 text-[10px] font-bold text-slate-400 uppercase">{i.cat}</td>
+                <td className="p-5 text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{i.cat}</td>
                 <td className="p-5 font-bold text-slate-800">{i.item}</td>
-                <td className="p-5"><span className="bg-slate-100 border px-2 py-1 rounded text-[11px] font-medium text-slate-600 shadow-sm">{i.spec}</span></td>
-                <td className="p-5 font-bold text-center">{i.qty === 0 ? <span className="text-red-600 font-black text-[10px] uppercase bg-red-100 px-2 py-1 rounded border border-red-200">OUT OF STOCK</span> : <span className="text-emerald-600 text-lg font-black">{i.qty} Nos</span>}</td>
+                <td className="p-5"><span className="bg-slate-100 border px-2 py-0.5 rounded text-[11px] font-medium text-slate-600 shadow-sm">{i.spec}</span></td>
+                <td className="p-5 font-bold text-center">{i.qty === 0 ? <span className="text-red-600 font-black text-[10px] uppercase bg-red-100 px-2 py-1 rounded border border-red-200">Out of Stock</span> : <span className="text-emerald-600 text-lg font-black">{i.qty} Nos</span>}</td>
                 <td className="p-5 flex gap-3 justify-center items-center">
                     <button onClick={()=>setConsumeItem(i)} disabled={i.qty === 0} className="text-indigo-600 bg-indigo-50 p-2 rounded-lg hover:bg-indigo-100 transition disabled:opacity-30" title="Consume Stock"><i className="fa-solid fa-box-open text-xl"></i></button>
-                    <button onClick={()=>setEditItem(i)} className="text-slate-400 bg-slate-100 p-2 rounded-lg hover:bg-slate-200 transition" title="Edit Details"><i className="fa-solid fa-pen-to-square text-xl"></i></button>
+                    <button onClick={()=>setEditItem(i)} className="text-slate-400 bg-slate-100 p-2 rounded-lg hover:bg-slate-200 transition" title="Correct Details"><i className="fa-solid fa-pen-to-square text-xl"></i></button>
                 </td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </div>
 
       {/* CONSUME MODAL */}
@@ -405,9 +424,21 @@ function MyStoreView({ profile, fetchProfile }: any) {
             <div className="p-6 space-y-4">
                 <div className="text-sm font-bold text-slate-700 leading-tight mb-2">{consumeItem.item}</div>
                 <div className="bg-slate-50 p-3 rounded-lg flex justify-between items-center border border-slate-100"><span className="text-xs text-slate-400 font-bold uppercase tracking-tight">Available Stock:</span> <span className="text-sm font-black text-slate-800">{consumeItem.qty} Nos</span></div>
-                <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Quantity Used</label><input type="number" id="cQty" placeholder="1" className="w-full p-3 border-2 border-slate-200 rounded-lg text-lg font-bold outline-none focus:border-indigo-500 text-center" /></div>
-                <button onClick={handleConsume} className="w-full py-4 bg-indigo-600 text-white font-black rounded-xl shadow-lg uppercase tracking-widest hover:bg-indigo-700 transition">Confirm Consumption</button>
+                <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Quantity to Remove</label><input type="number" id="cQty" placeholder="1" className="w-full p-3 border-2 border-slate-200 rounded-lg text-lg font-bold outline-none focus:border-indigo-500 text-center" /></div>
+                <button onClick={()=>updateQty(consumeItem.id, consumeItem.qty - (parseInt((document.getElementById('cQty') as HTMLInputElement).value) || 0), true)} className="w-full py-4 bg-indigo-600 text-white font-black rounded-xl shadow-lg uppercase tracking-widest hover:bg-indigo-700 transition">Confirm Consumption</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT MODAL */}
+      {editItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-scale-in p-6">
+            <div className="flex justify-between items-center mb-6 border-b pb-2"><h3 className="text-lg font-bold uppercase">Correct Quantity</h3><button onClick={()=>setEditItem(null)} className="text-slate-300">✕</button></div>
+            <p className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-tighter">{editItem.item}</p>
+            <input type="number" id="eQty" defaultValue={editItem.qty} className="w-full p-3 border-2 rounded-xl text-center text-2xl font-black mb-4 focus:border-blue-500 outline-none" />
+            <button onClick={()=>updateQty(editItem.id, parseInt((document.getElementById('eQty') as HTMLInputElement).value) || 0)} className="w-full py-4 bg-blue-600 text-white font-black rounded-xl uppercase tracking-widest hover:bg-blue-700 shadow-md">Save Changes</button>
           </div>
         </div>
       )}
@@ -426,21 +457,21 @@ function MyStoreView({ profile, fetchProfile }: any) {
 
             <div className="space-y-4">
               {!form.isManual ? (<>
-                <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">1. Category</label><select className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm bg-slate-50 focus:border-orange-500 outline-none" onChange={e=>setForm({...form, cat: e.target.value, sub:"", make:"", model:"", spec:""})} value={form.cat}><option value="">-- Select Category --</option>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Category</label><select className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm bg-slate-50 focus:border-orange-500 outline-none" onChange={e=>setForm({...form, cat: e.target.value, sub:"", make:"", model:"", spec:""})} value={form.cat}><option value="">-- Select --</option>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
                 <div className="grid grid-cols-2 gap-3">
-                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">2. Sub Category</label><select className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm bg-white outline-none disabled:bg-slate-100" disabled={!form.cat} value={form.sub} onChange={e=>setForm({...form, sub: e.target.value, make:"", model:"", spec:""})}><option value="">-- Select --</option>{subs.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">3. Make</label><select className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm bg-white outline-none disabled:bg-slate-100" disabled={!form.sub} value={form.make} onChange={e=>setForm({...form, make: e.target.value, model:"", spec:""})}><option value="">-- Select --</option>{makes.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
+                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Sub Category</label><select className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm bg-white outline-none disabled:bg-slate-100" disabled={!form.cat} value={form.sub} onChange={e=>setForm({...form, sub: e.target.value, make:"", model:"", spec:""})}><option value="">-- Select --</option>{subs.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Make</label><select className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm bg-white outline-none disabled:bg-slate-100" disabled={!form.sub} value={form.make} onChange={e=>setForm({...form, make: e.target.value, model:"", spec:""})}><option value="">-- Select --</option>{makes.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
                 </div>
-                <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">4. Model</label><select className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm bg-white outline-none disabled:bg-slate-100" disabled={!form.make} value={form.model} onChange={e=>setForm({...form, model: e.target.value, spec:""})}><option value="">-- Select --</option>{models.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
-                <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">5. Specification</label><select className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm bg-white outline-none disabled:bg-slate-100" disabled={!form.model} value={form.spec} onChange={e=>setForm({...form, spec: e.target.value})}><option value="">-- Select --</option>{specs.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Model</label><select className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm bg-white outline-none disabled:bg-slate-100" disabled={!form.make} value={form.model} onChange={e=>setForm({...form, model: e.target.value, spec:""})}><option value="">-- Select --</option>{models.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
+                <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Specification</label><select className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm bg-white outline-none disabled:bg-slate-100" disabled={!form.model} value={form.spec} onChange={e=>setForm({...form, spec: e.target.value})}><option value="">-- Select --</option>{specs.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
               </>) : (
                 <div className="space-y-4">
-                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Item Name</label><input type="text" placeholder="e.g. Special Cable" className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm outline-none focus:border-orange-500" onChange={e=>setForm({...form, model: e.target.value})} /></div>
-                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Technical Specification</label><input type="text" placeholder="Spec details..." className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm outline-none focus:border-orange-500" onChange={e=>setForm({...form, spec: e.target.value})} /></div>
+                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Item Name</label><input type="text" placeholder="Item Name" className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm outline-none focus:border-orange-500" onChange={e=>setForm({...form, model: e.target.value})} /></div>
+                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Specification</label><input type="text" placeholder="Tech Details" className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm outline-none focus:border-orange-500" onChange={e=>setForm({...form, spec: e.target.value})} /></div>
                 </div>
               )}
               <div className="grid grid-cols-2 gap-3 border-t pt-4">
-                  <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Initial Qty</label><input type="number" placeholder="0" className="w-full p-3 border-2 border-slate-100 rounded-lg text-xl font-black text-center outline-none focus:border-orange-500" onChange={e=>setForm({...form, qty: e.target.value})} /></div>
+                  <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Initial Qty</label><input type="number" placeholder="0" className="w-full p-3 border-2 border-slate-100 rounded-lg text-xl font-black text-center" onChange={e=>setForm({...form, qty: e.target.value})} /></div>
                   <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Unit</label><select className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm bg-slate-50"><option>Nos</option><option>Mtrs</option><option>Set</option></select></div>
               </div>
               <button onClick={handleSave} className="w-full py-4 bg-slate-900 text-white font-black rounded-xl shadow-lg uppercase tracking-widest mt-2 hover:bg-slate-800 transition">Save Stock to Store</button>
@@ -452,17 +483,16 @@ function MyStoreView({ profile, fetchProfile }: any) {
   );
 }
 
-// --- MY USAGE HISTORY VIEW (FETCHER) ---
+// --- USAGE HISTORY ---
 function UsageHistoryView({ profile }: any) {
   const [logs, setLogs] = useState<any[]>([]);
   useEffect(() => {
-    const fetchLogs = async () => { const { data } = await supabase.from("usage_logs").select("*").eq("consumer_uid", profile.id).order("timestamp", { ascending: false }); if (data) setLogs(data); };
-    if (profile) fetchLogs();
+    const fetch = async () => { const { data } = await supabase.from("usage_logs").select("*").eq("consumer_uid", profile.id).order("timestamp", { ascending: false }); if (data) setLogs(data); };
+    if (profile) fetch();
   }, [profile]);
-
   return (
     <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden animate-fade-in">
-        <div className="p-5 border-b bg-slate-50/50 flex justify-between items-center"><h2 className="text-lg font-bold text-slate-800 uppercase font-industrial">Consumption Logs</h2><span className="text-[10px] font-black bg-slate-200 px-2 py-1 rounded uppercase tracking-widest">History</span></div>
+        <div className="p-5 border-b bg-slate-50/50 flex justify-between items-center"><h2 className="text-lg font-bold text-slate-800 font-industrial uppercase">Consumption History</h2><span className="text-[10px] font-bold bg-slate-200 px-2 py-1 rounded uppercase tracking-widest">Zone Logs</span></div>
         <div className="overflow-x-auto"><table className="w-full text-left">
           <thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b uppercase"><tr><th className="p-5">Date</th><th className="p-5">Item Details</th><th className="p-5 text-center">Consumed Qty</th></tr></thead>
           <tbody className="divide-y text-sm">
@@ -475,7 +505,7 @@ function UsageHistoryView({ profile }: any) {
             ))}
           </tbody>
         </table></div>
-        {logs.length === 0 && <div className="p-20 text-center italic text-slate-400">No consumption records found.</div>}
+        {logs.length === 0 && <div className="p-20 text-center italic text-slate-400">No records found.</div>}
     </section>
   );
 }
@@ -490,24 +520,23 @@ function MonthlyAnalysisView({ profile }: any) {
         const stats: any = {};
         data.forEach((l: any) => {
           const month = new Date(l.timestamp).toLocaleString('default', { month: 'long', year: 'numeric' });
-          if (!stats[month]) stats[month] = { total: 0, items: 0 };
-          stats[month].total += Number(l.qty_consumed); stats[month].items += 1;
+          if (!stats[month]) stats[month] = { month, total: 0, count: 0 };
+          stats[month].total += Number(l.qty_consumed); stats[month].count += 1;
         });
-        setAnalysis(Object.entries(stats).map(([m, d]: any) => ({ month: m, ...d })));
+        setAnalysis(Object.values(stats));
       }
     };
     if (profile) fetch();
   }, [profile]);
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="bg-white p-6 rounded-xl border shadow-sm"><h2 className="text-xl font-bold font-industrial uppercase">Usage Statistics</h2></div>
+    <div className="space-y-6 pb-10">
+      <div className="bg-white p-6 rounded-xl border flex justify-between items-center"><h2 className="text-xl font-bold font-industrial uppercase">Usage Statistics</h2></div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {analysis.map((a, idx) => (
           <div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md">
             <div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-widest">{a.month}</div>
-            <div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner"><i className="fa-solid fa-chart-line"></i></div>
             <div className="text-3xl font-black text-slate-800">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase">Nos</small></div>
-            <div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase tracking-tight">{a.items} Transactions</div>
+            <div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase">{a.count} Consumptions</div>
           </div>
         ))}
       </div>
@@ -518,13 +547,5 @@ function MonthlyAnalysisView({ profile }: any) {
 
 // --- RETURNS LEDGER VIEW ---
 function ReturnsLedgerView({ profile }: any) {
-    return (
-        <section className="animate-fade-in space-y-6">
-            <div className="bg-white p-6 rounded-xl border flex items-center justify-between"><h2 className="text-xl font-bold text-slate-800 font-industrial uppercase">Returns & Borrowing Ledger</h2><span className="bg-orange-50 text-orange-600 px-3 py-1 rounded-full text-[10px] font-black border border-orange-100 uppercase tracking-widest">Active Ledger</span></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm min-h-[300px] flex flex-col"><h3 className="font-bold text-slate-400 text-[10px] uppercase mb-6 flex items-center gap-2 tracking-widest"><i className="fa-solid fa-arrow-up text-blue-500"></i> Udhaari Diya (Lent)</h3><p className="text-center text-slate-300 mt-24 italic text-sm">No items currently out on loan.</p></div>
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm min-h-[300px] flex flex-col"><h3 className="font-bold text-slate-400 text-[10px] uppercase mb-6 flex items-center gap-2 tracking-widest"><i className="fa-solid fa-arrow-down text-red-500"></i> Udhaari Liya (Borrowed)</h3><p className="text-center text-slate-300 mt-24 italic text-sm">No items borrowed from other zones.</p></div>
-            </div>
-        </section>
-    );
+    return (<div className="bg-white p-20 rounded-xl border text-center italic text-slate-400 border-dashed">Udhaari & Returns logic placeholder. [Logic from original site]</div>);
 }
