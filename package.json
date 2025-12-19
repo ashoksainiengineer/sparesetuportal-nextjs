@@ -25,7 +25,7 @@
     "chart.js": "^4.4.0",
     "react-chartjs-2": "^5.2.0",
     "chartjs-plugin-datalabels": "^2.2.0",
-    "eslint": "^8",
-    "eslint-config-next": "latest"
+    "eslint": "^9.16.0",
+    "eslint-config-next": "15.1.11"
   }
 }
