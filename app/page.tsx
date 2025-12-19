@@ -54,7 +54,7 @@ export default function SpareSetuApp() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#f1f5f9]">
-      {/* --- SIDEBAR (All 5 Tabs) --- */}
+      {/* --- SIDEBAR (ALL 5 TABS) --- */}
       <aside className="w-64 bg-white hidden md:flex flex-col flex-shrink-0 z-20 shadow-xl border-r border-slate-200">
         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
           <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-orange-600">
@@ -80,7 +80,7 @@ export default function SpareSetuApp() {
           </button>
         </nav>
         <div className="p-4 border-t border-slate-100">
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border border-slate-100">
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border border-slate-100 mb-2">
             <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-white font-bold text-xs">{profile?.name?.charAt(0) || "U"}</div>
             <div className="overflow-hidden">
               <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Logged in</p>
@@ -113,17 +113,18 @@ export default function SpareSetuApp() {
         </header>
 
         <div className="p-4 md:p-10 max-w-7xl mx-auto w-full space-y-8 mt-2">
-          {activeTab === "search" && <InventoryView />}
+          {activeTab === "search" && <GlobalSearchView profile={profile} />}
           {activeTab === "mystore" && <MyStoreView profile={profile} />}
-          {activeTab === "analysis" && <div className="bg-white p-20 rounded-xl border text-center italic text-slate-400">Analysis Charts Coming Soon...</div>}
-          {activeTab === "usage" && <div className="bg-white p-20 rounded-xl border text-center italic text-slate-400">Usage History Coming Soon...</div>}
-          {activeTab === "returns" && <div className="bg-white p-20 rounded-xl border text-center italic text-slate-400">Returns & Ledger Coming Soon...</div>}
+          {activeTab === "analysis" && <div className="text-center p-20 bg-white rounded-xl border italic text-slate-400">Monthly Consumption Charts Coming Soon...</div>}
+          {activeTab === "usage" && <UsageHistoryView profile={profile} />}
+          {activeTab === "returns" && <ReturnsLedgerView profile={profile} />}
         </div>
       </main>
     </div>
   );
 }
 
+// --- AUTH VIEW (OTP + 22 ZONES + HINDI CREDITS) ---
 function AuthView() {
   const [view, setView] = useState<"login" | "register" | "forgot" | "otp">("login");
   const [email, setEmail] = useState("");
@@ -134,11 +135,7 @@ function AuthView() {
   const [enteredOtp, setEnteredOtp] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
 
-  // Prevents overlap and auto-fill issues
-  const switchAuthView = (newView: "login" | "register" | "forgot" | "otp") => {
-    setEnteredOtp("");
-    setView(newView);
-  };
+  const switchAuthView = (v: any) => { setEnteredOtp(""); setView(v); };
 
   const handleAuth = async () => {
     setAuthLoading(true);
@@ -156,15 +153,14 @@ function AuthView() {
           body: JSON.stringify({ name, email, otp })
         });
         if (res.ok) { alert("OTP sent to your email!"); switchAuthView("otp"); }
-        else { alert("Failed to send OTP. Check EmailJS keys."); }
+        else { alert("Failed to send OTP. Check EmailJS."); }
       } catch (err) { alert("Server error."); }
     } else if (view === "otp") {
       if (enteredOtp === generatedOtp) {
         const { error } = await supabase.auth.signUp({ 
           email, password: pass, options: { data: { name, unit } } 
         });
-        if (error) alert(error.message);
-        else { alert("Account Created! Please Login."); switchAuthView("login"); }
+        if (error) alert(error.message); else { alert("Account Created! Login karein."); switchAuthView("login"); }
       } else alert("Incorrect OTP!");
     } else {
       const { error } = await supabase.auth.resetPasswordForEmail(email);
@@ -192,58 +188,28 @@ function AuthView() {
         <div className="space-y-4">
           {view === "register" && (
             <>
-              <div className="relative"><i className="fa-solid fa-user absolute left-4 top-3.5 text-slate-400"></i><input type="text" placeholder="Full Name" value={name} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm" onChange={(e)=>setName(e.target.value)} /></div>
-              <div className="relative"><i className="fa-solid fa-building absolute left-4 top-3.5 text-slate-400"></i>
-                <select className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm bg-slate-900 text-slate-300" value={unit} onChange={(e)=>setUnit(e.target.value)}>
-                   <option value="">Select Your Zone</option>
-                   <option value="RUP - South Block">RUP - South Block</option>
-                   <option value="RUP - North Block">RUP - North Block</option>
-                   <option value="LAB">LAB</option>
-                   <option value="MSQU">MSQU</option>
-                   <option value="AU-5">AU-5</option>
-                   <option value="BS-VI">BS-VI</option>
-                   <option value="GR-II & NBA">GR-II & NBA</option>
-                   <option value="GR-I">GR-I</option>
-                   <option value="OM&S">OM&S</option>
-                   <option value="OLD SRU & CETP">OLD SRU & CETP</option>
-                   <option value="Electrical Planning">Electrical Planning</option>
-                   <option value="Electrical Testing">Electrical Testing</option>
-                   <option value="Electrical Workshop">Electrical Workshop</option>
-                   <option value="FCC">FCC</option>
-                   <option value="GRE">GRE</option>
-                   <option value="CGP-I">CGP-I</option>
-                   <option value="CGP-II & TPS">CGP-II & TPS</option>
-                   <option value="Water Block & Bitumen">Water Block & Bitumen</option>
-                   <option value="Township - Estate Office">Township - Estate Office</option>
-                   <option value="AC Section">AC Section</option>
-                   <option value="GHC">GHC</option>
-                   <option value="DHUMAD">DHUMAD</option>
-                </select>
-              </div>
+              <input type="text" placeholder="Full Name" value={name} className="w-full p-3 rounded-lg login-input outline-none text-sm" onChange={(e)=>setName(e.target.value)} />
+              <select className="w-full p-3 rounded-lg login-input outline-none text-sm bg-slate-900 text-slate-300" value={unit} onChange={(e)=>setUnit(e.target.value)}>
+                <option value="">Select Your Zone</option>
+                {["RUP - South Block", "RUP - North Block", "LAB", "MSQU", "AU-5", "BS-VI", "GR-II & NBA", "GR-I", "OM&S", "OLD SRU & CETP", "Electrical Planning", "Electrical Testing", "Electrical Workshop", "FCC", "GRE", "CGP-I", "CGP-II & TPS", "Water Block & Bitumen", "Township - Estate Office", "AC Section", "GHC", "DHUMAD"].map(z => <option key={z} value={z}>{z}</option>)}
+              </select>
             </>
           )}
-
           {view === "otp" ? (
-             <div className="relative">
-                <i className="fa-solid fa-key absolute left-4 top-3.5 text-slate-400"></i>
-                <input type="text" placeholder="######" value={enteredOtp} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm text-center font-bold tracking-[0.5em] text-white" onChange={(e)=>setEnteredOtp(e.target.value)} />
-                <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase">OTP sent to {email}</p>
-             </div>
+             <input type="text" placeholder="Enter 6-Digit OTP" value={enteredOtp} className="w-full p-3 rounded-lg login-input text-center text-xl font-bold tracking-[0.5em] text-white" onChange={(e)=>setEnteredOtp(e.target.value)} />
           ) : (
-             <div className="relative">
-                <i className="fa-solid fa-envelope absolute left-4 top-3.5 text-slate-400"></i>
-                <input type="email" placeholder="Official Email ID" value={email} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm" onChange={(e)=>setEmail(e.target.value)} />
-             </div>
+             <input type="email" placeholder="Official Email ID" value={email} className="w-full p-3 rounded-lg login-input outline-none text-sm" onChange={(e)=>setEmail(e.target.value)} />
           )}
-
-          {view !== "forgot" && view !== "otp" && <div className="relative"><i className="fa-solid fa-lock absolute left-4 top-3.5 text-slate-400"></i><input type="password" placeholder="Password" value={pass} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm" onChange={(e)=>setPass(e.target.value)} /></div>}
+          {view !== "forgot" && view !== "otp" && <input type="password" placeholder="Password" value={pass} className="w-full p-3 rounded-lg login-input outline-none text-sm" onChange={(e)=>setPass(e.target.value)} />}
           
-          <button onClick={handleAuth} disabled={authLoading} className="w-full h-12 mt-6 iocl-btn text-white font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 uppercase tracking-widest">
-            {authLoading ? "Processing..." : view === "login" ? "Secure Login →" : view === "register" ? "Send OTP" : view === "otp" ? "Verify & Create Account" : "Send Reset Link"}
+          <button onClick={handleAuth} disabled={authLoading} className="w-full h-12 mt-6 iocl-btn text-white font-bold rounded-lg shadow-lg uppercase tracking-widest">
+            {authLoading ? "Wait..." : view === "login" ? "Secure Login →" : view === "register" ? "Send OTP" : "Verify & Register"}
           </button>
 
           <div className="mt-6 text-center border-t border-white/10 pt-4">
-            <p className="text-xs text-slate-400">{view === "login" ? "New User? " : "Already registered? "}<button onClick={() => switchAuthView(view === "login" ? "register" : "login")} className="text-white hover:text-orange-500 font-bold underline ml-1">{view === "login" ? "Register Here" : "Login Here"}</button></p>
+            <p className="text-xs text-slate-400">{view === "login" ? "New User? " : "Already registered? "}
+              <button onClick={() => switchAuthView(view === "login" ? "register" : "login")} className="text-white hover:text-orange-500 font-bold underline ml-1">{view === "login" ? "Create Account" : "Back to Login"}</button>
+            </p>
           </div>
           
           <div className="mt-8 pt-4 border-t border-white/10 text-center">
@@ -256,44 +222,128 @@ function AuthView() {
   );
 }
 
-// --- GLOBAL SEARCH (With Leaderboard Concept) ---
-function InventoryView() {
+// --- GLOBAL SEARCH (AGGREGATED + BREAKDOWN) ---
+function GlobalSearchView({ profile }: any) {
   const [items, setItems] = useState<any[]>([]);
+  const [contributors, setContributors] = useState<any[]>([]);
   const [search, setSearch] = useState("");
+  const [selCat, setSelCat] = useState("all");
+  const [breakdown, setBreakdown] = useState<any>(null);
 
-  useEffect(() => {
-    const fetchAll = async () => {
-      const { data } = await supabase.from("inventory").select("*").order("item", { ascending: true });
-      if (data) setItems(data);
-    };
-    fetchAll();
-  }, []);
+  useEffect(() => { fetchAll(); fetchLeaderboard(); }, []);
 
-  const filtered = items.filter(i => i.item.toLowerCase().includes(search.toLowerCase()) || i.spec.toLowerCase().includes(search.toLowerCase()));
+  const fetchAll = async () => {
+    const { data } = await supabase.from("inventory").select("*");
+    if (data) setItems(data);
+  };
+
+  const fetchLeaderboard = async () => {
+    const { data } = await supabase.from("profiles").select("name, unit, item_count").order("item_count", { ascending: false }).limit(3);
+    if (data) setContributors(data);
+  };
+
+  // Group same materials
+  const grouped: any = {};
+  items.forEach(i => {
+    const key = `${i.item}-${i.spec}`.toLowerCase();
+    if (!grouped[key]) grouped[key] = { ...i, totalQty: 0, holders: [] };
+    grouped[key].totalQty += i.qty;
+    grouped[key].holders.push(i);
+  });
+
+  const filtered = Object.values(grouped).filter((i: any) => {
+    const matchesSearch = i.item.toLowerCase().includes(search.toLowerCase()) || i.spec.toLowerCase().includes(search.toLowerCase());
+    const matchesCat = selCat === "all" ? true : (selCat === "zero" ? i.totalQty === 0 : i.cat === selCat);
+    return matchesSearch && matchesCat;
+  });
+
+  const exportGlobalCSV = () => {
+    const csv = "Item,Category,Total Stock,Spec\n" + filtered.map((i:any) => `"${i.item}","${i.cat}","${i.totalQty}","${i.spec}"`).join("\n");
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'Global_Stock.csv'; a.click();
+  };
 
   return (
-    <div className="animate-fade-in space-y-6">
-      <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-          <h2 className="text-lg font-bold text-slate-800 mb-4 tracking-tight">Global Inventory Search</h2>
-          <div className="relative"><i className="fa-solid fa-search absolute left-4 top-3.5 text-slate-400"></i><input type="text" placeholder="Search Part Name or Spec..." className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-lg outline-none text-sm transition focus:border-orange-500" onChange={(e) => setSearch(e.target.value)} /></div>
+    <div className="space-y-6 animate-fade-in">
+      {/* Top Contributors */}
+      <section className="bg-white p-6 rounded-xl border flex flex-wrap justify-between items-center gap-6">
+        <h2 className="text-lg font-bold flex items-center gap-2"><i className="fa-solid fa-trophy text-yellow-500"></i> Top Contributors</h2>
+        <div className="flex gap-4 overflow-x-auto w-full md:w-auto pb-2">
+          {contributors.map((c, idx) => (
+            <div key={idx} className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex items-center gap-3 min-w-[200px] shadow-sm transition hover:scale-105">
+              <div className="w-10 h-10 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-sm">{c.name.charAt(0)}</div>
+              <div><p className="text-xs font-bold text-slate-800">{c.name}</p><p className="text-[10px] text-slate-500">{c.unit}</p><p className="text-[10px] font-bold text-green-600 mt-0.5">{c.item_count} Items Added</p></div>
+            </div>
+          ))}
         </div>
-        <div className="overflow-x-auto"><table className="w-full text-left border-collapse"><thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold border-b"><tr><th className="p-5 pl-8">Item Description</th><th className="p-5">Spec</th><th className="p-5 text-center">Stock</th><th className="p-5 pr-8 text-center">Location</th></tr></thead><tbody className="divide-y text-sm text-slate-700 bg-white">
-            {filtered.map((item) => (
-              <tr key={item.id} className="hover:bg-slate-50 transition border-b border-slate-50">
-                <td className="p-5 pl-8 font-bold text-slate-800">{item.item}<div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{item.cat}</div></td>
-                <td className="p-5"><span className="bg-slate-100 border px-2 py-1 rounded text-[11px] font-medium text-slate-600">{item.spec}</span></td>
-                <td className="p-5 text-center font-bold text-blue-600">{item.qty} Nos</td>
-                <td className="p-5 pr-8 text-center"><span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter bg-slate-50 border px-2 py-1 rounded">{item.holder_unit}</span></td>
+      </section>
+
+      <section className="bg-white rounded-xl shadow-sm border overflow-hidden">
+        <div className="p-6 border-b bg-slate-50/50 flex flex-col md:flex-row justify-between gap-4">
+          <div className="flex-1 flex gap-2">
+             <div className="relative flex-1"><i className="fa-solid fa-search absolute left-4 top-3.5 text-slate-400"></i><input type="text" placeholder="Search Item..." className="w-full pl-10 pr-4 py-2.5 border rounded-lg text-sm outline-none focus:border-orange-500" onChange={(e)=>setSearch(e.target.value)} /></div>
+             <button onClick={exportGlobalCSV} className="bg-emerald-600 text-white px-4 rounded-lg text-xs font-bold shadow-sm hover:bg-emerald-700 transition flex items-center gap-2"><i className="fa-solid fa-file-csv"></i> Export</button>
+          </div>
+          <div className="flex gap-2">
+             <button onClick={()=>alert("Logic coming soon")} className="bg-indigo-600 text-white px-4 rounded-lg text-xs font-bold shadow-sm flex items-center gap-2"><i className="fa-solid fa-chart-pie"></i> Stock Summary</button>
+             <select className="border rounded-lg text-xs font-bold p-2 bg-white outline-none" onChange={(e)=>setSelCat(e.target.value)}>
+               <option value="all">Category: All</option>
+               <option value="zero">⚠️ Zero Stock Items</option>
+               {[...new Set(items.map(i => i.cat))].map(c => <option key={c} value={c}>{c}</option>)}
+             </select>
+          </div>
+        </div>
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold border-b">
+            <tr><th className="p-5">Item Details</th><th className="p-5">Spec</th><th className="p-5 text-center">Total Stock</th><th className="p-5 text-center">Action</th></tr>
+          </thead>
+          <tbody className="divide-y text-sm">
+            {filtered.map((i: any, idx: number) => (
+              <tr key={idx} className={`hover:bg-slate-50 transition border-b border-slate-50 ${i.totalQty === 0 ? 'bg-red-50/30' : ''}`}>
+                <td className="p-5 font-bold text-slate-800">{i.item}<div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{i.cat}</div></td>
+                <td className="p-5"><span className="bg-slate-100 border px-2 py-1 rounded text-[11px] font-medium text-slate-600 shadow-sm">{i.spec}</span></td>
+                <td className="p-5 text-center">
+                  {i.totalQty === 0 ? <span className="bg-red-100 text-red-600 px-3 py-1 rounded-full text-[10px] font-black border border-red-200">OUT OF STOCK</span> : 
+                  <button onClick={()=>setBreakdown(i)} className="bg-blue-50 text-blue-700 px-4 py-1.5 rounded-lg border border-blue-200 font-bold hover:bg-blue-100 transition flex items-center gap-2 mx-auto">{i.totalQty} Nos <i className="fa-solid fa-chevron-right text-[9px]"></i></button>}
+                </td>
+                <td className="p-5 text-center text-[10px] font-bold text-slate-400 uppercase italic">Click Stock</td>
               </tr>
             ))}
-        </tbody></table></div>
+          </tbody>
+        </table>
       </section>
+
+      {/* BREAKDOWN MODAL */}
+      {breakdown && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-2xl rounded-2xl p-6 relative shadow-2xl animate-scale-in">
+             <button onClick={()=>setBreakdown(null)} className="absolute top-4 right-4 text-slate-400 font-bold text-xl hover:text-red-500 transition">✕</button>
+             <h3 className="text-xl font-bold mb-1 text-slate-800">{breakdown.item}</h3>
+             <p className="text-xs text-slate-400 mb-6 uppercase font-bold tracking-wider">{breakdown.spec}</p>
+             <div className="overflow-hidden border border-slate-100 rounded-xl bg-slate-50/50">
+               <table className="w-full text-left">
+                 <thead className="bg-slate-100 text-xs font-bold text-slate-500 uppercase border-b"><tr><th className="p-4">Unit / Zone</th><th className="p-4">Engineer</th><th className="p-4 text-right">Qty</th><th className="p-4 text-center">Action</th></tr></thead>
+                 <tbody className="divide-y text-sm bg-white">
+                   {breakdown.holders.map((h:any, hIdx:number)=>(
+                     <tr key={hIdx} className="hover:bg-indigo-50/30 transition">
+                        <td className="p-4 font-bold text-slate-700">{h.holder_unit}</td>
+                        <td className="p-4 flex items-center gap-2 text-slate-500"><div className="w-6 h-6 rounded-full bg-slate-200 text-[10px] flex items-center justify-center font-bold">{h.holder_name?.charAt(0)}</div>{h.holder_name}</td>
+                        <td className="p-4 text-right font-bold text-indigo-600">{h.qty} Nos</td>
+                        <td className="p-4 text-center">{h.holder_uid === profile?.id ? <span className="text-[10px] text-green-500 font-bold uppercase italic">Your Stock</span> : <button className="bg-orange-500 text-white px-3 py-1 rounded text-xs font-bold shadow-sm hover:bg-orange-600 transition" onClick={()=>alert(`Requesting ${breakdown.item} from ${h.holder_name}`)}>Request</button>}</td>
+                     </tr>
+                   ))}
+                 </tbody>
+               </table>
+             </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// --- LOCAL STORE (Full Logic) ---
+// --- MY LOCAL STORE (ALERTS + MANAGE) ---
 function MyStoreView({ profile }: any) {
   const [myItems, setMyItems] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -311,38 +361,95 @@ function MyStoreView({ profile }: any) {
     if (data) setMyItems(data);
   };
 
+  const outOfStockCount = myItems.filter(i => i.qty === 0).length;
+
+  const exportMyCSV = () => {
+    const csv = "Category,Item Name,Spec,Qty\n" + myItems.map(i => `"${i.cat}","${i.item}","${i.spec}","${i.qty}"`).join("\n");
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'My_Local_Stock.csv'; a.click();
+  };
+
+  const handleSave = async () => {
+    if (!selSpec || !qty) return alert("Sahi details select karein!");
+    const itemName = `${selMake} ${selSub} ${selModel}`.trim();
+    // Fix for RLS: holder_uid
+    const { error } = await supabase.from("inventory").insert([{
+      item: itemName, cat: selCat, sub: selSub, make: selMake, model: selModel, spec: selSpec,
+      qty: parseInt(qty), unit: 'Nos', holder_unit: profile.unit, holder_uid: profile.id, holder_name: profile.name
+    }]);
+    if (!error) { alert("Stock Saved!"); fetchMyStock(); setQty(""); setShowModal(false); } else alert(error.message);
+  };
+
   const categories = [...new Set(masterCatalog.map(i => i.cat))];
   const subs = [...new Set(masterCatalog.filter(i => i.cat === selCat).map(i => i.sub))];
   const makes = [...new Set(masterCatalog.filter(i => i.cat === selCat && i.sub === selSub).map(i => i.make))];
   const models = [...new Set(masterCatalog.filter(i => i.cat === selCat && i.sub === selSub && i.make === selMake).map(i => i.model))];
   const specs = [...new Set(masterCatalog.filter(i => i.cat === selCat && i.sub === selSub && i.make === selMake && i.model === selModel).map(i => i.spec))];
 
-  const handleSave = async () => {
-    if (!selSpec || !qty) return alert("Poori details select karein!");
-    const itemName = `${selMake} ${selSub} ${selModel}`.trim();
-    const { error } = await supabase.from("inventory").insert([{
-      item: itemName, cat: selCat, sub: selSub, make: selMake, model: selModel, spec: selSpec,
-      qty: parseInt(qty), unit: 'Nos', holder_unit: profile.unit, holder_uid: profile.id, holder_name: profile.name, timestamp: new Date().toISOString()
-    }]);
-    if (!error) { alert("Stock Saved!"); fetchMyStock(); setQty(""); } else { alert(error.message); }
-  };
-
   return (
-    <div className="animate-fade-in space-y-6">
-      <div className="flex justify-between items-center bg-white p-6 rounded-xl border shadow-sm">
-        <div><h2 className="text-xl font-bold text-slate-800">My Local Store</h2><p className="text-xs text-slate-500 font-bold bg-blue-50 px-2 rounded mt-1 uppercase">Unit: {profile?.unit}</p></div>
-        <button onClick={() => setShowModal(true)} className="iocl-btn text-white px-6 py-2.5 rounded-xl font-bold shadow-md">Add New Stock</button>
+    <div className="animate-fade-in space-y-6 pb-10">
+      {/* Alert logic */}
+      {outOfStockCount > 0 && (
+        <div className="bg-red-50 border border-red-200 p-4 rounded-xl flex items-start gap-3 animate-fade-in">
+          <i className="fa-solid fa-triangle-exclamation text-red-500 text-xl mt-1"></i>
+          <div><h3 className="font-bold text-red-800 text-sm uppercase">Action Required: Restock Required</h3><p className="text-xs text-red-600 font-bold">{outOfStockCount} items in your zone are currently Out of Stock.</p></div>
+        </div>
+      )}
+
+      <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl border shadow-sm gap-4">
+        <div><h2 className="text-xl font-bold text-slate-800">My Local Store</h2><p className="text-xs font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-1 uppercase tracking-tighter inline-block">Location: {profile?.unit}</p></div>
+        <div className="flex gap-2">
+            <button onClick={exportMyCSV} className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md hover:bg-emerald-700 transition flex items-center gap-2"><i className="fa-solid fa-file-csv"></i> Export CSV</button>
+            <button onClick={() => setShowModal(true)} className="iocl-btn text-white px-6 py-2.5 rounded-xl font-bold shadow-md hover:shadow-lg transition flex items-center gap-2"><i className="fa-solid fa-plus"></i> Add New Stock</button>
+        </div>
       </div>
-      <div className="bg-white rounded-xl shadow-sm border overflow-hidden"><table className="w-full text-left border-collapse"><thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold border-b"><tr><th className="p-5 pl-8">Item</th><th className="p-5">Spec</th><th className="p-5 text-center">Stock</th></tr></thead><tbody className="divide-y text-sm">{myItems.map(i => (<tr key={i.id} className="hover:bg-slate-50 transition border-b border-slate-50"><td className="p-5 pl-8 font-bold text-slate-800">{i.item}<div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{i.cat}</div></td><td className="p-5"><span className="bg-slate-100 border px-2 py-0.5 rounded text-[11px] font-medium text-slate-600 shadow-sm">{i.spec}</span></td><td className="p-5 text-center font-bold text-emerald-600">{i.qty} Nos</td></tr>))}</tbody></table></div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b uppercase">
+            <tr><th className="p-5">Category</th><th className="p-5">Item Name</th><th className="p-5">Spec</th><th className="p-5">Stock Qty</th><th className="p-5 text-center">Manage</th></tr>
+          </thead>
+          <tbody className="divide-y text-sm">
+            {myItems.map(i => (
+              <tr key={i.id} className={`${i.qty === 0 ? 'bg-red-50/20' : 'hover:bg-slate-50'} transition border-b border-slate-50`}>
+                <td className="p-5 text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{i.cat}</td>
+                <td className="p-5 font-bold text-slate-800">{i.item}</td>
+                <td className="p-5"><span className="bg-slate-100 border px-2 py-0.5 rounded text-[11px] font-medium text-slate-600">{i.spec}</span></td>
+                <td className="p-5 font-bold">
+                    {i.qty === 0 ? <span className="text-red-600 font-black tracking-widest text-[10px] uppercase bg-red-100 px-2 py-1 rounded">Out of Stock</span> : <span className="text-emerald-600 text-lg">{i.qty} <small className="text-[10px] text-slate-400 uppercase">Nos</small></span>}
+                </td>
+                <td className="p-5 flex gap-4 justify-center items-center">
+                    <button className="text-indigo-600 hover:scale-125 transition p-2" title="Consume"><i className="fa-solid fa-box-open text-xl"></i></button>
+                    <button className="text-slate-400 hover:text-blue-500 hover:scale-125 transition p-2" title="Edit"><i className="fa-solid fa-pen-to-square text-xl"></i></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"><div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-8 relative scale-100"><button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-slate-400 font-bold text-xl">✕</button><h3 className="text-lg font-bold text-slate-800 mb-6 border-b pb-2 uppercase tracking-wide text-center">Add Stock Item</h3><div className="space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-8 relative animate-scale-in">
+            <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-slate-400 font-bold text-xl hover:text-red-500 transition">✕</button>
+            <h3 className="text-lg font-bold text-slate-800 mb-6 border-b pb-2 uppercase tracking-wide text-center">Add Stock Item</h3>
+            <div className="space-y-4">
               <select className="w-full p-3 border rounded-lg text-sm bg-slate-50" onChange={(e)=>{setSelCat(e.target.value); setSelSub(""); setSelMake(""); setSelModel(""); setSelSpec("");}}><option value="">-- Category --</option>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select>
               <select className="w-full p-3 border rounded-lg text-sm bg-white" disabled={!selCat} onChange={(e)=>{setSelSub(e.target.value); setSelMake(""); setSelModel(""); setSelSpec("");}}><option value="">-- Sub-Category --</option>{subs.map(s => <option key={s} value={s}>{s}</option>)}</select>
               <select className="w-full p-3 border rounded-lg text-sm bg-white" disabled={!selSub} onChange={(e)=>{setSelMake(e.target.value); setSelModel(""); setSelSpec("");}}><option value="">-- Make --</option>{makes.map(m => <option key={m} value={m}>{m}</option>)}</select>
               <select className="w-full p-3 border rounded-lg text-sm bg-white" disabled={!selMake} onChange={(e)=>{setSelModel(e.target.value); setSelSpec("");}}><option value="">-- Model --</option>{models.map(m => <option key={m} value={m}>{m}</option>)}</select>
-              <select className="w-full p-3 border rounded-lg text-sm bg-white" disabled={!selModel} onChange={(e)=>setSelSpec(e.target.value)}><option value="">-- Spec --</option>{specs.map(s => <option key={s} value={s}>{s}</option>)}</select>
-              <input type="number" placeholder="Quantity" value={qty} className="w-full p-3 border rounded-lg text-lg font-bold outline-none focus:border-orange-500" onChange={(e)=>setQty(e.target.value)} /><button onClick={handleSave} className="w-full py-4 iocl-btn text-white font-bold rounded-xl shadow-lg uppercase tracking-wider">Save & Add More</button></div></div></div>
+              <select className="w-full p-3 border rounded-lg text-sm bg-white" disabled={!selModel} onChange={(e)=>setSelSpec(e.target.value)}><option value="">-- Specification --</option>{specs.map(s => <option key={s} value={s}>{s}</option>)}</select>
+              <input type="number" placeholder="Enter Quantity" value={qty} className="w-full p-3 border-2 border-slate-100 rounded-lg text-lg font-bold outline-none focus:border-orange-500 text-center" onChange={(e)=>setQty(e.target.value)} />
+              <button onClick={handleSave} className="w-full py-4 iocl-btn text-white font-bold rounded-xl shadow-lg uppercase tracking-widest hover:scale-[1.02] transition">Save & Add More</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
 }
+
+// --- LOGS & LEDGER PLACEHOLDERS ---
+function UsageHistoryView({ profile }: any) { return <div className="p-20 text-center bg-white rounded-xl border border-dashed border-slate-300 italic text-slate-400">Consumption Logs for {profile?.unit} will appear here.</div>; }
+function ReturnsLedgerView({ profile }: any) { return <div className="p-20 text-center bg-white rounded-xl border border-dashed border-slate-300 italic text-slate-400">Borrowing & Returns Ledger (Udhaari) logic coming soon.</div>; }
