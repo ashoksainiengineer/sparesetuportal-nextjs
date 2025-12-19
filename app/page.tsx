@@ -21,7 +21,7 @@ export default function SpareSetuApp() {
       setLoading(false);
     };
 
-    // FIXED: Supabase uses onAuthStateChange
+    // FIXED: onAuthStateChange
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) {
         setUser(session.user);
@@ -88,6 +88,7 @@ export default function SpareSetuApp() {
         <header className="header-bg text-white sticky top-0 z-30 shadow-md">
           <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-6">
+              {/* CSS LOGO WITH TAGLINE */}
               <div className="iocl-logo-container hidden md:flex flex-col items-center" style={{ fontSize: '10px' }}>
                 <div className="iocl-circle"><div className="iocl-band"><span className="iocl-hindi-text">इंडियनऑयल</span></div></div>
                 <div className="iocl-english-text" style={{ color: 'white', fontWeight: 800 }}>IndianOil</div>
@@ -121,6 +122,12 @@ function AuthView() {
   const [enteredOtp, setEnteredOtp] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
 
+  // Clear inputs when switching views to prevent overlap
+  const switchAuthView = (newView: "login" | "register" | "forgot" | "otp") => {
+    setEnteredOtp("");
+    setView(newView);
+  };
+
   const handleAuth = async () => {
     setAuthLoading(true);
     if (view === "login") {
@@ -136,7 +143,7 @@ function AuthView() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, email, otp })
         });
-        if (res.ok) { alert("OTP sent to your email!"); setView("otp"); }
+        if (res.ok) { alert("OTP sent to your email!"); switchAuthView("otp"); }
         else { alert("Failed to send OTP. Check EmailJS keys."); }
       } catch (err) { alert("Error connecting to server."); }
     } else if (view === "otp") {
@@ -144,12 +151,18 @@ function AuthView() {
         const { error } = await supabase.auth.signUp({ 
           email, password: pass, options: { data: { name, unit } } 
         });
-        if (error) alert(error.message);
-        else { alert("Account Created! Login karein."); setView("login"); }
-      } else { alert("Incorrect OTP!"); }
+        if (error) {
+            alert(error.message);
+        } else { 
+            alert("Account Created! Please Login."); 
+            switchAuthView("login"); 
+        }
+      } else {
+        alert("Incorrect OTP!");
+      }
     } else {
       const { error } = await supabase.auth.resetPasswordForEmail(email);
-      if (error) alert(error.message); else alert("Reset link sent!");
+      if (error) alert(error.message); else alert("Link Sent to Email!");
     }
     setAuthLoading(false);
   };
@@ -173,32 +186,17 @@ function AuthView() {
         <div className="space-y-4">
           {view === "register" && (
             <>
-              <div className="relative"><i className="fa-solid fa-user absolute left-4 top-3.5 text-slate-400"></i><input type="text" placeholder="Full Name" className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm" onChange={(e)=>setName(e.target.value)} /></div>
+              <div className="relative"><i className="fa-solid fa-user absolute left-4 top-3.5 text-slate-400"></i><input type="text" placeholder="Full Name" value={name} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm" onChange={(e)=>setName(e.target.value)} /></div>
               <div className="relative"><i className="fa-solid fa-building absolute left-4 top-3.5 text-slate-400"></i>
-                <select className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm bg-slate-900 text-slate-300" onChange={(e)=>setUnit(e.target.value)}>
+                <select className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm bg-slate-900 text-slate-300" value={unit} onChange={(e)=>setUnit(e.target.value)}>
                   <option value="">Select Your Zone</option>
                   <option value="RUP - South Block">RUP - South Block</option>
                   <option value="RUP - North Block">RUP - North Block</option>
                   <option value="LAB">LAB</option>
                   <option value="MSQU">MSQU</option>
-                  <option value="AU-5">AU-5</option>
-                  <option value="BS-VI">BS-VI</option>
-                  <option value="GR-II & NBA">GR-II & NBA</option>
-                  <option value="GR-I">GR-I</option>
-                  <option value="OM&S">OM&S</option>
-                  <option value="OLD SRU & CETP">OLD SRU & CETP</option>
                   <option value="Electrical Planning">Electrical Planning</option>
-                  <option value="Electrical Testing">Electrical Testing</option>
-                  <option value="Electrical Workshop">Electrical Workshop</option>
-                  <option value="FCC">FCC</option>
-                  <option value="GRE">GRE</option>
-                  <option value="CGP-I">CGP-I</option>
-                  <option value="CGP-II & TPS">CGP-II & TPS</option>
-                  <option value="Water Block & Bitumen">Water Block & Bitumen</option>
-                  <option value="Township - Estate Office">Township - Estate Office</option>
-                  <option value="AC Section">AC Section</option>
                   <option value="GHC">GHC</option>
-                  <option value="DHUMAD">DHUMAD</option>
+                  <option value="Township - Estate Office">Township - Estate Office</option>
                 </select>
               </div>
             </>
@@ -207,23 +205,26 @@ function AuthView() {
           {view === "otp" ? (
             <div className="relative">
               <i className="fa-solid fa-key absolute left-4 top-3.5 text-slate-400"></i>
-              <input type="text" placeholder="Enter 6-Digit OTP" className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm text-center font-bold tracking-widest" onChange={(e)=>setEnteredOtp(e.target.value)} />
-              <p className="text-[10px] text-slate-400 mt-2">OTP sent to {email}</p>
+              <input type="text" placeholder="Enter 6-Digit OTP" value={enteredOtp} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm text-center font-bold tracking-[0.5em]" onChange={(e)=>setEnteredOtp(e.target.value)} />
+              <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase">Enter OTP sent to {email}</p>
             </div>
           ) : (
-            <div className="relative"><i className="fa-solid fa-envelope absolute left-4 top-3.5 text-slate-400"></i><input type="email" placeholder="Official Email ID" className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm" onChange={(e)=>setEmail(e.target.value)} /></div>
+            <div className="relative">
+                <i className="fa-solid fa-envelope absolute left-4 top-3.5 text-slate-400"></i>
+                <input type="email" placeholder="Official Email ID" value={email} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm" onChange={(e)=>setEmail(e.target.value)} />
+            </div>
           )}
 
           {view !== "forgot" && view !== "otp" && (
-            <div className="relative"><i className="fa-solid fa-lock absolute left-4 top-3.5 text-slate-400"></i><input type="password" placeholder="Password" className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm" onChange={(e)=>setPass(e.target.value)} /></div>
+            <div className="relative"><i className="fa-solid fa-lock absolute left-4 top-3.5 text-slate-400"></i><input type="password" placeholder="Password" value={pass} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm" onChange={(e)=>setPass(e.target.value)} /></div>
           )}
           
           <button onClick={handleAuth} disabled={authLoading} className="w-full h-12 mt-6 iocl-btn text-white font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 uppercase tracking-widest">
-            {authLoading ? "Wait..." : view === "login" ? "Secure Login →" : view === "register" ? "Send OTP" : view === "otp" ? "Verify & Register" : "Reset Password"}
+            {authLoading ? "Processing..." : view === "login" ? "Secure Login →" : view === "register" ? "Send OTP" : view === "otp" ? "Verify & Register" : "Send Link"}
           </button>
 
           <div className="mt-6 text-center border-t border-white/10 pt-4">
-            <p className="text-xs text-slate-400">{view === "login" ? "New User? " : "Already registered? "}<button onClick={() => setView(view === "login" ? "register" : "login")} className="text-white hover:text-orange-500 font-bold underline ml-1">{view === "login" ? "Create Account" : "Back to Login"}</button></p>
+            <p className="text-xs text-slate-400">{view === "login" ? "New User? " : "Back to Login? "}<button onClick={() => switchAuthView(view === "login" ? "register" : "login")} className="text-white hover:text-orange-500 font-bold underline ml-1">{view === "login" ? "Register Here" : "Login Here"}</button></p>
           </div>
           
           <div className="mt-8 pt-4 border-t border-white/10 text-center">
@@ -260,11 +261,11 @@ function MyStoreView({ profile }: any) {
   const specs = [...new Set(masterCatalog.filter(i => i.cat === selCat && i.sub === selSub && i.make === selMake && i.model === selModel).map(i => i.spec))];
 
   const handleSave = async () => {
-    if (!selSpec || !qty) return alert("Poori details select karein!");
+    if (!selSpec || !qty) return alert("Sahi details select karein!");
     const itemName = `${selMake} ${selSub} ${selModel}`.trim();
     const { error } = await supabase.from("inventory").insert([{
       item: itemName, cat: selCat, sub: selSub, make: selMake, model: selModel, spec: selSpec,
-      qty: parseInt(qty), unit: 'Nos', holder_unit: profile.unit, holder_uid: profile.id, holder_name: profile.name, timestamp: new Date().toISOString()
+      qty: parseInt(qty), unit: 'Nos', holder_unit: profile.unit, holder_uid: profile.id, holder_name: profile.name
     }]);
     if (!error) { alert("Stock Saved!"); fetchMyStock(); setQty(""); }
   };
@@ -275,9 +276,53 @@ function MyStoreView({ profile }: any) {
         <div><h2 className="text-xl font-bold text-slate-800">My Local Store</h2><p className="text-xs text-slate-500 font-bold bg-blue-50 px-2 rounded mt-1 uppercase">Unit: {profile?.unit}</p></div>
         <button onClick={() => setShowModal(true)} className="iocl-btn text-white px-6 py-2.5 rounded-xl font-bold shadow-md">Add New Stock</button>
       </div>
-      <div className="bg-white rounded-xl shadow-sm border overflow-hidden"><table className="w-full text-left"><thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold border-b"><tr><th className="p-5 pl-8">Item</th><th className="p-5">Spec</th><th className="p-5 text-center">Stock</th></tr></thead><tbody className="divide-y text-sm">{myItems.map(i => (<tr key={i.id} className="hover:bg-slate-50 transition"><td className="p-5 pl-8 font-bold text-slate-800">{i.item}<div className="text-[10px] text-slate-400 font-bold uppercase">{i.cat}</div></td><td className="p-5"><span className="bg-slate-100 border px-2 py-0.5 rounded text-[11px] font-medium">{i.spec}</span></td><td className="p-5 text-center font-bold text-emerald-600">{i.qty} Nos</td></tr>))}</tbody></table></div>
+      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold border-b">
+            <tr><th className="p-5 pl-8">Item Description</th><th className="p-5">Spec</th><th className="p-5 text-center">Stock</th></tr>
+          </thead>
+          <tbody className="divide-y text-sm">
+            {myItems.map(i => (
+              <tr key={i.id} className="hover:bg-slate-50 transition">
+                <td className="p-5 pl-8 font-bold text-slate-800">{i.item}<div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{i.cat}</div></td>
+                <td className="p-5"><span className="bg-slate-100 border px-2 py-1 rounded text-[11px] font-medium text-slate-600 shadow-sm">{i.spec}</span></td>
+                <td className="p-5 text-center font-bold text-emerald-600">{i.qty} Nos</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"><div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-8 relative"><button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-slate-400 font-bold text-xl">✕</button><h3 className="text-lg font-bold mb-6 border-b pb-2 uppercase">Add Stock</h3><div className="space-y-4"><select className="w-full p-3 border rounded-lg text-sm" onChange={(e)=>{setSelCat(e.target.value); setSelSub(""); setSelMake(""); setSelModel(""); setSelSpec("");}}><option value="">Category</option>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select><select className="w-full p-3 border rounded-lg text-sm bg-white" disabled={!selCat} onChange={(e)=>{setSelSub(e.target.value); setSelMake(""); setSelModel(""); setSelSpec("");}}><option value="">Sub-Category</option>{subs.map(s => <option key={s} value={s}>{s}</option>)}</select><select className="w-full p-3 border rounded-lg text-sm bg-white" disabled={!selSub} onChange={(e)=>{setSelMake(e.target.value); setSelModel(""); setSelSpec("");}}><option value="">Make</option>{makes.map(m => <option key={m} value={m}>{m}</option>)}</select><select className="w-full p-3 border rounded-lg text-sm bg-white" disabled={!selMake} onChange={(e)=>{setSelModel(e.target.value); setSelSpec("");}}><option value="">Model</option>{models.map(m => <option key={m} value={m}>{m}</option>)}</select><select className="w-full p-3 border rounded-lg text-sm bg-white" disabled={!selModel} onChange={(e)=>setSelSpec(e.target.value)}><option value="">Spec</option>{specs.map(s => <option key={s} value={s}>{s}</option>)}</select><input type="number" placeholder="Quantity" value={qty} className="w-full p-3 border rounded text-lg font-bold" onChange={(e)=>setQty(e.target.value)} /><button onClick={handleSave} className="w-full py-4 iocl-btn text-white font-bold rounded-xl shadow-lg uppercase">Save & Add More</button></div></div></div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-8 relative">
+            <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-slate-400 font-bold text-xl">✕</button>
+            <h3 className="text-lg font-bold text-slate-800 mb-6 border-b pb-2 uppercase tracking-wide">Add Stock Item</h3>
+            <div className="space-y-4">
+              <select className="w-full p-3 border rounded-lg text-sm bg-slate-50" onChange={(e)=>{setSelCat(e.target.value); setSelSub(""); setSelMake(""); setSelModel(""); setSelSpec("");}}>
+                <option value="">-- Category --</option>
+                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <select className="w-full p-3 border rounded-lg text-sm bg-white" disabled={!selCat} onChange={(e)=>{setSelSub(e.target.value); setSelMake(""); setSelModel(""); setSelSpec("");}}>
+                <option value="">-- Sub-Category --</option>
+                {subs.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <select className="w-full p-3 border rounded-lg text-sm bg-white" disabled={!selSub} onChange={(e)=>{setSelMake(e.target.value); setSelModel(""); setSelSpec("");}}>
+                <option value="">-- Make --</option>
+                {makes.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+              <select className="w-full p-3 border rounded-lg text-sm bg-white" disabled={!selMake} onChange={(e)=>{setSelModel(e.target.value); setSelSpec("");}}>
+                <option value="">-- Model --</option>
+                {models.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+              <select className="w-full p-3 border rounded-lg text-sm bg-white" disabled={!selModel} onChange={(e)=>setSelSpec(e.target.value)}>
+                <option value="">-- Specification --</option>
+                {specs.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <input type="number" placeholder="Quantity" value={qty} className="w-full p-3 border rounded-lg text-lg font-bold outline-none focus:border-orange-500" onChange={(e)=>setQty(e.target.value)} />
+              <button onClick={handleSave} className="w-full py-4 iocl-btn text-white font-bold rounded-xl shadow-lg uppercase tracking-wider">Save & Add More</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -289,6 +334,6 @@ function InventoryView() {
   useEffect(() => { const fetchAll = async () => { const { data } = await supabase.from("inventory").select("*").order("item", { ascending: true }); if (data) setItems(data); }; fetchAll(); }, []);
   const filtered = items.filter(i => i.item.toLowerCase().includes(search.toLowerCase()) || i.spec.toLowerCase().includes(search.toLowerCase()));
   return (
-    <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden animate-fade-in"><div className="p-6 border-b border-slate-100 bg-slate-50/50"><h2 className="text-lg font-bold text-slate-800 mb-4 tracking-tight">Global Inventory Search</h2><div className="relative"><i className="fa-solid fa-search absolute left-4 top-3.5 text-slate-400"></i><input type="text" placeholder="Search Item..." className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-lg outline-none text-sm transition shadow-sm" onChange={(e) => setSearch(e.target.value)} /></div></div><div className="overflow-x-auto"><table className="w-full text-left border-collapse"><thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold border-b"><tr><th className="p-5 pl-8">Item Description</th><th className="p-5">Spec</th><th className="p-5 text-center">Stock</th><th className="p-5 pr-8 text-center">Location</th></tr></thead><tbody className="divide-y text-sm text-slate-700 bg-white">{filtered.map((item) => (<tr key={item.id} className="hover:bg-slate-50 transition border-b border-slate-50"><td className="p-5 pl-8 font-bold text-slate-800">{item.item}<div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{item.cat}</div></td><td className="p-5"><span className="bg-slate-100 border px-2 py-1 rounded text-[11px] font-medium text-slate-600 shadow-sm">{item.spec}</span></td><td className="p-5 text-center font-bold text-blue-600">{item.qty} Nos</td><td className="p-5 pr-8 text-center text-[10px] font-bold text-slate-500 uppercase tracking-tighter bg-slate-50 border">{item.holder_unit}</td></tr>))}</tbody></table></div></section>
+    <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden animate-fade-in"><div className="p-6 border-b border-slate-100 bg-slate-50/50"><h2 className="text-lg font-bold text-slate-800 mb-4 tracking-tight">Global Inventory Search</h2><div className="relative"><i className="fa-solid fa-search absolute left-4 top-3.5 text-slate-400"></i><input type="text" placeholder="Search Part Name or Spec..." className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-lg focus:border-orange-500 outline-none text-sm transition shadow-sm" onChange={(e) => setSearch(e.target.value)} /></div></div><div className="overflow-x-auto"><table className="w-full text-left border-collapse"><thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold border-b"><tr><th className="p-5 pl-8">Item Description</th><th className="p-5">Spec</th><th className="p-5 text-center">Stock</th><th className="p-5 pr-8 text-center">Location</th></tr></thead><tbody className="divide-y text-sm text-slate-700 bg-white">{filtered.map((item) => (<tr key={item.id} className="hover:bg-slate-50 transition border-b border-slate-50"><td className="p-5 pl-8 font-bold text-slate-800">{item.item}<div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{item.cat}</div></td><td className="p-5"><span className="bg-slate-100 border px-2 py-1 rounded text-[11px] font-medium text-slate-600 shadow-sm">{item.spec}</span></td><td className="p-5 text-center font-bold text-blue-600">{item.qty} Nos</td><td className="p-5 pr-8 text-center text-[10px] font-bold text-slate-500 uppercase tracking-tighter bg-slate-50 border">{item.holder_unit}</td></tr>))}</tbody></table></div></section>
   );
 }
