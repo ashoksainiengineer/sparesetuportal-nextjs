@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { masterCatalog } from "@/lib/masterdata";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
@@ -9,12 +9,70 @@ import ChartDataLabels from 'chartjs-plugin-datalabels';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ChartDataLabels);
 
+// --- TYPES & INTERFACES ---
+interface Profile {
+  id: string;
+  name: string;
+  unit: string;
+  item_count: number;
+  email: string;
+}
+
+interface InventoryItem {
+  id: number;
+  item: string;
+  spec: string;
+  qty: number;
+  unit: string;
+  cat: string;
+  sub?: string;
+  make?: string;
+  model?: string;
+  holder_uid: string;
+  holder_name: string;
+  holder_unit: string;
+  is_manual?: boolean;
+}
+
+interface RequestItem {
+  id: number;
+  item_id: number;
+  item_name: string;
+  item_spec: string;
+  item_unit: string;
+  req_qty: number;
+  req_comment: string;
+  from_uid: string;
+  from_name: string;
+  from_unit: string;
+  to_uid: string;
+  to_name: string;
+  to_unit: string;
+  status: string;
+}
+
+interface UsageLog {
+  id: number;
+  timestamp: string;
+  item_name: string;
+  cat: string;
+  qty: number;
+  unit: string;
+  note: string;
+  consumer_name: string;
+}
+
 // --- MAIN APP COMPONENT ---
 export default function SpareSetuPortal() {
   const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [activeTab, setActiveTab] = useState("search");
   const [loading, setLoading] = useState(true);
+
+  const fetchProfile = useCallback(async (uid: string) => {
+    const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
+    if (data) setProfile(data as Profile);
+  }, []);
 
   useEffect(() => {
     const initSession = async () => {
@@ -34,12 +92,7 @@ export default function SpareSetuPortal() {
 
     initSession();
     return () => authListener.subscription.unsubscribe();
-  }, []);
-
-  const fetchProfile = async (uid: string) => {
-    const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
-    setProfile(data);
-  };
+  }, [fetchProfile]);
 
   if (loading) return <FullScreenLoader />;
   if (!user) return <AuthSystem />;
@@ -116,11 +169,11 @@ export default function SpareSetuPortal() {
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8">
           <div className="max-w-6xl mx-auto space-y-8 animate-fade-in">
-            {activeTab === 'search' && <GlobalSearchSection profile={profile} />}
-            {activeTab === 'mystore' && <MyStoreSection profile={profile} refreshProfile={() => fetchProfile(user.id)} />}
-            {activeTab === 'returns' && <ReturnsSection profile={profile} />}
-            {activeTab === 'usage' && <UsageLogsSection profile={profile} />}
-            {activeTab === 'analysis' && <AnalysisSection profile={profile} />}
+            {activeTab === 'search' && profile && <GlobalSearchSection profile={profile} />}
+            {activeTab === 'mystore' && profile && <MyStoreSection profile={profile} refreshProfile={() => fetchProfile(user.id)} />}
+            {activeTab === 'returns' && profile && <ReturnsSection profile={profile} />}
+            {activeTab === 'usage' && profile && <UsageLogsSection profile={profile} />}
+            {activeTab === 'analysis' && profile && <AnalysisSection profile={profile} />}
           </div>
         </div>
       </main>
@@ -128,26 +181,26 @@ export default function SpareSetuPortal() {
   );
 }
 
-// --- 1. GLOBAL SEARCH SECTION (WITH BREAKDOWN & REQUEST) ---
-function GlobalSearchSection({ profile }: any) {
-  const [items, setItems] = useState<any[]>([]);
+// --- 1. GLOBAL SEARCH SECTION ---
+function GlobalSearchSection({ profile }: { profile: Profile }) {
+  const [items, setItems] = useState<InventoryItem[]>([]);
   const [search, setSearch] = useState("");
   const [breakdown, setBreakdown] = useState<any>(null);
-  const [requestItem, setRequestItem] = useState<any>(null);
+  const [requestItem, setRequestItem] = useState<InventoryItem | null>(null);
   const [reqQty, setReqQty] = useState(1);
   const [comment, setComment] = useState("");
 
-  useEffect(() => {
-    fetchInventory();
+  const fetchInventory = useCallback(async () => {
+    const { data } = await supabase.from('inventory').select('*');
+    if (data) setItems(data as InventoryItem[]);
   }, []);
 
-  const fetchInventory = async () => {
-    const { data } = await supabase.from('inventory').select('*');
-    if (data) setItems(data);
-  };
+  useEffect(() => {
+    fetchInventory();
+  }, [fetchInventory]);
 
   const grouped = useMemo(() => {
-    const map: any = {};
+    const map: Record<string, any> = {};
     items.forEach(i => {
       const key = `${i.item}-${i.spec}`.toLowerCase();
       if (!map[key]) map[key] = { ...i, totalQty: 0, holders: [] };
@@ -163,6 +216,7 @@ function GlobalSearchSection({ profile }: any) {
   );
 
   const submitRequest = async () => {
+    if (!requestItem) return;
     if (reqQty <= 0 || reqQty > requestItem.qty) return alert("Invalid Quantity");
     const { error } = await supabase.from('requests').insert([{
       item_id: requestItem.id,
@@ -187,7 +241,6 @@ function GlobalSearchSection({ profile }: any) {
 
   return (
     <div className="space-y-6">
-      {/* Leaderboard */}
       <Leaderboard />
 
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4">
@@ -210,7 +263,7 @@ function GlobalSearchSection({ profile }: any) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filtered.map((item: any, idx) => (
+            {filtered.map((item: any, idx: number) => (
               <tr key={idx} className="hover:bg-slate-50 transition-colors group">
                 <td className="p-4 pl-8 font-bold text-slate-800">
                   {item.item}
@@ -233,7 +286,6 @@ function GlobalSearchSection({ profile }: any) {
         </table>
       </div>
 
-      {/* Breakdown Modal */}
       {breakdown && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-scale-in">
@@ -250,7 +302,7 @@ function GlobalSearchSection({ profile }: any) {
                   <tr><th className="p-4 pl-6">Unit Zone</th><th className="p-4">Engineer</th><th className="p-4 text-center">Qty</th><th className="p-4 pr-6 text-center">Action</th></tr>
                 </thead>
                 <tbody className="divide-y">
-                  {breakdown.holders.map((h: any, i: number) => (
+                  {breakdown.holders.map((h: InventoryItem, i: number) => (
                     <tr key={i} className="hover:bg-indigo-50/50">
                       <td className="p-4 pl-6 font-black text-slate-700">{h.holder_unit}</td>
                       <td className="p-4 text-sm text-slate-500 font-medium">{h.holder_name}</td>
@@ -277,7 +329,6 @@ function GlobalSearchSection({ profile }: any) {
         </div>
       )}
 
-      {/* Request Modal */}
       {requestItem && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fade-in">
           <div className="bg-white w-full max-w-sm rounded-3xl p-8 shadow-2xl text-center relative animate-scale-in">
@@ -311,24 +362,24 @@ function GlobalSearchSection({ profile }: any) {
   );
 }
 
-// --- 2. MY STORE SECTION (FULL CRUD) ---
-function MyStoreSection({ profile, refreshProfile }: any) {
-  const [items, setItems] = useState<any[]>([]);
+// --- 2. MY STORE SECTION ---
+function MyStoreSection({ profile, refreshProfile }: { profile: Profile, refreshProfile: () => void }) {
+  const [items, setItems] = useState<InventoryItem[]>([]);
   const [showAdd, setShowAdd] = useState(false);
-  const [consumeItem, setConsumeItem] = useState<any>(null);
-  const [form, setForm] = useState<any>({ cat: "", sub: "", make: "", model: "", spec: "", qty: 0, is_manual: false });
+  const [consumeItem, setConsumeItem] = useState<InventoryItem | null>(null);
+  const [form, setForm] = useState<any>({ cat: "", sub: "", make: "", model: "", spec: "", qty: 0, is_manual: false, unit: "Nos" });
   const [useQty, setUseQty] = useState(1);
   const [useNote, setUseNote] = useState("");
 
-  useEffect(() => {
-    fetchMyInventory();
-  }, [profile]);
-
-  const fetchMyInventory = async () => {
+  const fetchMyInventory = useCallback(async () => {
     if (!profile) return;
     const { data } = await supabase.from('inventory').select('*').eq('holder_uid', profile.id).order('id', { ascending: false });
-    if (data) setItems(data);
-  };
+    if (data) setItems(data as InventoryItem[]);
+  }, [profile]);
+
+  useEffect(() => {
+    fetchMyInventory();
+  }, [fetchMyInventory]);
 
   const handleSave = async () => {
     const itemName = form.is_manual ? form.model : `${form.make} ${form.sub} ${form.model}`.trim();
@@ -340,15 +391,16 @@ function MyStoreSection({ profile, refreshProfile }: any) {
       holder_unit: profile.unit
     }]);
     if (!error) {
-      await supabase.from('profiles').update({ item_count: profile.item_count + 1 }).eq('id', profile.id);
+      await supabase.from('profiles').update({ item_count: (profile.item_count || 0) + 1 }).eq('id', profile.id);
       refreshProfile();
       fetchMyInventory();
       setShowAdd(false);
-      setForm({ cat: "", sub: "", make: "", model: "", spec: "", qty: 0, is_manual: false });
+      setForm({ cat: "", sub: "", make: "", model: "", spec: "", qty: 0, is_manual: false, unit: "Nos" });
     }
   };
 
   const handleConsume = async () => {
+    if (!consumeItem) return;
     if (useQty <= 0 || useQty > consumeItem.qty) return alert("Invalid Qty");
     const newQty = consumeItem.qty - useQty;
     const { error } = await supabase.from('inventory').update({ qty: newQty }).eq('id', consumeItem.id);
@@ -374,7 +426,7 @@ function MyStoreSection({ profile, refreshProfile }: any) {
     if (!confirm("Confirm Delete?")) return;
     const { error } = await supabase.from('inventory').delete().eq('id', id);
     if (!error) {
-      await supabase.from('profiles').update({ item_count: profile.item_count - 1 }).eq('id', profile.id);
+      await supabase.from('profiles').update({ item_count: Math.max(0, profile.item_count - 1) }).eq('id', profile.id);
       refreshProfile();
       fetchMyInventory();
     }
@@ -422,7 +474,6 @@ function MyStoreSection({ profile, refreshProfile }: any) {
         {items.length === 0 && <div className="p-20 text-center text-slate-400 italic">No items found in your store.</div>}
       </div>
 
-      {/* Add Stock Modal */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md overflow-y-auto">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 relative my-auto animate-scale-in">
@@ -466,7 +517,6 @@ function MyStoreSection({ profile, refreshProfile }: any) {
         </div>
       )}
 
-      {/* Consume Modal */}
       {consumeItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
           <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl text-center animate-scale-in">
@@ -500,73 +550,55 @@ function MyStoreSection({ profile, refreshProfile }: any) {
   );
 }
 
-// --- 3. RETURNS & UDHAARI SECTION (BORROW/LEND LOGIC) ---
-function ReturnsSection({ profile }: any) {
-  const [requests, setRequests] = useState<any[]>([]);
+// --- 3. RETURNS & UDHAARI SECTION ---
+function ReturnsSection({ profile }: { profile: Profile }) {
+  const [requests, setRequests] = useState<RequestItem[]>([]);
 
-  useEffect(() => {
-    fetchRequests();
-    // Real-time listener for incoming requests
-    const sub = supabase.channel('requests_change')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => fetchRequests())
-      .subscribe();
-    return () => { supabase.removeChannel(sub); };
-  }, [profile]);
-
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     if (!profile) return;
     const { data } = await supabase.from('requests').select('*')
       .or(`from_uid.eq.${profile.id},to_uid.eq.${profile.id}`)
       .order('id', { ascending: false });
-    if (data) setRequests(data);
-  };
+    if (data) setRequests(data as RequestItem[]);
+  }, [profile]);
+
+  useEffect(() => {
+    fetchRequests();
+    const sub = supabase.channel('requests_change')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => fetchRequests())
+      .subscribe();
+    return () => { supabase.removeChannel(sub); };
+  }, [fetchRequests]);
 
   const handleAction = async (id: number, status: string, item_id: number, qty: number) => {
     if (status === 'approved') {
-     // Purana code change karke aise likhein:
-const { data: item, error } = await supabase
-  .from('inventory')
-  .select('qty')
-  .eq('id', item_id)
-  .single();
+      const { data: item, error } = await supabase.from('inventory').select('qty').eq('id', item_id).single();
 
-// 1. Check karein ki koi error toh nahi aaya ya item null toh nahi hai
-if (error || !item) {
-  console.error("Item not found or error fetching stock", error);
-  return alert("Error checking stock!");
-}
+      if (error || !item) {
+        return alert("Error checking stock!");
+      }
 
-// 2. Ab 'item' safe hai, ab qty check karein
-if (item.qty < qty) {
-  return alert("Low Stock!");
-}
+      if (item.qty < qty) {
+        return alert("Low Stock!");
+      }
 
-// 3. Update karein
-await supabase
-  .from('inventory')
-  .update({ qty: item.qty - qty })
-  .eq('id', item_id);
+      await supabase.from('inventory').update({ qty: item.qty - qty }).eq('id', item_id);
     }
+    
     if (status === 'returned') {
-  const { data: item } = await supabase.from('inventory').select('qty').eq('id', item_id).single();
-  
-  // Yeh safety check add karein
-  if (!item) {
-    console.error("Item not found");
-    return;
-  }
-
-  // Ab item.qty safe hai
-  await supabase.from('inventory').update({ qty: item.qty + qty }).eq('id', item_id);
-  await supabase.from('requests').delete().eq('id', id);
-  return;
-}
+      const { data: item } = await supabase.from('inventory').select('qty').eq('id', item_id).single();
+      if (!item) return;
+      await supabase.from('inventory').update({ qty: item.qty + qty }).eq('id', item_id);
+      await supabase.from('requests').delete().eq('id', id);
+      fetchRequests();
+      return;
+    }
     await supabase.from('requests').update({ status }).eq('id', id);
+    fetchRequests();
   };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-      {/* Borrowed (Received from others) */}
       <section className="space-y-4">
         <h3 className="font-black text-red-600 flex items-center gap-2 uppercase tracking-tighter"><i className="fa-solid fa-arrow-right-to-bracket"></i> Borrowed From Units</h3>
         {requests.filter(r => r.from_uid === profile.id).map(r => (
@@ -592,7 +624,6 @@ await supabase
         ))}
       </section>
 
-      {/* Lended (Given to others) */}
       <section className="space-y-4">
         <h3 className="font-black text-emerald-600 flex items-center gap-2 uppercase tracking-tighter"><i className="fa-solid fa-arrow-up-from-bracket"></i> Lended to Units</h3>
         {requests.filter(r => r.to_uid === profile.id).map(r => (
@@ -600,7 +631,7 @@ await supabase
             <div>
               <p className="font-bold text-slate-800 text-sm">{r.item_name}</p>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">To: {r.from_unit} ({r.from_name})</p>
-              {r.req_comment && <p className="text-[10px] text-slate-400 italic mt-1">"{r.req_comment}"</p>}
+              {r.req_comment && <p className="text-[10px] text-slate-400 italic mt-1">&quot;{r.req_comment}&quot;</p>}
             </div>
             <div className="flex flex-col items-end gap-2">
               <span className="text-xl font-black text-slate-800">{r.req_qty} <small className="text-[10px]">{r.item_unit}</small></span>
@@ -625,8 +656,8 @@ await supabase
 }
 
 // --- 4. USAGE LOGS SECTION ---
-function UsageLogsSection({ profile }: any) {
-  const [logs, setLogs] = useState<any[]>([]);
+function UsageLogsSection({ profile }: { profile: Profile }) {
+  const [logs, setLogs] = useState<UsageLog[]>([]);
 
   useEffect(() => {
     const fetchLogs = async () => {
@@ -634,7 +665,7 @@ function UsageLogsSection({ profile }: any) {
       const { data } = await supabase.from('usage_logs').select('*')
         .eq('consumer_unit', profile.unit)
         .order('id', { ascending: false });
-      if (data) setLogs(data);
+      if (data) setLogs(data as UsageLog[]);
     };
     fetchLogs();
   }, [profile]);
@@ -662,26 +693,26 @@ function UsageLogsSection({ profile }: any) {
                   <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter mt-1">{log.cat} ({log.consumer_name})</div>
                 </td>
                 <td className="p-5 text-center font-black text-red-600">-{log.qty} {log.unit}</td>
-                <td className="p-5 pr-8 text-xs text-slate-400 italic max-w-xs truncate">"{log.note || 'No Job Note'}"</td>
+                <td className="p-5 pr-8 text-xs text-slate-400 italic max-w-xs truncate">&quot;{log.note || 'No Job Note'}&quot;</td>
               </tr>
             ))}
           </tbody>
         </table>
-        {logs.length === 0 && <div className="p-20 text-center text-slate-400 italic italic">No records found.</div>}
+        {logs.length === 0 && <div className="p-20 text-center text-slate-400 italic">No records found.</div>}
       </div>
     </div>
   );
 }
 
-// --- 5. ANALYSIS SECTION (CHARTS) ---
-function AnalysisSection({ profile }: any) {
+// --- 5. ANALYSIS SECTION ---
+function AnalysisSection({ profile }: { profile: Profile }) {
   const [chartData, setChartData] = useState<any>(null);
 
   useEffect(() => {
     const fetchAnalysis = async () => {
       const { data } = await supabase.from('usage_logs').select('cat, qty').eq('consumer_unit', profile.unit);
       if (data) {
-        const stats: any = {};
+        const stats: Record<string, number> = {};
         data.forEach((d: any) => {
           stats[d.cat] = (stats[d.cat] || 0) + Number(d.qty);
         });
@@ -727,7 +758,7 @@ function AnalysisSection({ profile }: any) {
   );
 }
 
-// --- HELPERS: LEADERBOARD & LOADER ---
+// --- HELPERS ---
 function Leaderboard() {
   const [top, setTop] = useState<any[]>([]);
   useEffect(() => {
@@ -766,7 +797,6 @@ function FullScreenLoader() {
   );
 }
 
-// --- AUTH SYSTEM (LOGIN/REGISTER WITH ALLOWED LIST) ---
 function AuthSystem() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [form, setForm] = useState({ email: '', password: '', name: '', unit: '' });
@@ -778,7 +808,6 @@ function AuthSystem() {
       const { error } = await supabase.auth.signInWithPassword({ email: form.email, password: form.password });
       if (error) alert(error.message);
     } else {
-      // Step 1: Check if email is in allowed_users
       const { data: allowed } = await supabase.from('allowed_users').select('*').eq('email', form.email).single();
       if (!allowed) {
         alert("This Official Email ID is not authorized for SpareSetu access.");
@@ -791,7 +820,6 @@ function AuthSystem() {
         return;
       }
       
-      // Step 2: Create User
       const { data: authUser, error: signUpError } = await supabase.auth.signUp({ 
         email: form.email, 
         password: form.password,
@@ -801,7 +829,6 @@ function AuthSystem() {
       if (signUpError) {
         alert(signUpError.message);
       } else if (authUser.user) {
-        // Step 3: Insert into profiles table
         const { error: profileError } = await supabase.from('profiles').insert([{
           id: authUser.user.id,
           name: form.name,
