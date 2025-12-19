@@ -1,7 +1,11 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Devanagari:wght@700;900&family=Dancing+Script:wght@600&display=swap');
+
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Devanagari:wght@700;900&display=swap');
+
+/* Iske niche aapka baki ka purana style.css wala code jo aapne pehle paste kiya tha... */
+
 body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
 .font-industrial { font-family: 'Oswald', sans-serif; letter-spacing: 0.05em; }
 .font-hindi { font-family: 'Noto Sans Devanagari', sans-serif; }
