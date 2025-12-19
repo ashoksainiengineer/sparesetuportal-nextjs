@@ -16,6 +16,7 @@ export default function SpareSetuApp() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
+
       if (session) {
         setUser(session.user);
         fetchProfile(session.user.id);
@@ -140,9 +141,7 @@ export default function SpareSetuApp() {
               <div className="text-xs opacity-80 -mt-1">
                 The Energy of India • Gujarat Refinery
               </div>
-              <div className="text-lg font-black mt-2">
-                SPARE SETU PORTAL
-              </div>
+              <div className="text-lg font-black mt-2">SPARE SETU PORTAL</div>
               <div className="text-xs opacity-80 font-hindi">
                 जहाँ प्रगति ही जीवन सार है
               </div>
@@ -160,7 +159,10 @@ export default function SpareSetuApp() {
         <div className="p-6">
           {activeTab === "search" && <GlobalSearchView profile={profile} />}
           {activeTab === "mystore" && (
-            <MyStoreView profile={profile} fetchProfile={() => fetchProfile(user.id)} />
+            <MyStoreView
+              profile={profile}
+              fetchProfile={() => fetchProfile(user.id)}
+            />
           )}
           {activeTab === "usage" && <UsageHistoryView profile={profile} />}
           {activeTab === "analysis" && <MonthlyAnalysisView profile={profile} />}
@@ -398,7 +400,7 @@ function AuthView() {
   );
 }
 
-/* ---------------- GLOBAL SEARCH ---------------- */
+/* ---------------- GLOBAL SEARCH (Cat + SubCat Filter Added) ---------------- */
 function GlobalSearchView({ profile }: any) {
   const [items, setItems] = useState<any[]>([]);
   const [contributors, setContributors] = useState<any[]>([]);
@@ -421,6 +423,7 @@ function GlobalSearchView({ profile }: any) {
         .limit(3);
       if (data) setContributors(data);
     };
+
     fetchAll();
     lead();
   }, []);
@@ -437,12 +440,10 @@ function GlobalSearchView({ profile }: any) {
     return g;
   }, [items]);
 
-  // category list
   const categories = useMemo(() => {
     return [...new Set(items.map((i) => i.cat).filter(Boolean))].sort();
   }, [items]);
 
-  // dependent sub-category list
   const subs = useMemo(() => {
     const base =
       selCat === "all" || selCat === "zero"
@@ -451,15 +452,12 @@ function GlobalSearchView({ profile }: any) {
     return [...new Set(base.map((i) => i.sub).filter(Boolean))].sort();
   }, [items, selCat]);
 
-  // reset sub when category changes
   useEffect(() => {
     setSelSub("all");
   }, [selCat]);
 
-  // ✅ FILTER: search + cat + sub
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
-
     return Object.values(grouped).filter((i: any) => {
       const matchesSearch =
         !q ||
@@ -484,9 +482,7 @@ function GlobalSearchView({ profile }: any) {
     <div className="fade-in">
       <div className="flex flex-col lg:flex-row lg:items-center gap-4 mb-6">
         <div>
-          <div className="text-lg font-black text-slate-800">
-            Global Search
-          </div>
+          <div className="text-lg font-black text-slate-800">Global Search</div>
           <div className="text-xs text-slate-500">
             Combined stock across all units/zones
           </div>
@@ -514,7 +510,6 @@ function GlobalSearchView({ profile }: any) {
             <option value="zero">⚠️ Out of Stock</option>
           </select>
 
-          {/* ✅ NEW: Sub-category filter */}
           <select
             value={selSub}
             onChange={(e) => setSelSub(e.target.value)}
@@ -571,7 +566,7 @@ function GlobalSearchView({ profile }: any) {
                 </div>
               </div>
               <div className="mt-2 text-xs font-bold text-slate-700">
-                {(c.item_count ?? 0)} Items
+                {c.item_count ?? 0} Items
               </div>
             </div>
           ))}
@@ -636,7 +631,10 @@ function GlobalSearchView({ profile }: any) {
 
               {filtered.length === 0 && (
                 <tr>
-                  <td className="px-4 py-10 text-center text-slate-500" colSpan={4}>
+                  <td
+                    className="px-4 py-10 text-center text-slate-500"
+                    colSpan={4}
+                  >
                     No matching results.
                   </td>
                 </tr>
@@ -667,30 +665,48 @@ function GlobalSearchView({ profile }: any) {
             </div>
 
             <div className="p-6 space-y-6 max-h-[75vh] overflow-auto">
-              {[...new Set(items.map((i) => i.cat))].sort().map((cat) => (
-                <div key={cat}>
-                  <div className="font-black text-slate-800 mb-2">{cat}</div>
-                  <div className="rounded-xl border border-slate-200 overflow-hidden">
-                    <table className="min-w-full text-sm">
-                      <tbody>
-                        {[...new Set(items.filter((i) => i.cat === cat).map((i) => i.sub))]
-                          .sort()
-                          .map((sub) => (
-                            <tr key={sub} className="border-t border-slate-100">
-                              <td className="px-4 py-2">{sub}</td>
-                              <td className="px-4 py-2 text-right font-bold">
-                                {items
-                                  .filter((i) => i.cat === cat && i.sub === sub)
-                                  .reduce((sum, item) => sum + Number(item.qty), 0)}{" "}
-                                Nos
-                              </td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
+              {[...new Set(items.map((i) => i.cat))]
+                .filter(Boolean)
+                .sort()
+                .map((cat) => (
+                  <div key={cat}>
+                    <div className="font-black text-slate-800 mb-2">{cat}</div>
+                    <div className="rounded-xl border border-slate-200 overflow-hidden">
+                      <table className="min-w-full text-sm">
+                        <tbody>
+                          {[
+                            ...new Set(
+                              items
+                                .filter((i) => i.cat === cat)
+                                .map((i) => i.sub)
+                            ),
+                          ]
+                            .filter(Boolean)
+                            .sort()
+                            .map((sub) => (
+                              <tr
+                                key={sub}
+                                className="border-t border-slate-100"
+                              >
+                                <td className="px-4 py-2">{sub}</td>
+                                <td className="px-4 py-2 text-right font-bold">
+                                  {items
+                                    .filter(
+                                      (i) => i.cat === cat && i.sub === sub
+                                    )
+                                    .reduce(
+                                      (sum, item) => sum + Number(item.qty),
+                                      0
+                                    )}{" "}
+                                  Nos
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
             </div>
           </div>
         </div>
@@ -725,7 +741,7 @@ function GlobalSearchView({ profile }: any) {
                   </tr>
                 </thead>
                 <tbody>
-                  {breakdown.holders.map((h: any, idx: number) => (
+                  {breakdown.holders?.map((h: any, idx: number) => (
                     <tr key={idx} className="border-t border-slate-100">
                       <td className="px-4 py-3">{h.holder_unit}</td>
                       <td className="px-4 py-3">
@@ -757,227 +773,3 @@ function GlobalSearchView({ profile }: any) {
                       </td>
                     </tr>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ---------------- MY STORE ---------------- */
-function MyStoreView({ profile, fetchProfile }: any) {
-  const [myItems, setMyItems] = useState<any[]>([]);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [consumeItem, setConsumeItem] = useState<any>(null);
-  const [editItem, setEditItem] = useState<any>(null);
-  const [search, setSearch] = useState("");
-  const [selCat, setSelCat] = useState("all");
-
-  const [form, setForm] = useState({
-    cat: "",
-    sub: "",
-    make: "",
-    model: "",
-    spec: "",
-    qty: "",
-    isManual: false,
-  });
-
-  useEffect(() => {
-    if (profile) fetch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile]);
-
-  const fetch = async () => {
-    const { data } = await supabase
-      .from("inventory")
-      .select("*")
-      .eq("holder_uid", profile.id)
-      .order("id", { ascending: false });
-    if (data) setMyItems(data);
-  };
-
-  const filtered = myItems.filter(
-    (i) =>
-      (i.item.toLowerCase().includes(search.toLowerCase()) ||
-        i.spec.toLowerCase().includes(search.toLowerCase())) &&
-      (selCat === "all" ? true : i.cat === selCat)
-  );
-
-  const outOfStockCount = myItems.filter((i) => Number(i.qty) === 0).length;
-
-  const categories = [...new Set(masterCatalog.map((i: any) => i.cat))].sort();
-  const subs = [
-    ...new Set(
-      masterCatalog.filter((i: any) => i.cat === form.cat).map((i: any) => i.sub)
-    ),
-  ].sort();
-  const makes = [
-    ...new Set(
-      masterCatalog
-        .filter((i: any) => i.cat === form.cat && i.sub === form.sub)
-        .map((i: any) => i.make)
-    ),
-  ].sort();
-  const models = [
-    ...new Set(
-      masterCatalog
-        .filter(
-          (i: any) => i.cat === form.cat && i.sub === form.sub && i.make === form.make
-        )
-        .map((i: any) => i.model)
-    ),
-  ].sort();
-  const specs = [
-    ...new Set(
-      masterCatalog
-        .filter(
-          (i: any) =>
-            i.cat === form.cat &&
-            i.sub === form.sub &&
-            i.make === form.make &&
-            i.model === form.model
-        )
-        .map((i: any) => i.spec)
-    ),
-  ].sort();
-
-  useEffect(() => {
-    if (form.cat && subs.length === 1 && !form.sub)
-      setForm((f) => ({ ...f, sub: subs[0] }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.cat, subs.length]);
-
-  useEffect(() => {
-    if (form.sub && makes.length === 1 && !form.make)
-      setForm((f) => ({ ...f, make: makes[0] }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.sub, makes.length]);
-
-  useEffect(() => {
-    if (form.make && models.length === 1 && !form.model)
-      setForm((f) => ({ ...f, model: models[0] }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.make, models.length]);
-
-  useEffect(() => {
-    if (form.model && specs.length === 1 && !form.spec)
-      setForm((f) => ({ ...f, spec: specs[0] }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.model, specs.length]);
-
-  const handleSave = async () => {
-    if (!form.spec || !form.qty) return alert("Sari vigato bharo!");
-
-    const itemName = form.isManual
-      ? form.model
-      : `${form.make} ${form.sub} ${form.model}`.trim();
-
-    const { error } = await supabase.from("inventory").insert([
-      {
-        item: itemName,
-        cat: form.cat || "Manual Entry",
-        sub: form.sub || "-",
-        make: form.make || "-",
-        model: form.model || "-",
-        spec: form.spec,
-        qty: parseInt(form.qty),
-        unit: "Nos",
-        holder_unit: profile.unit,
-        holder_uid: profile.id,
-        holder_name: profile.name,
-      },
-    ]);
-
-    if (!error) {
-      alert("Stock Saved!");
-      fetch();
-      setShowAddModal(false);
-      setForm({
-        cat: "",
-        sub: "",
-        make: "",
-        model: "",
-        spec: "",
-        qty: "",
-        isManual: false,
-      });
-
-      await supabase
-        .from("profiles")
-        .update({ item_count: (profile.item_count || 0) + 1 })
-        .eq("id", profile.id);
-
-      fetchProfile?.();
-    } else {
-      alert(error.message);
-    }
-  };
-
-  return (
-    <div className="fade-in">
-      {outOfStockCount > 0 && (
-        <div className="bg-red-50 border border-red-100 rounded-2xl p-4 mb-4">
-          <div className="font-black text-red-700">
-            Action Needed: Restock Required
-          </div>
-          <div className="text-sm text-red-700">
-            {outOfStockCount} items are out of stock in your zone.
-          </div>
-        </div>
-      )}
-
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <div>
-          <div className="text-lg font-black text-slate-800">My Local Store</div>
-          <div className="text-xs text-slate-500">ZONE: {profile?.unit}</div>
-        </div>
-
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="iocl-btn text-white px-6 py-2.5 rounded-xl font-bold shadow-md hover:scale-105 transition flex items-center gap-2 ml-auto"
-        >
-          <i className="fa-solid fa-plus" />
-          Add New Stock
-        </button>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search..."
-          className="w-full md:w-96 px-4 py-2 rounded-lg border border-slate-200 bg-white shadow-sm text-sm"
-        />
-        <select
-          value={selCat}
-          onChange={(e) => setSelCat(e.target.value)}
-          className="px-3 py-2 rounded-lg border border-slate-200 bg-white shadow-sm text-sm"
-        >
-          <option value="all">Category: All</option>
-          {[...new Set(myItems.map((i) => i.cat))].sort().map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-slate-700">
-            <tr>
-              <th className="text-left px-4 py-3">Category</th>
-              <th className="text-left px-4 py-3">Item Name</th>
-              <th className="text-left px-4 py-3">Spec</th>
-              <th className="text-center px-4 py-3">Qty</th>
-              <th className="text-center px-4 py-3">Manage</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((i: any) => (
-              <tr key={i.id} className="border-t border-slate-100">
-                <td className="px-4 py-3">{i.cat}</td>
