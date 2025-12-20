@@ -14,17 +14,11 @@ export default function SpareSetuApp() {
   useEffect(() => {
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) { 
-        setUser(session.user); 
-        fetchProfile(session.user.id);
-      }
+      if (session) { setUser(session.user); fetchProfile(session.user.id); }
       setLoading(false);
     };
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session) { 
-        setUser(session.user); 
-        fetchProfile(session.user.id);
-      }
+      if (session) { setUser(session.user); fetchProfile(session.user.id); }
       else { setUser(null); setProfile(null); }
       setLoading(false);
     });
@@ -32,13 +26,13 @@ export default function SpareSetuApp() {
     return () => authListener.subscription.unsubscribe();
   }, []);
 
-  // REAL-TIME BADGE UPDATE
+  // GLOBAL REAL-TIME LISTENER FOR BADGE
   useEffect(() => {
     if (!profile?.unit) return;
     fetchPendingCount(profile.unit);
 
     const channel = supabase
-      .channel('schema-db-changes')
+      .channel('global-notifications')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => {
         fetchPendingCount(profile.unit);
       })
@@ -113,7 +107,7 @@ export default function SpareSetuApp() {
               </div>
               <div className="flex flex-col items-center"> 
                 <h1 className="font-industrial text-2xl md:text-3xl uppercase tracking-wider leading-none font-bold">Gujarat Refinery</h1>
-                <p className="font-hindi text-blue-400 text-xs font-bold tracking-wide mt-1 text-center">जहाँ प्रगति ही जीवन सार hai</p>
+                <p className="font-hindi text-blue-400 text-xs font-bold tracking-wide mt-1 text-center">जहाँ प्रगति ही जीवन सार है</p>
               </div>
             </div>
             <h2 className="font-industrial text-xl text-orange-500 tracking-[0.1em] font-bold uppercase hidden md:block">SPARE SETU PORTAL</h2>
@@ -360,7 +354,7 @@ function MonthlyAnalysisView({ profile }: any) {
   return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6">{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-widest">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner"><i className="fa-solid fa-chart-line"></i></div><div className="text-3xl font-black text-slate-800">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase">{a.count} Trans</div></div>))}{analysis.length===0 && <div className="p-20 text-center italic text-slate-400 bg-white rounded-xl border w-full col-span-3">No monthly data.</div>}</div>);
 }
 
-// --- UPDATED RETURNS & UDHAARI VIEW (REALTIME + HISTORY) ---
+// --- FINALIZED RETURNS & UDHAARI VIEW (REALTIME + PARTIAL RETURNS + PROFESSIONAL HISTORY) ---
 function ReturnsLedgerView({ profile, onAction }: any) { 
     const [pending, setPending] = useState<any[]>([]);
     const [given, setGiven] = useState<any[]>([]);
@@ -371,11 +365,12 @@ function ReturnsLedgerView({ profile, onAction }: any) {
     const [form, setForm] = useState({ comment: "", qty: "" });
 
     const fetchAll = async () => {
+        // Pending
         const { data: p } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).eq("status", "pending").order("id", { ascending: false });
+        // Ledger Active
         const { data: g } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).in("status", ["approved", "return_requested"]).order("id", { ascending: false });
         const { data: t } = await supabase.from("requests").select("*").eq("from_unit", profile.unit).in("status", ["approved", "return_requested"]).order("id", { ascending: false });
-        
-        // Settle History: Status 'returned' ya 'rejected'
+        // History (Professional View)
         const { data: gh } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).in("status", ["returned", "rejected"]).order("id", { ascending: false });
         const { data: th } = await supabase.from("requests").select("*").eq("from_unit", profile.unit).in("status", ["returned", "rejected"]).order("id", { ascending: false });
 
@@ -383,19 +378,11 @@ function ReturnsLedgerView({ profile, onAction }: any) {
         if (gh) setGivenHistory(gh); if (th) setTakenHistory(th);
     };
 
-    // REAL-TIME SUBSCRIPTION
+    // REAL-TIME LISTENER FOR AUTOMATIC UPDATES
     useEffect(() => {
         if (!profile) return;
         fetchAll();
-
-        const channel = supabase
-            .channel('requests-ledger-realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => {
-                fetchAll();
-                onAction();
-            })
-            .subscribe();
-
+        const channel = supabase.channel('requests-realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAll(); onAction(); }).subscribe();
         return () => { supabase.removeChannel(channel); };
     }, [profile]);
 
@@ -403,96 +390,101 @@ function ReturnsLedgerView({ profile, onAction }: any) {
 
     const handleProcess = async () => {
         const { type, data } = actionModal;
-        if ((type === 'reject' || type === 'reject_return') && !form.comment.trim()) { alert("Mandatory: Rejection comment is required!"); return; }
+        if ((type === 'reject' || type === 'reject_return') && !form.comment.trim()) { alert("Comment required for rejection!"); return; }
 
         let updateData: any = {};
         if (type === 'approve') updateData = { status: 'approved', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name };
         else if (type === 'reject') updateData = { status: 'rejected', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name };
         else if (type === 'return') updateData = { status: 'return_requested', return_comment: form.comment, req_qty: Number(form.qty || data.req_qty), from_uid: profile.id, from_name: profile.name };
-        else if (type === 'verify') updateData = { status: 'returned', approve_comment: `Verified By ${profile.name}: ${form.comment}`, to_uid: profile.id, to_name: profile.name };
-        else if (type === 'reject_return') updateData = { status: 'approved', approve_comment: `Return Rejected By ${profile.name}: ${form.comment}`, to_uid: profile.id, to_name: profile.name };
+        else if (type === 'verify') {
+            const returningQty = Number(form.qty || data.req_qty);
+            if (returningQty < data.req_qty) {
+                // PARTIAL RETURN: Update current to 'approved' with remaining qty + Create new 'returned' entry
+                await supabase.from("requests").update({ req_qty: data.req_qty - returningQty, status: 'approved' }).eq("id", data.id);
+                await supabase.from("requests").insert([{ ...data, id: undefined, req_qty: returningQty, status: 'returned', approve_comment: `Verified: ${form.comment}`, to_uid: profile.id, to_name: profile.name }]);
+            } else {
+                // FULL RETURN
+                await supabase.from("requests").update({ status: 'returned', approve_comment: `Verified: ${form.comment}`, to_uid: profile.id, to_name: profile.name }).eq("id", data.id);
+            }
+            // Update Inventory (Lender gets stock back)
+            const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
+            if (inv) await supabase.from("inventory").update({ qty: inv.qty + returningQty }).eq("id", data.item_id);
+            alert("Return Verified!"); setActionModal(null); return;
+        }
+        else if (type === 'reject_return') updateData = { status: 'approved', approve_comment: `Return Rejected: ${form.comment}`, to_uid: profile.id, to_name: profile.name };
 
         const { error } = await supabase.from("requests").update(updateData).eq("id", data.id);
-        if (!error) {
-            if (type === 'approve') {
-                const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
-                if (inv) await supabase.from("inventory").update({ qty: inv.qty - data.req_qty }).eq("id", data.item_id);
-            } else if (type === 'verify') {
-                const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
-                if (inv) await supabase.from("inventory").update({ qty: inv.qty + data.req_qty }).eq("id", data.item_id);
-            }
+        if (!error && type === 'approve') {
+            const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
+            if (inv) await supabase.from("inventory").update({ qty: inv.qty - data.req_qty }).eq("id", data.item_id);
         }
         setActionModal(null); setForm({comment:"", qty:""});
     };
 
     return (
         <div className="space-y-10 animate-fade-in pb-20">
-            <h2 className="text-2xl font-bold text-slate-800 font-industrial uppercase tracking-tight">Returns & Udhaari (Live Ledger)</h2>
+            <h2 className="text-2xl font-bold text-slate-800 font-industrial uppercase tracking-tight flex items-center gap-2"><i className="fa-solid fa-handshake-angle text-orange-500"></i> Live Udhaari Ledger</h2>
 
-            <section className="bg-white rounded-xl border border-orange-200 overflow-hidden shadow-sm">
-                <div className="p-4 bg-orange-50/50 flex justify-between items-center border-b border-orange-100">
-                    <div className="flex items-center gap-2 text-orange-800 font-bold"><i className="fa-solid fa-bell"></i><span>New Material Requests</span></div>
-                    <span className="bg-white px-3 py-1 rounded text-orange-600 font-black text-sm border border-orange-200">{pending.length}</span>
+            {/* PENDING ACTIONS (Zone Wide) */}
+            <section className="bg-white rounded-xl border-t-4 border-orange-500 shadow-xl overflow-hidden">
+                <div className="p-4 bg-orange-50/50 flex justify-between items-center border-b">
+                    <div className="flex items-center gap-2 text-orange-900 font-black uppercase text-xs tracking-widest"><i className="fa-solid fa-bolt animate-pulse"></i> Attention Required</div>
+                    <span className="bg-orange-600 text-white px-3 py-1 rounded-full font-black text-xs">{pending.length}</span>
                 </div>
-                <div className="overflow-x-auto"><table className="w-full text-left"><thead className="bg-slate-50 text-slate-400 text-[10px] font-bold border-b uppercase"><tr><th className="p-4 pl-6">Material Details</th><th className="p-4">Requester</th><th className="p-4 text-center">Qty</th><th className="p-4 text-center">Action</th></tr></thead>
+                <div className="overflow-x-auto"><table className="w-full text-left"><thead className="bg-slate-50 text-slate-400 text-[10px] font-bold border-b uppercase"><tr><th className="p-4 pl-6">Material Detail</th><th className="p-4">Requester</th><th className="p-4 text-center">Qty</th><th className="p-4 text-center">Action</th></tr></thead>
                     <tbody className="divide-y text-sm">
                         {pending.map(r => (
-                            <tr key={r.id} className="hover:bg-orange-50/30 transition border-b border-slate-50">
-                                <td className="p-4 pl-6 font-bold text-slate-800">{r.item_name}<div className="text-[10px] text-slate-400 font-normal">{r.item_spec}</div><div className="text-[9px] text-slate-400 font-medium italic mt-1">{formatTS(r.timestamp)}</div></td>
+                            <tr key={r.id} className="hover:bg-orange-50/20 transition">
+                                <td className="p-4 pl-6 font-bold text-slate-800">{r.item_name}<div className="text-[10px] text-slate-400 font-normal">{r.item_spec}</div><div className="text-[9px] text-slate-300 font-medium italic mt-1">{formatTS(r.timestamp)}</div></td>
                                 <td className="p-4 font-bold text-slate-700">{r.from_name}<div className="text-[10px] text-slate-400 font-normal">{r.from_unit}</div></td>
-                                <td className="p-4 text-center font-black text-orange-600">{r.req_qty} {r.item_unit || 'Nos'}</td>
-                                <td className="p-4 flex gap-2 justify-center"><button onClick={()=>setActionModal({type:'approve', data:r})} className="bg-green-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:scale-105 transition">Approve</button><button onClick={()=>setActionModal({type:'reject', data:r})} className="bg-slate-100 text-slate-500 px-4 py-1.5 rounded-lg text-xs font-bold transition">Reject</button></td>
+                                <td className="p-4 text-center font-black text-orange-600 text-lg">{r.req_qty} {r.item_unit}</td>
+                                <td className="p-4 flex gap-2 justify-center"><button onClick={()=>setActionModal({type:'approve', data:r})} className="bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-black shadow-md">ISSUE</button><button onClick={()=>setActionModal({type:'reject', data:r})} className="bg-slate-100 text-slate-500 px-4 py-2 rounded-lg text-xs font-bold transition">REJECT</button></td>
                             </tr>
                         ))}
+                        {pending.length === 0 && <tr><td colSpan={4} className="p-10 text-center italic text-slate-400">No pending requests in your zone.</td></tr>}
                     </tbody>
                 </table></div>
             </section>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* UDHAARI DIYA */}
-                <section className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-md">
-                    <div className="p-5 border-b bg-slate-50 flex items-center gap-3"><i className="fa-solid fa-arrow-up text-blue-600"></i><h2 className="text-blue-800 font-bold uppercase tracking-tight">Udhaari Diya (Items Given)</h2></div>
-                    <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
+                {/* ACTIVE GIVEN */}
+                <section className="bg-white rounded-2xl border-t-4 border-blue-600 shadow-lg overflow-hidden">
+                    <div className="p-5 border-b bg-blue-50/30 flex items-center gap-3"><i className="fa-solid fa-arrow-up-from-bracket text-blue-600"></i><h3 className="text-blue-900 font-black uppercase text-xs tracking-widest">Active Udhaari (Given)</h3></div>
+                    <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
                         {given.map(r => (
-                            <div key={r.id} className={`p-4 border rounded-xl relative ${r.status === 'return_requested' ? 'bg-orange-50 border-orange-200 animate-pulse shadow-lg' : 'bg-blue-50/30 border-blue-100'}`}>
-                                <div className="text-xs font-black text-blue-700 uppercase mb-1">{r.item_name}</div>
-                                <div className="text-[10px] text-slate-500 mb-3">{r.item_spec}</div>
-                                <div className="flex justify-between items-end mb-3">
+                            <div key={r.id} className={`p-4 border-2 rounded-2xl relative transition-all ${r.status === 'return_requested' ? 'border-orange-500 bg-orange-50 animate-pulse shadow-orange-100 shadow-lg' : 'border-slate-100 bg-white'}`}>
+                                <div className="text-xs font-black text-slate-800 uppercase mb-1">{r.item_name}</div>
+                                <div className="text-[10px] text-slate-400 mb-3">{r.item_spec}</div>
+                                <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg mb-3">
                                     <div><p className="text-[9px] font-bold text-slate-400 uppercase">To Engineer</p><p className="text-xs font-black text-slate-700">{r.from_name} ({r.from_unit})</p></div>
-                                    <div className="text-right"><p className="text-[9px] font-bold text-slate-400 uppercase">Qty & Date</p><p className="text-xs font-black text-slate-700">{r.req_qty} {r.item_unit || 'Nos'} • {formatTS(r.timestamp)}</p></div>
+                                    <div className="text-right font-black text-blue-600">{r.req_qty} {r.item_unit}</div>
                                 </div>
                                 {r.status === 'return_requested' ? (
-                                    <div className="pt-3 border-t border-orange-200 space-y-2">
-                                        <p className="text-[10px] font-bold text-orange-600 uppercase tracking-tighter">Return Note: "{r.return_comment}"</p>
-                                        <div className="flex gap-2"><button onClick={()=>setActionModal({type:'verify', data:r})} className="flex-1 py-2 bg-orange-500 text-white text-[10px] font-black rounded-lg uppercase shadow-sm">Verify Return</button><button onClick={()=>setActionModal({type:'reject_return', data:r})} className="flex-1 py-2 bg-slate-200 text-slate-600 text-[10px] font-black rounded-lg uppercase">Reject</button></div>
-                                    </div>
+                                    <div className="space-y-2 border-t pt-3"><p className="text-[10px] font-bold text-orange-600 tracking-tight uppercase">Return Recv Note: "{r.return_comment}"</p>
+                                    <div className="flex gap-2"><button onClick={()=>setActionModal({type:'verify', data:r})} className="flex-1 py-2 bg-orange-500 text-white text-[10px] font-black rounded-xl shadow-lg">VERIFY RECEIPT</button><button onClick={()=>setActionModal({type:'reject_return', data:r})} className="px-4 py-2 bg-slate-200 text-slate-500 text-[10px] font-bold rounded-xl">REJECT</button></div></div>
                                 ) : (
-                                    <div className="mt-3 pt-3 border-t border-blue-100 text-[9px] text-slate-500 italic"><span className="font-bold text-blue-600 uppercase">Lender:</span> {r.to_name} | <span className="font-bold">Note:</span> "{r.approve_comment || 'N/A'}"</div>
+                                    <div className="text-[9px] text-slate-400 italic flex justify-between border-t pt-2"><span>Issued By: {r.to_name}</span><span>{formatTS(r.timestamp)}</span></div>
                                 )}
                             </div>
                         ))}
                     </div>
                 </section>
 
-                {/* UDHAARI LIYA */}
-                <section className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-md">
-                    <div className="p-5 border-b bg-slate-50 flex items-center gap-3"><i className="fa-solid fa-arrow-down text-red-600"></i><h2 className="text-red-800 font-bold uppercase tracking-tight">Udhaari Liya (Items Taken)</h2></div>
-                    <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto">
+                {/* ACTIVE TAKEN */}
+                <section className="bg-white rounded-2xl border-t-4 border-red-600 shadow-lg overflow-hidden">
+                    <div className="p-5 border-b bg-red-50/30 flex items-center gap-3"><i className="fa-solid fa-arrow-down-long text-red-600"></i><h3 className="text-red-900 font-black uppercase text-xs tracking-widest">Active Udhaari (Taken)</h3></div>
+                    <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
                         {taken.map(r => (
-                            <div key={r.id} className={`p-4 border rounded-xl relative ${r.status === 'return_requested' ? 'bg-slate-50 border-slate-200 opacity-60' : 'bg-red-50/30 border-red-100'}`}>
-                                <div className="text-xs font-black text-red-700 uppercase mb-1">{r.item_name}</div>
-                                <div className="text-[10px] text-slate-500 mb-3">{r.item_spec}</div>
-                                <div className="flex justify-between items-end mb-3">
+                            <div key={r.id} className={`p-4 border-2 rounded-2xl relative ${r.status === 'return_requested' ? 'border-dashed border-slate-300 opacity-60' : 'border-slate-100 bg-white'}`}>
+                                <div className="text-xs font-black text-slate-800 uppercase mb-1">{r.item_name}</div>
+                                <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg mb-3">
                                     <div><p className="text-[9px] font-bold text-slate-400 uppercase">From Zone</p><p className="text-xs font-black text-slate-700">{r.to_unit} (Engr: {r.to_name})</p></div>
-                                    <div className="text-right"><p className="text-[9px] font-bold text-slate-400 uppercase">Qty & Date</p><p className="text-xs font-black text-slate-700">{r.req_qty} {r.item_unit || 'Nos'} • {formatTS(r.timestamp)}</p></div>
-                                </div>
-                                <div className="mt-2 mb-3 pt-2 border-t border-red-100/50 space-y-1">
-                                    <p className="text-[9px] text-slate-500 italic"><span className="font-bold">Requester:</span> {r.from_name} | <span className="font-bold uppercase text-blue-600/70">Lender Note:</span> "{r.approve_comment || 'No note'}"</p>
+                                    <div className="text-right font-black text-red-600">{r.req_qty} {r.item_unit}</div>
                                 </div>
                                 {r.status === 'return_requested' ? (
-                                    <div className="pt-3 border-t border-slate-200 text-center text-[10px] font-black uppercase text-slate-500">Waiting for {r.to_unit} to verify...</div>
+                                    <div className="text-center py-2 bg-slate-100 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-500">Wait for {r.to_unit} verification</div>
                                 ) : (
-                                    <button onClick={()=>setActionModal({type:'return', data:r})} className="w-full py-2 bg-slate-800 text-white text-[10px] font-black rounded-lg uppercase tracking-widest shadow-md">Initiate Return</button>
+                                    <button onClick={()=>setActionModal({type:'return', data:r})} className="w-full py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl uppercase tracking-tighter shadow-md">INITIATE RETURN</button>
                                 )}
                             </div>
                         ))}
@@ -500,50 +492,75 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 </section>
             </div>
 
-            {/* HISTORY SECTION */}
-            <div className="pt-10 border-t-4 border-slate-200">
-                <h3 className="text-xl font-bold text-slate-400 font-industrial uppercase mb-6 flex items-center gap-3"><i className="fa-solid fa-clock-rotate-left"></i> Settled History (Full Record)</h3>
+            {/* SETTLED HISTORY - PROFESSIONAL LAYOUT */}
+            <div className="pt-10 space-y-6">
+                <div className="flex items-center gap-4"><hr className="flex-1"/><h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.3em]"><i className="fa-solid fa-clock-rotate-left"></i> Settled Transaction History</h3><hr className="flex-1"/></div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Material Given History */}
-                    <div className="space-y-4">
-                        <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest bg-slate-100 p-2 rounded px-4">Material Given (Archive)</h4>
-                        {givenHistory.map(h => (
-                            <div key={h.id} className="p-4 border rounded-xl bg-white border-slate-100 opacity-70 hover:opacity-100 transition shadow-sm">
-                                <div className="text-xs font-bold text-slate-600">{h.item_name}</div>
-                                <p className="text-[10px] text-slate-400 mt-1">{h.req_qty} {h.item_unit} given to {h.from_name} ({h.from_unit})</p>
-                                <p className="text-[9px] text-slate-300 mt-2 italic">Settled on: {formatTS(h.timestamp)} | Status: <span className="uppercase text-green-600">{h.status}</span></p>
-                            </div>
-                        ))}
-                        {givenHistory.length === 0 && <p className="text-center py-6 text-slate-400 italic text-xs">No settled history.</p>}
+                    {/* Given History */}
+                    <div className="bg-white rounded-xl border border-slate-100 overflow-hidden shadow-sm">
+                        <div className="bg-slate-50 p-3 px-5 text-[10px] font-black text-slate-500 uppercase tracking-widest flex justify-between"><span>Archive: Given Out</span><i className="fa-solid fa-check-double text-green-500"></i></div>
+                        <div className="p-2 divide-y divide-slate-50">
+                            {givenHistory.map(h => (
+                                <div key={h.id} className="p-4 flex gap-4 items-start hover:bg-slate-50/50 transition">
+                                    <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-black ${h.status==='returned' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>{h.status==='returned' ? 'RTN' : 'REJ'}</div>
+                                    <div className="flex-1">
+                                        <div className="flex justify-between items-start"><span className="text-[11px] font-bold text-slate-700 leading-tight">{h.item_name}</span><span className="text-[10px] font-black text-slate-500 whitespace-nowrap">{h.req_qty} {h.item_unit}</span></div>
+                                        <p className="text-[9px] text-slate-400 mt-1 uppercase font-bold tracking-tighter">TO: {h.from_name} ({h.from_unit}) | DATE: {formatTS(h.timestamp)}</p>
+                                        <p className="text-[9px] text-slate-400 mt-2 bg-slate-50 p-1.5 rounded italic">"{h.approve_comment || 'No note available'}"</p>
+                                    </div>
+                                </div>
+                            ))}
+                            {givenHistory.length === 0 && <p className="text-center py-10 text-slate-300 italic text-xs">No given archive found.</p>}
+                        </div>
                     </div>
 
-                    {/* Material Taken History */}
-                    <div className="space-y-4">
-                        <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest bg-slate-100 p-2 rounded px-4">Material Taken (Archive)</h4>
-                        {takenHistory.map(h => (
-                            <div key={h.id} className="p-4 border rounded-xl bg-white border-slate-100 opacity-70 hover:opacity-100 transition shadow-sm">
-                                <div className="text-xs font-bold text-slate-600">{h.item_name}</div>
-                                <p className="text-[10px] text-slate-400 mt-1">{h.req_qty} {h.item_unit} taken from {h.to_unit} (Engr: {h.to_name})</p>
-                                <p className="text-[9px] text-slate-300 mt-2 italic">Settled on: {formatTS(h.timestamp)} | Status: <span className="uppercase text-green-600">{h.status}</span></p>
-                            </div>
-                        ))}
-                        {takenHistory.length === 0 && <p className="text-center py-6 text-slate-400 italic text-xs">No settled history.</p>}
+                    {/* Taken History */}
+                    <div className="bg-white rounded-xl border border-slate-100 overflow-hidden shadow-sm">
+                        <div className="bg-slate-50 p-3 px-5 text-[10px] font-black text-slate-500 uppercase tracking-widest flex justify-between"><span>Archive: Taken In</span><i className="fa-solid fa-box-archive text-blue-500"></i></div>
+                        <div className="p-2 divide-y divide-slate-50">
+                            {takenHistory.map(h => (
+                                <div key={h.id} className="p-4 flex gap-4 items-start hover:bg-slate-50/50 transition">
+                                    <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-black ${h.status==='returned' ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'}`}>{h.status==='returned' ? 'RTN' : 'REJ'}</div>
+                                    <div className="flex-1">
+                                        <div className="flex justify-between items-start"><span className="text-[11px] font-bold text-slate-700 leading-tight">{h.item_name}</span><span className="text-[10px] font-black text-slate-500 whitespace-nowrap">{h.req_qty} {h.item_unit}</span></div>
+                                        <p className="text-[9px] text-slate-400 mt-1 uppercase font-bold tracking-tighter">FROM: {h.to_unit} (Engr: {h.to_name}) | DATE: {formatTS(h.timestamp)}</p>
+                                        <p className="text-[9px] text-slate-400 mt-2 bg-slate-50 p-1.5 rounded italic">"{h.approve_comment || 'No note available'}"</p>
+                                    </div>
+                                </div>
+                            ))}
+                            {takenHistory.length === 0 && <p className="text-center py-10 text-slate-300 italic text-xs">No taken archive found.</p>}
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* ACTION MODAL */}
+            {/* UNIVERSAL ACTION MODAL (APPROVE / REJECT / RETURN / VERIFY) */}
             {actionModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-                    <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 animate-scale-in">
-                        <h3 className="text-lg font-bold text-slate-800 uppercase mb-4 border-b pb-2">{actionModal.type.replace('_', ' ')} Action</h3>
-                        <div className="text-xs font-bold text-indigo-600 mb-4 leading-tight">{actionModal.data.item_name} ({actionModal.data.item_spec})</div>
-                        <div className="space-y-4">
-                            {actionModal.type === 'return' && (
-                                <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Return Quantity</label><input type="number" defaultValue={actionModal.data.req_qty} className="w-full p-3 border-2 rounded-xl text-center text-2xl font-black outline-none focus:border-indigo-500" onChange={e=>setForm({...form, qty: e.target.value})} /></div>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+                    <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 animate-scale-in border-t-8 border-slate-900">
+                        <div className="flex justify-between items-center mb-6 border-b pb-2"><h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">{actionModal.type.replace('_', ' ')} Materials</h3><button onClick={()=>setActionModal(null)} className="text-slate-400">✕</button></div>
+                        <div className="text-xs font-black text-indigo-600 mb-2 leading-tight uppercase">{actionModal.data.item_name}</div>
+                        <div className="text-[10px] text-slate-400 mb-6">{actionModal.data.item_spec}</div>
+                        
+                        <div className="space-y-5">
+                            {(actionModal.type === 'return' || actionModal.type === 'verify') && (
+                                <div className="bg-slate-50 p-4 rounded-xl">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-tighter block mb-2 text-center">Confirm Quantity</label>
+                                    <input type="number" defaultValue={actionModal.data.req_qty} className="w-full bg-white p-3 border-2 rounded-xl text-center text-3xl font-black outline-none focus:border-indigo-500" onChange={e=>setForm({...form, qty: e.target.value})} />
+                                    <p className="text-[9px] text-center text-slate-400 mt-2">Available to return: {actionModal.data.req_qty} {actionModal.data.item_unit}</p>
+                                </div>
                             )}
-                            <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">{(actionModal.type === 'reject' || actionModal.type === 'reject_return') ? 'Mandatory Rejection Comment' : 'Note / Comment'}</label><textarea className="w-full p-3 border-2 rounded-xl text-sm h-24 outline-none focus:border-slate-400 mt-1" placeholder="Type details here..." onChange={e=>setForm({...form, comment: e.target.value})}></textarea></div>
-                            <div className="flex gap-2"><button onClick={()=>{setActionModal(null); setForm({comment:"", qty:""});}} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl uppercase text-xs">Cancel</button><button onClick={handleProcess} className={`flex-1 py-3 font-bold rounded-xl uppercase text-xs shadow-lg text-white ${actionModal.type.includes('reject') ? 'bg-red-500' : 'bg-green-600'}`}>{actionModal.type === 'return' ? 'Send for Verification' : 'Confirm Action'}</button></div>
+                            <div>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">{(actionModal.type.includes('reject')) ? 'Mandatory Reason' : 'Note / Remarks'}</label>
+                                <textarea className="w-full p-3 border-2 rounded-xl text-sm h-24 outline-none focus:border-slate-800 mt-1" placeholder="Type here..." onChange={e=>setForm({...form, comment: e.target.value})}></textarea>
+                            </div>
+                            
+                            <div className="flex flex-col gap-2">
+                                <button onClick={handleProcess} className={`w-full py-4 font-black rounded-xl uppercase text-xs shadow-lg text-white ${actionModal.type.includes('reject') ? 'bg-red-600' : 'bg-slate-900'}`}>
+                                    {actionModal.type === 'return' ? 'SEND RETURN REQUEST' : 'CONFIRM ACTION'}
+                                </button>
+                                <button onClick={()=>setActionModal(null)} className="w-full py-2 text-slate-400 text-[10px] font-bold uppercase">Cancel</button>
+                            </div>
                         </div>
                     </div>
                 </div>
