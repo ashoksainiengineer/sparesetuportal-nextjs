@@ -163,7 +163,7 @@ function AuthView() {
               </div>
             </div>
             <h1 className="text-2xl font-bold text-white uppercase tracking-wider leading-tight">Gujarat Refinery</h1>
-            <p className="font-hindi text-blue-400 text-sm font-bold mt-1 tracking-wide">जहाँ प्रगति ही जीवन सार है</p>
+            <p className="font-hindi text-blue-400 text-sm font-bold mt-1 tracking-wide">जहाँ प्रगति ही जीवन सार hai</p>
             <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-4">Spare Setu Portal</p>
         </div>
         <div className="space-y-4">
@@ -198,12 +198,13 @@ function AuthView() {
   );
 }
 
-// --- GLOBAL SEARCH VIEW (UPDATED WITH ZONE FILTER & AUTO-COMPLETE) ---
+// --- GLOBAL SEARCH VIEW (UPDATED WITH SUB-CAT FILTER) ---
 function GlobalSearchView({ profile }: any) {
   const [items, setItems] = useState<any[]>([]);
   const [contributors, setContributors] = useState<any[]>([]);
   const [search, setSearch] = useState(""); 
   const [selCat, setSelCat] = useState("all");
+  const [selSubCat, setSelSubCat] = useState("all"); // NAYA STATE FOR SUB-CAT
   const [selZone, setSelZone] = useState("all"); 
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -235,9 +236,17 @@ function GlobalSearchView({ profile }: any) {
     if (!error) { alert("Request Sent Successfully!"); setRequestItem(null); setReqForm({ qty: "", comment: "" }); } else alert(error.message);
   };
 
+  // Logic to get relevant Sub-Categories based on selected Category
+  const availableSubCats = [...new Set(items
+    .filter(i => selCat === "all" ? true : i.cat === selCat)
+    .map(i => i.sub))]
+    .filter(Boolean)
+    .sort();
+
   const filtered = items.filter((i: any) => 
     (i.item.toLowerCase().includes(search.toLowerCase()) || i.spec.toLowerCase().includes(search.toLowerCase())) && 
     (selCat === "all" ? true : i.cat === selCat) &&
+    (selSubCat === "all" ? true : i.sub === selSubCat) && // FILTER BY SUB-CAT
     (selZone === "all" ? true : i.holder_unit === selZone)
   );
 
@@ -265,23 +274,34 @@ function GlobalSearchView({ profile }: any) {
                   </div>
                 )}
              </div>
+
              <select className="border rounded-md text-xs font-bold p-2 bg-white uppercase font-roboto text-slate-600" onChange={e => setSelZone(e.target.value)}>
                 <option value="all">Zone: All Locations</option>
                 {zones.map(z => <option key={z} value={z}>{z}</option>)}
              </select>
-             <select className="border rounded-md text-xs font-bold p-2 bg-white uppercase font-roboto text-slate-600" onChange={e=>setSelCat(e.target.value)}>
+
+             <select className="border rounded-md text-xs font-bold p-2 bg-white uppercase font-roboto text-slate-600" onChange={e=> { setSelCat(e.target.value); setSelSubCat("all"); }}>
                 <option value="all">Category: All</option>
                 {[...new Set(items.map(i => i.cat))].sort().map(c => <option key={c} value={c}>{c}</option>)}
              </select>
+
+             {/* NAYA DROPDOWN: SUB-CATEGORY FILTER */}
+             <select className="border rounded-md text-xs font-bold p-2 bg-white uppercase font-roboto text-slate-600" onChange={e => setSelSubCat(e.target.value)} value={selSubCat}>
+                <option value="all">Sub-Cat: All</option>
+                {availableSubCats.map(sc => <option key={sc} value={sc}>{sc}</option>)}
+             </select>
         </div>
+
         <div className="overflow-x-auto"><table className="w-full text-left tracking-tight font-roboto font-bold uppercase"><thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold border-b tracking-widest"><tr><th className="p-4 pl-6 font-bold">Item Detail</th><th className="p-4 font-bold">Spec</th><th className="p-4 text-center font-bold">Qty</th><th className="p-4 text-center font-bold">Action</th></tr></thead>
           <tbody className="divide-y text-sm">
             {filtered.map((i: any, idx: number) => (
               <tr key={idx} className={`hover:bg-slate-50 transition border-b border-slate-50 ${i.qty === 0 ? 'bg-red-50/20' : ''}`}>
                 <td className="p-4 pl-6 leading-tight">
                   <div className="text-slate-800 font-bold text-[14px] tracking-tight uppercase font-roboto">{i.item}</div>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
                     <span className="text-[9.5px] text-slate-400 font-bold uppercase tracking-wider">{i.cat}</span>
+                    <i className="fa-solid fa-chevron-right text-[7px] text-slate-300"></i>
+                    <span className="text-[9.5px] text-slate-500 font-bold uppercase tracking-wider">{i.sub}</span>
                     <span className="text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-black border border-blue-100">{i.holder_unit}</span>
                   </div>
                 </td>
@@ -325,7 +345,7 @@ function GlobalSearchView({ profile }: any) {
   );
 }
 
-// --- MY STORE VIEW ---
+// --- MY STORE VIEW (UNTOUCHED LOGIC) ---
 function MyStoreView({ profile, fetchProfile }: any) {
   const [myItems, setMyItems] = useState<any[]>([]); 
   const [showAddModal, setShowAddModal] = useState(false);
