@@ -35,7 +35,7 @@ export default function SpareSetuApp() {
         setPendingCount((incoming || 0) + (updates || 0));
     };
     fetchAllCounts();
-    const channel = supabase.channel('audit-sync-secure').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAllCounts(); }).subscribe();
+    const channel = supabase.channel('audit-sync-vfinal-secure-3').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAllCounts(); }).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [profile]);
 
@@ -101,9 +101,9 @@ export default function SpareSetuApp() {
                 <div className="iocl-english-text" style={{ color: 'white' }}>IndianOil</div>
                 <div className="font-script text-orange-400 text-[10px] mt-1 whitespace-nowrap">The Energy of India</div>
               </div>
-              <div className="flex flex-col items-center"> 
+              <div className="flex flex-col items-center text-center"> 
                 <h1 className="font-industrial text-2xl md:text-3xl uppercase tracking-wider leading-none font-bold">Gujarat Refinery</h1>
-                <p className="font-hindi text-blue-400 text-xs font-bold tracking-wide mt-1 text-center">जहाँ प्रगति ही जीवन सार hai</p>
+                <p className="font-hindi text-blue-400 text-xs font-bold tracking-wide mt-1 text-center">जहाँ प्रगति ही जीवन सार है</p>
               </div>
             </div>
             <h2 className="font-industrial text-xl text-orange-500 tracking-[0.1em] font-bold uppercase hidden md:block">SPARE SETU PORTAL</h2>
@@ -122,7 +122,7 @@ export default function SpareSetuApp() {
   );
 }
 
-// --- AUTH VIEW (100% ORIGINAL DESIGN RESTORED) ---
+// --- AUTH VIEW (100% ORIGINAL minute details restored) ---
 function AuthView() {
   const [view, setView] = useState<"login" | "register" | "otp" | "forgot">("login");
   const [form, setForm] = useState({ email: "", pass: "", name: "", unit: "", enteredOtp: "", generatedOtp: "" });
@@ -233,18 +233,18 @@ function GlobalSearchView({ profile }: any) {
   const filtered = Object.values(grouped).filter((i: any) => (i.item.toLowerCase().includes(search.toLowerCase()) || i.spec.toLowerCase().includes(search.toLowerCase())) && (selCat === "all" ? true : (selCat === "zero" ? i.totalQty === 0 : i.cat === selCat)));
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in font-inter">
       <section className="bg-white p-4 rounded-xl border flex flex-wrap items-center gap-4 shadow-sm">
         <h2 className="text-sm font-bold uppercase text-slate-700 font-industrial"><i className="fa-solid fa-trophy text-yellow-500"></i> Top Contributors</h2>
         <div className="flex gap-3 overflow-x-auto flex-1 pb-1">{contributors.map((c, idx) => (<div key={idx} className="bg-slate-50 p-2 rounded-lg border flex items-center gap-3 min-w-[180px] shadow-sm"><div className="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs border-2 border-orange-400">{c.name.charAt(0)}</div><div><p className="text-xs font-bold text-slate-800 truncate">{c.name}</p><p className="text-[9px] text-slate-400">{c.unit}</p><p className="text-[9px] font-bold text-green-600">{c.item_count || 0} Items</p></div></div>))}</div>
       </section>
       <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-4 border-b bg-slate-50/80 flex flex-wrap items-center gap-2 font-industrial">
-             <div className="relative flex-grow md:w-80 font-inter"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Global Inventory Search..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none focus:ring-1 focus:ring-orange-500 shadow-inner" onChange={e=>setSearch(e.target.value)} /></div>
-             <select className="border rounded-md text-xs font-bold p-2 bg-white uppercase" onChange={e=>setSelCat(e.target.value)}><option value="all">All Categories</option>{[...new Set(items.map(i => i.cat))].sort().map(c => <option key={c} value={c}>{c}</option>)}</select>
+        <div className="p-4 border-b bg-slate-50/80 flex flex-wrap items-center gap-2">
+             <div className="relative flex-grow md:w-80"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Global Inventory Search..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none focus:ring-1 focus:ring-orange-500 shadow-inner" onChange={e=>setSearch(e.target.value)} /></div>
+             <select className="border rounded-md text-xs font-bold p-2 bg-white" onChange={e=>setSelCat(e.target.value)}><option value="all">Category: All</option>{[...new Set(items.map(i => i.cat))].sort().map(c => <option key={c} value={c}>{c}</option>)}<option value="zero" className="text-red-600 font-bold">⚠️ Out of Stock</option></select>
              <button onClick={()=>setShowSummary(true)} className="bg-indigo-600 text-white px-3 py-2 rounded-md text-xs font-bold ml-auto flex items-center gap-2 shadow-sm font-industrial uppercase"><i className="fa-solid fa-chart-pie"></i> Stock Summary</button>
         </div>
-        <div className="overflow-x-auto"><table className="w-full text-left font-industrial tracking-tight"><thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold border-b tracking-wider"><tr><th className="p-4 pl-6">Item Details</th><th className="p-4">Spec</th><th className="p-4 text-center">Total Stock</th><th className="p-4 text-center">Action</th></tr></thead>
+        <div className="overflow-x-auto"><table className="w-full text-left font-industrial tracking-tight"><thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold border-b"><tr><th className="p-4 pl-6">Item Details</th><th className="p-4">Spec</th><th className="p-4 text-center">Total Stock</th><th className="p-4 text-center">Action</th></tr></thead>
           <tbody className="divide-y text-sm">
             {filtered.map((i: any, idx: number) => (
               <tr key={idx} className={`hover:bg-slate-50 transition border-b border-slate-50 ${i.totalQty === 0 ? 'bg-red-50/20' : ''}`}>
@@ -264,8 +264,8 @@ function GlobalSearchView({ profile }: any) {
                 <div className="text-[11px] font-black text-indigo-600 mb-1 leading-tight uppercase truncate">{requestItem.item}</div>
                 <div className="text-[9px] text-slate-500 mb-5 bg-slate-50 p-2 rounded">From: {requestItem.holder_unit} ({requestItem.holder_name})</div>
                 <div className="space-y-4">
-                    <div><label className="text-[9px] font-black text-slate-400 uppercase ml-1 font-industrial">Req Qty ({requestItem.unit})</label><input type="number" placeholder="0" className="w-full p-2 border-2 rounded-lg text-center text-lg font-black outline-none focus:border-orange-500" value={reqForm.qty} onChange={e=>setReqForm({...reqForm, qty: e.target.value})} /></div>
-                    <div><label className="text-[9px] font-black text-slate-400 uppercase ml-1 font-industrial">Note</label><textarea className="w-full p-2 border-2 rounded-lg text-xs h-16 outline-none focus:border-orange-500 font-mono leading-tight" placeholder="Reason..." onChange={e=>setReqForm({...reqForm, comment: e.target.value})}></textarea></div>
+                    <div><label className="text-[9px] font-black text-slate-400 uppercase ml-1 font-industrial font-bold">Req Qty ({requestItem.unit})</label><input type="number" placeholder="0" className="w-full p-2 border-2 rounded-lg text-center text-lg font-black outline-none focus:border-orange-500" value={reqForm.qty} onChange={e=>setReqForm({...reqForm, qty: e.target.value})} /></div>
+                    <div><label className="text-[9px] font-black text-slate-400 uppercase ml-1 font-industrial font-bold">Note</label><textarea className="w-full p-2 border-2 rounded-lg text-xs h-16 outline-none focus:border-orange-500 font-mono leading-tight" placeholder="Reason..." onChange={e=>setReqForm({...reqForm, comment: e.target.value})}></textarea></div>
                     <div className="flex gap-2 pt-1 font-industrial"><button onClick={()=>setRequestItem(null)} className="flex-1 py-2 bg-slate-100 text-slate-600 font-bold rounded-lg uppercase text-[9px]">Cancel</button><button onClick={handleSendRequest} className="flex-1 py-2 iocl-btn text-white font-bold rounded-lg uppercase text-[9px] shadow-lg">Submit</button></div>
                 </div>
             </div>
@@ -278,7 +278,7 @@ function GlobalSearchView({ profile }: any) {
              <h3 className="text-xl font-bold mb-1 text-slate-800 font-industrial">{breakdown.item}</h3>
              <p className="text-xs text-slate-400 mb-6 uppercase font-bold tracking-wider">{breakdown.spec}</p>
              <div className="overflow-hidden border border-slate-100 rounded-xl bg-slate-50/50 font-mono">
-               <table className="w-full text-left font-mono"><thead className="bg-slate-100 text-xs font-bold text-slate-500 uppercase border-b font-industrial"><tr><th className="p-4 pl-6">Unit / Zone</th><th className="p-4">Engineer</th><th className="p-4 text-right">Qty</th><th className="p-4 pr-6 text-center">Action</th></tr></thead>
+               <table className="w-full text-left font-mono"><thead className="bg-slate-100 text-xs font-bold text-slate-500 uppercase border-b font-industrial"><tr><th className="p-4 pl-6 font-industrial">Unit / Zone</th><th className="p-4 font-industrial">Engineer</th><th className="p-4 text-right font-industrial">Qty</th><th className="p-4 pr-6 text-center font-industrial">Action</th></tr></thead>
                  <tbody className="divide-y text-sm bg-white uppercase">
                    {breakdown.holders.map((h:any, idx:number)=>(<tr key={idx} className="hover:bg-indigo-50/30 transition border-b"><td className="p-4 pl-6 font-bold text-slate-700">{h.holder_unit}</td><td className="p-4 flex items-center gap-2 text-slate-500 uppercase font-industrial"><div className="w-6 h-6 rounded-full bg-slate-200 text-[10px] flex items-center justify-center font-bold">{h.holder_name?.charAt(0)}</div>{h.holder_name}</td><td className="p-4 text-right font-black text-indigo-600 font-mono whitespace-nowrap">{h.qty} {h.unit || 'Nos'}</td><td className="p-4 pr-6 text-center">{h.holder_uid === profile?.id ? <span className="text-[10px] text-green-600 font-black uppercase italic tracking-tighter">Your Stock</span> : <button className="bg-orange-500 text-white px-3 py-1 rounded text-xs font-bold shadow-sm font-industrial uppercase" onClick={()=>{setRequestItem(h); setBreakdown(null);}}>Request</button>}</td></tr>))}
                  </tbody>
@@ -319,35 +319,35 @@ function MyStoreView({ profile, fetchProfile }: any) {
   return (
     <div className="animate-fade-in space-y-6 pb-10">
       <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl border shadow-sm">
-        <div><h2 className="text-xl font-bold text-slate-800 font-industrial uppercase tracking-widest leading-none">My Local Store</h2><p className="text-[10px] font-black bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-2 uppercase tracking-widest font-industrial">ZONE: {profile?.unit}</p></div>
+        <div><h2 className="text-xl font-bold text-slate-800 font-industrial uppercase tracking-widest leading-none">My Local Store</h2><p className="text-[10px] font-black bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-2 uppercase tracking-widest font-industrial uppercase">ZONE: {profile?.unit}</p></div>
         <button onClick={() => setShowAddModal(true)} className="iocl-btn text-white px-6 py-2.5 rounded-xl font-bold shadow-md flex items-center gap-2"><i className="fa-solid fa-plus"></i> Add New Stock</button>
       </div>
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden font-mono uppercase">
-        <div className="p-4 border-b bg-slate-50/80 flex flex-wrap items-center gap-2"><div className="relative flex-grow md:w-64"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Search My Store..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none shadow-inner uppercase" onChange={e=>setSearch(e.target.value)} /></div><select className="border rounded-md text-[11px] font-bold p-2 bg-white uppercase" onChange={e=>setSelCat(e.target.value)}><option value="all">Category: All</option>{[...new Set(myItems.map(i => i.cat))].sort().map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden uppercase">
+        <div className="p-4 border-b bg-slate-50/80 flex flex-wrap items-center gap-2"><div className="relative flex-grow md:w-64 font-inter"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Search My Store..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none shadow-inner uppercase" onChange={e=>setSearch(e.target.value)} /></div><select className="border rounded-md text-[11px] font-bold p-2 bg-white uppercase" onChange={e=>setSelCat(e.target.value)}><option value="all">Category: All</option>{[...new Set(myItems.map(i => i.cat))].sort().map(c => <option key={c} value={c}>{c}</option>)}</select></div>
         <div className="overflow-x-auto"><table className="w-full text-left font-industrial tracking-tight"><thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b uppercase font-industrial tracking-widest"><tr><th className="p-5 pl-8">Category</th><th className="p-5">Item Name</th><th className="p-5">Spec</th><th className="p-5 text-center">Qty</th><th className="p-5 text-center">Manage</th></tr></thead>
           <tbody className="divide-y text-sm">
               {filtered.map(i => (<tr key={i.id} className="hover:bg-slate-50 transition border-b border-slate-50"><td className="p-5 pl-8 text-[10px] font-bold text-slate-400 uppercase leading-none font-mono">{i.cat}</td><td className="p-5 font-bold text-slate-800 leading-tight uppercase font-industrial">{i.item}</td><td className="p-5 font-mono"><span className="bg-white border px-2 py-1 rounded text-[11px] font-medium text-slate-600 shadow-sm uppercase">{i.spec}</span></td><td className="p-5 font-bold text-center font-mono">{Number(i.qty) === 0 ? <span className="text-red-600 font-black text-[10px] uppercase bg-red-100 px-2 py-1 rounded border border-red-200 whitespace-nowrap tracking-tighter">Out of Stock</span> : <span className="text-emerald-600 text-lg font-black">{i.qty} {i.unit || 'Nos'}</span>}</td><td className="p-5 flex gap-3 justify-center items-center"><button onClick={()=>setConsumeItem(i)} disabled={Number(i.qty) === 0} className="text-indigo-600 hover:scale-125 transition disabled:opacity-30"><i className="fa-solid fa-box-open text-xl"></i></button><button onClick={()=>setEditItem(i)} className="text-slate-400 hover:text-blue-500 hover:scale-125 transition"><i className="fa-solid fa-pen-to-square text-xl"></i></button></td></tr>))}
           </tbody>
         </table></div>
       </div>
-      {showAddModal && <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md overflow-y-auto font-industrial"><div className="bg-white w-full max-w-[360px] rounded-2xl shadow-2xl p-5 relative animate-scale-in my-auto border-t-4 border-slate-900"><button onClick={() => setShowAddModal(false)} className="absolute top-4 right-4 text-slate-400 font-bold text-xl">✕</button><h3 className="text-sm font-black text-slate-800 mb-6 border-b pb-2 uppercase tracking-widest text-center">Add New Stock</h3><div className="space-y-3">
+      {showAddModal && <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md overflow-y-auto font-industrial"><div className="bg-white w-full max-w-[360px] rounded-2xl shadow-2xl p-5 relative animate-scale-in my-auto border-t-4 border-slate-900"><button onClick={() => setShowAddModal(false)} className="absolute top-4 right-4 text-slate-400 font-bold text-xl">✕</button><h3 className="text-sm font-black text-slate-800 mb-6 border-b pb-2 uppercase tracking-widest text-center">Add New Stock</h3><div className="space-y-3 font-industrial">
           {!form.isManual ? (<>
-              <div><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1 font-industrial">Category</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold bg-slate-50" value={form.cat} onChange={e=>setForm({...form, cat: e.target.value, sub:"", make:"", model:"", spec:""})}><option value="">-- Select Category --</option>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-              <div className="grid grid-cols-2 gap-3 font-industrial">
-                  <div className="flex flex-col"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Sub Cat</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold h-[38px]" disabled={!form.cat} value={form.sub} onChange={e=>setForm({...form, sub: e.target.value, make:"", model:"", spec:""})}><option value="">-- Select --</option>{subs.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-                  <div className="flex flex-col"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Make</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold h-[38px]" disabled={!form.sub} value={form.make} onChange={e=>setForm({...form, make: e.target.value, model:"", spec:""})}><option value="">-- Select --</option>{makes.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
+              <div><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1 font-bold">Category</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold bg-slate-50" value={form.cat} onChange={e=>setForm({...form, cat: e.target.value, sub:"", make:"", model:"", spec:""})}><option value="">-- Select Category --</option>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+              <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1 font-bold">Sub Cat</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold h-[38px]" disabled={!form.cat} value={form.sub} onChange={e=>setForm({...form, sub: e.target.value, make:"", model:"", spec:""})}><option value="">-- Select --</option>{subs.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                  <div className="flex flex-col"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1 font-bold">Make</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold h-[38px]" disabled={!form.sub} value={form.make} onChange={e=>setForm({...form, make: e.target.value, model:"", spec:""})}><option value="">-- Select --</option>{makes.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
               </div>
-              <div><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1 font-industrial">Model / Frame</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold" disabled={!form.make} value={form.model} onChange={e=>setForm({...form, model: e.target.value, spec:""})}><option value="">-- Select Model --</option>{models.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
-              <div><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1 font-industrial">Specification</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold" disabled={!form.model} value={form.spec} onChange={e=>setForm({...form, spec: e.target.value})}><option value="">-- Select Spec --</option>{specs.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-          </>) : (<div className="space-y-3 font-industrial">
-              <div><label className="text-[9px] font-black text-slate-400 uppercase pl-1">Description</label><input type="text" className="w-full p-2 border-2 rounded-lg text-xs outline-none font-bold uppercase" onChange={e=>setForm({...form, model: e.target.value})} /></div>
-              <div><label className="text-[9px] font-black text-slate-400 uppercase pl-1">Tech Details</label><input type="text" className="w-full p-2 border-2 rounded-lg text-xs outline-none font-bold uppercase" onChange={e=>setForm({...form, spec: e.target.value})} /></div>
+              <div><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1 font-bold">Model</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold" disabled={!form.make} value={form.model} onChange={e=>setForm({...form, model: e.target.value, spec:""})}><option value="">-- Select Model --</option>{models.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
+              <div><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1 font-bold">Spec</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold" disabled={!form.model} value={form.spec} onChange={e=>setForm({...form, spec: e.target.value})}><option value="">-- Select Spec --</option>{specs.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+          </>) : (<div className="space-y-3 font-industrial uppercase">
+              <div><label className="text-[9px] font-black text-slate-400 uppercase pl-1 font-bold">Description</label><input type="text" className="w-full p-2 border-2 rounded-lg text-xs outline-none font-bold uppercase" onChange={e=>setForm({...form, model: e.target.value})} /></div>
+              <div><label className="text-[9px] font-black text-slate-400 uppercase pl-1 font-bold">Spec Detail</label><input type="text" className="w-full p-2 border-2 rounded-lg text-xs outline-none font-bold uppercase" onChange={e=>setForm({...form, spec: e.target.value})} /></div>
           </div>)}
           <div className="grid grid-cols-2 gap-3 border-t pt-3 font-industrial">
-              <div className="flex flex-col"><label className="text-[9px] font-black text-slate-400 uppercase block text-center mb-1">Quantity</label><input type="number" placeholder="0" className="w-full p-2 border-2 border-slate-100 rounded-lg text-lg font-black text-center outline-none h-[38px] font-mono" onChange={e=>setForm({...form, qty: e.target.value})} /></div>
-              <div className="flex flex-col"><label className="text-[9px] font-black text-slate-400 uppercase block text-center mb-1">Unit</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs uppercase font-bold outline-none h-[38px]"><option>Nos</option><option>Mtrs</option></select></div>
+              <div className="flex flex-col"><label className="text-[9px] font-black text-slate-400 uppercase block text-center mb-1 font-bold">Quantity</label><input type="number" placeholder="0" className="w-full p-2 border-2 border-slate-100 rounded-lg text-lg font-black text-center outline-none h-[38px] font-mono" onChange={e=>setForm({...form, qty: e.target.value})} /></div>
+              <div className="flex flex-col"><label className="text-[9px] font-black text-slate-400 uppercase block text-center mb-1 font-bold">Unit</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs uppercase font-bold outline-none h-[38px]"><option>Nos</option><option>Mtrs</option></select></div>
           </div>
-          <button onClick={handleSave} className="w-full py-2.5 bg-slate-900 text-white font-black rounded-lg shadow-lg mt-2 uppercase text-[9px] tracking-widest hover:bg-slate-800 font-industrial">Confirm Stock Entry</button>
+          <button onClick={handleSave} className="w-full py-2.5 bg-slate-900 text-white font-black rounded-lg shadow-lg mt-2 uppercase text-[9px] tracking-widest hover:bg-slate-800 font-industrial font-bold">Confirm Stock Entry</button>
       </div></div></div>}
     </div>
   );
@@ -356,16 +356,16 @@ function MyStoreView({ profile, fetchProfile }: any) {
 function UsageHistoryView({ profile }: any) {
   const [logs, setLogs] = useState<any[]>([]);
   useEffect(() => { const f = async () => { const { data } = await supabase.from("usage_logs").select("*").eq("consumer_uid", profile.id).order("timestamp", { ascending: false }); if (data) setLogs(data); }; if (profile) f(); }, [profile]);
-  return (<section className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm font-mono uppercase"><div className="p-5 border-b bg-slate-50/50 flex justify-between items-center"><h2 className="text-lg font-bold text-slate-800 uppercase font-industrial tracking-wider leading-none">Consumption History</h2></div><div className="overflow-x-auto"><table className="w-full text-left"><thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b uppercase font-industrial"><tr><th className="p-5 pl-8 tracking-widest">Date</th><th className="p-5 tracking-widest">Details</th><th className="p-5 text-center tracking-widest">Qty</th></tr></thead><tbody className="divide-y text-sm uppercase">{logs.map(l => (<tr key={l.id} className="hover:bg-slate-50 transition border-b border-slate-50"><td className="p-5 pl-8 text-xs text-slate-500 font-bold leading-tight">{new Date(Number(l.timestamp)).toLocaleDateString()}</td><td className="p-5 font-bold text-slate-800 leading-tight uppercase font-industrial">{l.item_name}<div className="text-[10px] text-slate-400 uppercase mt-0.5 tracking-tighter">{l.category}</div></td><td className="p-5 text-center font-black text-red-600 whitespace-nowrap">-{l.qty_consumed} Nos</td></tr>))}</tbody></table></div></section>);
+  return (<section className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm font-mono uppercase tracking-tight"><div className="p-5 border-b bg-slate-50/50 flex justify-between items-center"><h2 className="text-lg font-bold text-slate-800 uppercase font-industrial tracking-wider leading-none">Consumption History</h2></div><div className="overflow-x-auto"><table className="w-full text-left font-mono uppercase"><thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b uppercase font-industrial uppercase"><tr><th className="p-5 pl-8 tracking-widest">Date</th><th className="p-5 tracking-widest">Details</th><th className="p-5 text-center tracking-widest">Qty</th></tr></thead><tbody className="divide-y text-sm uppercase">{logs.map(l => (<tr key={l.id} className="hover:bg-slate-50 transition border-b border-slate-50"><td className="p-5 pl-8 text-xs text-slate-500 font-bold leading-tight uppercase font-mono">{new Date(Number(l.timestamp)).toLocaleDateString()}</td><td className="p-5 font-bold text-slate-800 leading-tight uppercase font-industrial tracking-tighter">{l.item_name}<div className="text-[10px] text-slate-400 uppercase mt-0.5 tracking-tighter">{l.category}</div></td><td className="p-5 text-center font-black text-red-600 whitespace-nowrap">-{l.qty_consumed} Nos</td></tr>))}</tbody></table></div></section>);
 }
 
 function MonthlyAnalysisView({ profile }: any) {
   const [analysis, setAnalysis] = useState<any[]>([]);
   useEffect(() => { const f = async () => { const { data } = await supabase.from("usage_logs").select("*").eq("consumer_uid", profile.id); if (data) { const stats: any = {}; data.forEach((l: any) => { const month = new Date(Number(l.timestamp)).toLocaleString('default', { month: 'long', year: 'numeric' }); if (!stats[month]) stats[month] = { month, total: 0, count: 0 }; stats[month].total += Number(l.qty_consumed); stats[month].count += 1; }); setAnalysis(Object.values(stats)); } }; if (profile) f(); }, [profile]);
-  return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-industrial uppercase tracking-tight">{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-[0.2em]">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner"><i className="fa-solid fa-chart-line"></i></div><div className="text-3xl font-black text-slate-800 font-industrial">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase font-industrial tracking-tighter">{a.count} Logged Entries</div></div>))}{analysis.length===0 && <div className="p-20 text-center italic text-slate-400 bg-white rounded-xl border w-full col-span-3 font-industrial uppercase tracking-widest">No consolidated analysis available yet.</div>}</div>);
+  return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-industrial uppercase tracking-tight">{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md uppercase"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-[0.2em] font-industrial uppercase">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner"><i className="fa-solid fa-chart-line"></i></div><div className="text-3xl font-black text-slate-800 font-industrial">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase font-industrial tracking-widest uppercase">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase font-industrial tracking-tighter uppercase">{a.count} Logged Records</div></div>))}{analysis.length===0 && <div className="p-20 text-center italic text-slate-400 bg-white rounded-xl border w-full col-span-3 font-industrial uppercase tracking-widest uppercase">No consolidated analysis available yet.</div>}</div>);
 }
 
-// --- UPDATED RETURNS & UDHAARI VIEW (PROFESSIONAL HISTORY + MANUAL RETURN SPLIT LOGIC) ---
+// --- UPDATED RETURNS & UDHAARI VIEW (ROBUST SPLIT LOGIC + DETAILED TIMELINE ARCHIVE) ---
 function ReturnsLedgerView({ profile, onAction }: any) { 
     const [pending, setPending] = useState<any[]>([]);
     const [given, setGiven] = useState<any[]>([]);
@@ -387,7 +387,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
 
     useEffect(() => {
         if (!profile) return; fetchAll();
-        const channel = supabase.channel('audit-sync-vfinal-secure-2').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAll(); if(onAction) onAction(); }).subscribe();
+        const channel = supabase.channel('audit-sync-vfinal-secure-locked').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAll(); if(onAction) onAction(); }).subscribe();
         return () => { supabase.removeChannel(channel); };
     }, [profile]);
 
@@ -395,33 +395,46 @@ function ReturnsLedgerView({ profile, onAction }: any) {
 
     const handleProcess = async () => {
         const { type, data } = actionModal;
-        if (type.includes('reject') && !form.comment.trim()) { alert("Please provide a log comment!"); return; }
+        if (type.includes('reject') && !form.comment.trim()) { alert("Log comment is mandatory for rejection!"); return; }
+        
         let updateData: any = {};
         const actionQty = Number(form.qty || data.req_qty);
 
         if (type === 'approve') updateData = { status: 'approved', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name, req_qty: actionQty, viewed_by_requester: false };
         else if (type === 'reject') updateData = { status: 'rejected', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false };
         else if (type === 'return') {
-            // STEP 1: SPLIT LOGIC WITHOUT AUTO-APPROVING OR DEDUCTING FROM STOCK
-            if (actionQty < data.req_qty) {
-                // Main Udhaari stays approved but quantity decreases
-                await supabase.from("requests").update({ req_qty: data.req_qty - actionQty }).eq("id", data.id);
-                // Create parallel record for Verification only
-                await supabase.from("requests").insert([{ ...data, id: undefined, req_qty: actionQty, status: 'return_requested', return_comment: form.comment, from_uid: profile.id, from_name: profile.name, viewed_by_requester: false }]);
-            } else {
-                // Entire row moves to pending verification
-                await supabase.from("requests").update({ status: 'return_requested', return_comment: form.comment, req_qty: actionQty, from_uid: profile.id, from_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
-            }
-            alert("Sent for manual verify!"); setActionModal(null); return;
+            // ROBUST SPLIT LOGIC: Do not decrease original approved quantity yet.
+            // Create a parallel row for Verification. Original row remains same until lender verifies.
+            await supabase.from("requests").insert([{ 
+                ...data, 
+                id: undefined, 
+                req_qty: actionQty, 
+                status: 'return_requested', 
+                return_comment: form.comment, 
+                from_uid: profile.id, 
+                from_name: profile.name, 
+                viewed_by_requester: false,
+                approve_comment: `ORIG_ID_REF:${data.id}` // Technical tag to link back
+            }]);
+            alert("Sent for manual verification!"); setActionModal(null); return;
         }
         else if (type === 'verify') {
-            // STEP 2: LENDER MANUAL VERIFICATION -> NOW QUANTITY RETURNS TO STOCK
+            // LENDER MANUAL VERIFICATION: Now subtract from original and settle return record
+            const origRefId = data.approve_comment?.match(/ORIG_ID_REF:(\d+)/)?.[1];
+            if (origRefId) {
+                const { data: origRecord } = await supabase.from("requests").select("req_qty").eq("id", origRefId).single();
+                if (origRecord) {
+                    const newBalance = origRecord.req_qty - data.req_qty;
+                    if (newBalance <= 0) await supabase.from("requests").delete().eq("id", origRefId); // If balance 0, delete active row
+                    else await supabase.from("requests").update({ req_qty: newBalance }).eq("id", origRefId); // Update balance
+                }
+            }
             await supabase.from("requests").update({ status: 'returned', approve_comment: `Verified By ${profile.name}: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
             const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
             if (inv) await supabase.from("inventory").update({ qty: inv.qty + data.req_qty }).eq("id", data.item_id);
-            alert("Material Verified & Logged!"); setActionModal(null); return;
+            alert("Verification Succeeded!"); setActionModal(null); return;
         }
-        else if (type === 'reject_return') updateData = { status: 'approved', approve_comment: `Verification Rejected: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false };
+        else if (type === 'reject_return') updateData = { status: 'approved', approve_comment: `Verification Rejected By ${profile.name}: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false };
 
         const { error } = await supabase.from("requests").update(updateData).eq("id", data.id);
         if (!error && type === 'approve') {
@@ -432,69 +445,67 @@ function ReturnsLedgerView({ profile, onAction }: any) {
     };
 
     return (
-        <div className="space-y-10 animate-fade-in pb-20 font-industrial tracking-tight uppercase">
-            <h2 className="text-2xl font-bold text-slate-800 uppercase flex items-center gap-2 tracking-tight"><i className="fa-solid fa-handshake-angle text-orange-500"></i> Udhaari Dashboard</h2>
+        <div className="space-y-10 animate-fade-in pb-20 font-industrial tracking-tight uppercase uppercase font-bold">
+            <h2 className="text-2xl font-bold text-slate-800 uppercase flex items-center gap-2 tracking-tight uppercase font-industrial"><i className="fa-solid fa-handshake-angle text-orange-500"></i> Udhaari Dashboard</h2>
 
-            <section className="bg-white rounded-xl border-t-4 border-orange-500 shadow-xl overflow-hidden">
-                <div className="p-4 bg-orange-50/50 flex justify-between border-b uppercase"><div className="flex items-center gap-2 text-orange-900 font-black uppercase text-[10px] tracking-widest font-industrial uppercase font-bold"><i className="fa-solid fa-bolt animate-pulse"></i> Material Requests to {profile?.unit}</div><span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px]">{pending.length}</span></div>
+            <section className="bg-white rounded-xl border-t-4 border-orange-500 shadow-xl overflow-hidden uppercase">
+                <div className="p-4 bg-orange-50/50 flex justify-between border-b uppercase"><div className="flex items-center gap-2 text-orange-900 font-black uppercase text-[10px] tracking-widest font-industrial uppercase"><i className="fa-solid fa-bolt animate-pulse"></i> Incoming Material Requests to {profile?.unit}</div><span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px] uppercase">{pending.length}</span></div>
                 <div className="overflow-x-auto"><table className="w-full text-left text-sm divide-y font-mono uppercase">
-                    <thead className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase font-industrial tracking-widest"><tr><th className="p-4 pl-6">Material Detail</th><th className="p-4">Requester</th><th className="p-4 text-center">Qty</th><th className="p-4 text-center">Action</th></tr></thead>
+                    <thead className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase font-industrial tracking-widest"><tr><th className="p-4 pl-6">Material Detail</th><th className="p-4">Requester</th><th className="p-4 text-center">Requested Qty</th><th className="p-4 text-center">Action</th></tr></thead>
                     <tbody className="divide-y text-slate-600 uppercase">
                         {pending.map(r => (
-                            <tr key={r.id} className="hover:bg-orange-50/20 transition border-b">
-                                <td className="p-4 pl-6 font-bold text-slate-800 leading-tight uppercase font-industrial">{r.item_name}<div className="text-[9px] text-slate-400 font-normal mt-0.5 uppercase tracking-tighter font-mono">{r.item_spec}</div><div className="text-[8px] text-slate-300 italic mt-1 font-mono uppercase">{formatTS(r.timestamp)}</div></td>
-                                <td className="p-4 font-bold text-slate-700 uppercase font-industrial tracking-tighter leading-tight">{r.from_name}<div className="text-[10px] text-slate-400 font-normal uppercase font-mono">{r.from_unit}</div></td>
-                                <td className="p-4 text-center font-black text-orange-600 text-lg font-mono whitespace-nowrap">{r.req_qty} {r.item_unit}</td>
-                                <td className="p-4 flex gap-2 justify-center font-industrial"><button onClick={()=>setActionModal({type:'approve', data:r})} className="bg-green-600 text-white px-4 py-2 rounded-lg text-[9px] font-black shadow-md hover:bg-green-700 tracking-widest font-bold">Approve</button><button onClick={()=>setActionModal({type:'reject', data:r})} className="bg-slate-100 text-slate-500 px-4 py-2 rounded-lg text-[9px] font-black transition tracking-widest font-bold">Reject</button></td>
+                            <tr key={r.id} className="hover:bg-orange-50/20 transition border-b uppercase">
+                                <td className="p-4 pl-6 font-bold text-slate-800 leading-tight uppercase font-industrial uppercase font-bold">{r.item_name}<div className="text-[9px] text-slate-400 font-normal mt-0.5 uppercase tracking-tighter uppercase font-mono">{r.item_spec}</div><div className="text-[8px] text-slate-300 italic mt-1 font-mono uppercase">{formatTS(r.timestamp)}</div></td>
+                                <td className="p-4 font-bold text-slate-700 uppercase font-industrial tracking-tighter leading-tight uppercase font-bold">{r.from_name}<div className="text-[10px] text-slate-400 font-normal uppercase uppercase font-mono">{r.from_unit}</div></td>
+                                <td className="p-4 text-center font-black text-orange-600 text-lg font-mono whitespace-nowrap uppercase">{r.req_qty} {r.item_unit}</td>
+                                <td className="p-4 flex gap-2 justify-center font-industrial uppercase font-bold"><button onClick={()=>setActionModal({type:'approve', data:r})} className="bg-green-600 text-white px-4 py-2 rounded-lg text-[9px] font-black shadow-md hover:bg-green-700 tracking-widest uppercase font-bold">Approve</button><button onClick={()=>setActionModal({type:'reject', data:r})} className="bg-slate-100 text-slate-500 px-4 py-2 rounded-lg text-[9px] font-black transition tracking-widest uppercase font-bold">Reject</button></td>
                             </tr>
                         ))}
                     </tbody>
                 </table></div>
             </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 font-industrial">
-                {/* ACTIVE GIVEN */}
-                <section className="bg-white rounded-2xl border-t-4 border-blue-600 shadow-lg overflow-hidden font-mono">
-                    <div className="p-5 border-b bg-blue-50/30 flex items-center gap-3 font-industrial uppercase text-xs font-black text-blue-900 tracking-widest font-bold"><i className="fa-solid fa-arrow-up-from-bracket text-blue-600"></i> Active Udhaari (Given)</div>
-                    <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
-                        {given.map(r => (
-                            <div key={r.id} className={`p-4 border-2 rounded-2xl relative transition-all ${r.status === 'return_requested' ? 'border-orange-500 bg-orange-50 animate-pulse shadow-orange-100 shadow-lg' : 'border-slate-100 bg-white'}`}>
-                                <div className="text-xs font-black text-slate-800 uppercase mb-1 leading-tight">{r.item_name}</div>
-                                <div className="text-[10px] text-slate-400 mb-3 uppercase tracking-tighter font-bold uppercase">{r.item_spec}</div>
-                                <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg mb-3"><div><p className="text-[9px] font-bold text-slate-400 uppercase font-industrial uppercase">Receiver</p><p className="text-xs font-black text-slate-700 uppercase tracking-tighter uppercase">{r.from_name} ({r.from_unit})</p></div><div className="text-right font-black text-blue-600 font-mono uppercase">{r.req_qty} {r.item_unit}</div></div>
-                                <div className="text-[9px] font-mono text-slate-400 mb-3 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed tracking-tighter font-bold uppercase">
-                                    <p><span className="font-black text-blue-600/70 uppercase">ISSUED BY:</span> {r.to_name}</p>
-                                    <p><span className="font-black uppercase">DATE:</span> {formatTS(r.timestamp)}</p>
-                                    <p><span className="font-black uppercase">LENDER NOTE:</span> "{r.approve_comment || 'N/A'}"</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 font-industrial uppercase">
+                <section className="bg-white rounded-2xl border-t-4 border-blue-600 shadow-lg overflow-hidden font-mono uppercase">
+                    <div className="p-5 border-b bg-blue-50/30 flex items-center gap-3 font-industrial uppercase text-xs font-black text-blue-900 tracking-widest uppercase font-bold"><i className="fa-solid fa-arrow-up-from-bracket text-blue-600"></i> Active Udhaari (Given Out)</div>
+                    <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto uppercase">
+                        {given.filter(r=>r.status!=='return_requested').map(r => (
+                            <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative shadow-sm uppercase">
+                                <div className="text-xs font-black text-slate-800 uppercase mb-1 leading-tight uppercase font-bold">{r.item_name}</div>
+                                <div className="text-[10px] text-slate-400 mb-3 uppercase tracking-tighter font-bold uppercase uppercase">{r.item_spec}</div>
+                                <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg mb-3"><div><p className="text-[9px] font-bold text-slate-400 uppercase font-industrial uppercase uppercase">Receiver Info</p><p className="text-xs font-black text-slate-700 uppercase tracking-tighter uppercase uppercase font-bold">{r.from_name} ({r.from_unit})</p></div><div className="text-right font-black text-blue-600 font-mono uppercase uppercase font-bold">{r.req_qty} {r.item_unit}</div></div>
+                                <div className="text-[9px] font-mono text-slate-400 mb-3 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed tracking-tighter font-bold uppercase uppercase font-bold">
+                                    <p><span className="font-black text-blue-600/70 uppercase font-bold">APPROVED BY:</span> {r.to_name}</p>
+                                    <p><span className="font-black uppercase uppercase font-bold font-bold">LOG DATE:</span> {formatTS(r.timestamp)}</p>
+                                    <p><span className="font-black uppercase uppercase font-bold font-bold">LENDER LOG:</span> "{r.approve_comment || 'N/A'}"</p>
                                 </div>
-                                {r.status === 'return_requested' ? (
-                                    <div className="space-y-2 border-t pt-3 font-industrial"><p className="text-[10px] font-bold text-orange-600 uppercase font-industrial tracking-widest uppercase">Action Needed: Verify Receipt Request</p><div className="flex gap-2"><button onClick={()=>setActionModal({type:'verify', data:r})} className="flex-1 py-2 bg-orange-500 text-white text-[10px] font-black rounded-xl tracking-widest uppercase shadow-md font-bold">Verify Return</button><button onClick={()=>setActionModal({type:'reject_return', data:r})} className="px-4 py-2 bg-slate-200 text-slate-500 text-[10px] font-bold rounded-xl font-industrial uppercase uppercase font-bold">Reject</button></div></div>
-                                ) : (
-                                    <div className="text-[8px] text-slate-300 italic flex justify-center border-t pt-2 uppercase font-black uppercase tracking-widest">Active Ledger Entry</div>
-                                )}
+                            </div>
+                        ))}
+                        {given.filter(r=>r.status==='return_requested').map(r => (
+                            <div key={r.id} className="p-4 border-2 border-orange-500 bg-orange-50 animate-pulse rounded-2xl relative shadow-lg uppercase">
+                                <div className="text-xs font-black text-orange-700 uppercase mb-1 leading-tight uppercase font-bold font-bold">{r.item_name}</div>
+                                <p className="text-[10px] text-orange-600 font-black mb-3 uppercase font-bold uppercase">ACTION: VERIFY RETURN OF {r.req_qty} {r.item_unit}</p>
+                                <div className="space-y-2 border-t border-orange-200 pt-3 font-industrial uppercase"><p className="text-[10px] font-bold text-orange-600 uppercase font-industrial tracking-widest uppercase uppercase font-bold font-bold">Borrower Note: "{r.return_comment}"</p><div className="flex gap-2"><button onClick={()=>setActionModal({type:'verify', data:r})} className="flex-1 py-2 bg-orange-500 text-white text-[10px] font-black rounded-xl tracking-widest uppercase shadow-md font-bold uppercase font-bold">Confirm Verify</button><button onClick={()=>setActionModal({type:'reject_return', data:r})} className="px-4 py-2 bg-slate-200 text-slate-500 text-[10px] font-bold rounded-xl font-industrial uppercase uppercase font-bold uppercase font-bold">Deny</button></div></div>
                             </div>
                         ))}
                     </div>
                 </section>
 
-                {/* ACTIVE TAKEN */}
-                <section className="bg-white rounded-2xl border-t-4 border-red-600 shadow-lg overflow-hidden font-mono">
-                    <div className="p-5 border-b bg-red-50/30 flex items-center gap-3 font-industrial uppercase text-xs font-black text-red-900 tracking-widest font-bold"><i className="fa-solid fa-arrow-down-long text-red-600"></i> Active Udhaari (Taken)</div>
-                    <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
+                <section className="bg-white rounded-2xl border-t-4 border-red-600 shadow-lg overflow-hidden font-mono uppercase">
+                    <div className="p-5 border-b bg-red-50/30 flex items-center gap-3 font-industrial uppercase text-xs font-black text-red-900 tracking-widest uppercase font-bold"><i className="fa-solid fa-arrow-down-long text-red-600"></i> Active Udhaari (Taken In)</div>
+                    <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto uppercase">
                         {taken.map(r => (
-                            <div key={r.id} className={`p-4 border-2 rounded-2xl relative ${r.status === 'return_requested' ? 'border-dashed border-slate-300 opacity-60 shadow-inner' : 'border-slate-100 bg-white'}`}>
-                                <div className="text-xs font-black text-slate-800 uppercase mb-1 leading-tight">{r.item_name}</div>
-                                <div className="text-[10px] text-slate-400 mb-3 uppercase tracking-tighter font-bold uppercase">{r.item_spec}</div>
-                                <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg mb-3"><div><p className="text-[9px] font-bold text-slate-400 uppercase font-industrial uppercase">Source Zone</p><p className="text-xs font-black text-slate-700 uppercase tracking-tighter uppercase">{r.to_unit} (Engr: {r.to_name})</p></div><div className="text-right font-black text-red-600 font-mono uppercase">{r.req_qty} {r.item_unit}</div></div>
-                                <div className="text-[9px] font-mono text-slate-400 mb-3 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed tracking-tighter font-bold uppercase">
-                                    <p><span className="font-black text-red-600/70 uppercase font-bold">BORROWER:</span> {r.from_name}</p>
-                                    <p><span className="font-black uppercase">DATE:</span> {formatTS(r.timestamp)}</p>
-                                    <p><span className="font-black text-blue-600/70 uppercase">LENDER NOTE:</span> "{r.approve_comment || 'N/A'}"</p>
+                            <div key={r.id} className={`p-4 border-2 rounded-2xl relative ${r.status === 'return_requested' ? 'border-dashed border-slate-300 opacity-60 shadow-inner uppercase' : 'border-slate-100 bg-white uppercase'}`}>
+                                <div className="text-xs font-black text-slate-800 uppercase mb-1 leading-tight uppercase font-bold uppercase font-bold">{r.item_name}</div>
+                                <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg mb-3"><div><p className="text-[9px] font-bold text-slate-400 uppercase font-industrial uppercase uppercase font-bold">Lender Source</p><p className="text-xs font-black text-slate-700 uppercase tracking-tighter uppercase uppercase font-bold font-bold font-mono">{r.to_unit} (Engr: {r.to_name})</p></div><div className="text-right font-black text-red-600 font-mono uppercase uppercase font-bold font-bold">{r.req_qty} {r.item_unit}</div></div>
+                                <div className="text-[9px] font-mono text-slate-400 mb-3 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed tracking-tighter font-bold uppercase uppercase font-bold">
+                                    <p><span className="font-black text-red-600/70 uppercase font-bold font-bold">TAKEN BY:</span> {r.from_name}</p>
+                                    <p><span className="font-black uppercase uppercase font-bold font-bold">TAKEN DATE:</span> {formatTS(r.timestamp)}</p>
                                 </div>
                                 {r.status === 'return_requested' ? (
-                                    <div className="text-center py-2 bg-slate-100 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-500 animate-pulse font-industrial uppercase font-bold">Verification Pending At {r.to_unit}</div>
+                                    <div className="text-center py-2 bg-slate-100 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-500 animate-pulse font-industrial uppercase font-bold font-bold">Waiting for lender verification...</div>
                                 ) : (
-                                    <button onClick={()=>setActionModal({type:'return', data:r})} className="w-full py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl uppercase tracking-widest font-industrial uppercase shadow-md font-bold">Initiate Return</button>
+                                    <button onClick={()=>setActionModal({type:'return', data:r})} className="w-full py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl uppercase tracking-widest font-industrial uppercase shadow-md font-bold font-bold">Initiate Material Return</button>
                                 )}
                             </div>
                         ))}
@@ -503,27 +514,27 @@ function ReturnsLedgerView({ profile, onAction }: any) {
             </div>
 
             {/* SETTLED ARCHIVE (TIMELINE LOGS) */}
-            <div className="pt-10 space-y-10 font-mono uppercase">
-                <div className="flex items-center gap-4 font-industrial"><hr className="flex-1 border-slate-200"/><h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.4em] font-industrial font-bold">Settled Record Archives</h3><hr className="flex-1 border-slate-200"/></div>
+            <div className="pt-10 space-y-10 font-mono uppercase font-bold">
+                <div className="flex items-center gap-4 font-industrial uppercase font-bold"><hr className="flex-1 border-slate-200"/><h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.4em] font-industrial font-bold uppercase font-bold">Settled Record Archives</h3><hr className="flex-1 border-slate-200"/></div>
                 
-                <div className="grid grid-cols-1 gap-12 font-mono uppercase">
-                    <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden font-mono">
-                        <div className="p-4 bg-slate-800 text-white flex justify-between font-industrial text-[10px] tracking-widest uppercase font-bold font-industrial"><span>Archive: Finalized Transaction Audit Logs</span><i className="fa-solid fa-file-shield text-slate-400"></i></div>
-                        <div className="overflow-x-auto"><table className="w-full text-left text-[9px] divide-y divide-slate-100 uppercase font-mono">
-                            <thead className="bg-slate-50 text-[8px] font-black text-slate-400 font-industrial tracking-widest uppercase font-bold"><tr><th className="p-4">Material Details</th><th className="p-4 text-center">Quantity</th><th className="p-4">Borrower & Lender</th><th className="p-4">Full Transaction Timeline (Audit)</th><th className="p-4 text-center">Status</th></tr></thead>
-                            <tbody className="divide-y divide-slate-100 text-slate-600">
+                <div className="grid grid-cols-1 gap-12 font-mono uppercase font-bold">
+                    <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden font-mono uppercase font-bold">
+                        <div className="p-4 bg-slate-800 text-white flex justify-between font-industrial text-[10px] tracking-widest uppercase font-bold font-industrial uppercase font-bold"><span>Transaction Audit Trail Log (Settled)</span><i className="fa-solid fa-file-shield text-slate-400"></i></div>
+                        <div className="overflow-x-auto"><table className="w-full text-left text-[9px] divide-y divide-slate-100 uppercase font-mono font-bold">
+                            <thead className="bg-slate-50 text-[8px] font-black text-slate-400 font-industrial tracking-widest uppercase font-bold uppercase font-bold"><tr><th className="p-4">Material Details</th><th className="p-4 text-center">Quantity</th><th className="p-4">Engineers Info</th><th className="p-4">Full Timeline Log (Digital Audit)</th><th className="p-4 text-center">Status</th></tr></thead>
+                            <tbody className="divide-y text-slate-600 font-bold uppercase">
                                 {[...givenHistory, ...takenHistory].sort((a,b)=>Number(b.timestamp)-Number(a.timestamp)).map(h => (
-                                    <tr key={h.id} className="hover:bg-slate-50 transition border-b">
-                                        <td className="p-4 leading-tight"><p className="font-bold text-slate-800 tracking-tighter uppercase">{h.item_name}</p><p className="text-[8px] text-slate-400 mt-1 font-bold">SPEC: {h.item_spec}</p></td>
-                                        <td className="p-4 text-center font-black text-slate-600 whitespace-nowrap uppercase">Verified: {h.req_qty} {h.item_unit}</td>
-                                        <td className="p-4 leading-tight uppercase font-bold"><p className="text-blue-500">BY: {h.from_name} ({h.from_unit})</p><p className="text-red-500">FROM: {h.to_name} ({h.to_unit})</p></td>
-                                        <td className="p-4 leading-none space-y-1 font-bold tracking-tighter uppercase text-[8px]">
-                                            <p><span className="opacity-50">1. REQ:</span> {h.from_name} @ {formatTS(h.timestamp)}</p>
-                                            <p><span className="opacity-50">2. APPR:</span> {h.to_name} @ {formatTS(h.timestamp)} (QTY: {h.req_qty})</p>
+                                    <tr key={h.id} className="hover:bg-slate-50 transition border-b uppercase font-bold">
+                                        <td className="p-4 leading-tight uppercase font-bold"><p className="font-bold text-slate-800 tracking-tighter uppercase font-bold">{h.item_name}</p><p className="text-[8px] text-slate-400 mt-1 font-bold uppercase font-bold">SPEC: {h.item_spec}</p></td>
+                                        <td className="p-4 text-center font-black text-slate-600 whitespace-nowrap uppercase font-bold">Settled: {h.req_qty} {h.item_unit}</td>
+                                        <td className="p-4 leading-tight uppercase font-bold font-bold"><p className="text-blue-500 font-bold uppercase">BORR: {h.from_name}</p><p className="text-red-500 font-bold uppercase">LEND: {h.to_name}</p></td>
+                                        <td className="p-4 leading-none space-y-1 font-bold tracking-tighter uppercase text-[8px] font-bold">
+                                            <p><span className="opacity-50">1. REQ BY:</span> {h.from_name} @ {formatTS(h.timestamp)}</p>
+                                            <p><span className="opacity-50">2. APPR BY:</span> {h.to_name} @ {formatTS(h.timestamp)} (Qty: {h.req_qty})</p>
                                             <p><span className="opacity-50">3. RTN INI:</span> {h.from_name} @ {formatTS(h.timestamp)}</p>
-                                            <p><span className="opacity-50">4. VERI BY:</span> {h.to_name} @ {formatTS(h.timestamp)} (FINAL)</p>
+                                            <p><span className="opacity-50 font-black text-green-600">4. VERI BY:</span> {h.to_name} @ {formatTS(h.timestamp)} (FINAL)</p>
                                         </td>
-                                        <td className="p-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${h.status==='returned' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{h.status}</span></td>
+                                        <td className="p-4 text-center uppercase font-bold"><span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${h.status==='returned' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{h.status}</span></td>
                                     </tr>
                                 ))}
                             </tbody></table></div>
@@ -531,29 +542,25 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 </div>
             </div>
 
-            {/* UNIVERSAL COMPACT ACTION MODAL (NO AUTO-APPROVE) */}
+            {/* UNIVERSAL ACTION MODAL (COMPACT DASHBOARD UI) */}
             {actionModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-                    <div className="bg-white w-full max-w-[320px] rounded-2xl shadow-2xl p-5 animate-scale-in border-t-4 border-slate-900 font-industrial uppercase">
-                        <div className="flex justify-between items-center mb-4 border-b pb-2 tracking-widest font-industrial uppercase"><h3 className="text-[11px] font-black text-slate-800 uppercase font-bold">{actionModal.type.replace('_', ' ')} Portal</h3><button onClick={()=>setActionModal(null)} className="text-slate-400 hover:text-red-500 transition-colors uppercase font-bold">✕</button></div>
-                        <div className="text-[11px] font-black text-indigo-600 mb-1 leading-tight uppercase truncate">{actionModal.data.item_name}</div>
-                        <div className="text-[9px] text-slate-400 mb-5 font-mono truncate uppercase font-bold tracking-tight">{actionModal.data.item_spec}</div>
-                        
-                        <div className="space-y-4">
+                    <div className="bg-white w-full max-w-[320px] rounded-2xl shadow-2xl p-5 animate-scale-in border-t-4 border-slate-900 font-industrial uppercase font-bold">
+                        <div className="flex justify-between items-center mb-4 border-b pb-2 tracking-widest font-industrial uppercase font-bold"><h3 className="text-[11px] font-black text-slate-800 uppercase font-bold uppercase">{actionModal.type.replace('_', ' ')} Materials</h3><button onClick={()=>setActionModal(null)} className="text-slate-400 hover:text-red-500 uppercase font-bold font-bold">✕</button></div>
+                        <div className="text-[11px] font-black text-indigo-600 mb-1 leading-tight uppercase truncate font-bold font-bold uppercase">{actionModal.data.item_name}</div>
+                        <div className="text-[9px] text-slate-400 mb-5 font-mono truncate uppercase font-bold font-bold uppercase">{actionModal.data.item_spec}</div>
+                        <div className="space-y-4 uppercase font-bold">
                             {(actionModal.type === 'approve' || actionModal.type === 'return' || actionModal.type === 'verify') && (
-                                <div className="bg-slate-50 p-3 rounded-xl text-center shadow-inner font-industrial">
-                                    <label className="text-[9px] font-black text-slate-500 uppercase block mb-1 tracking-widest font-industrial">Confirm Quantity</label>
-                                    <input type="number" defaultValue={actionModal.data.req_qty} className="w-full bg-white p-2 border-2 rounded-lg text-center text-lg font-black outline-none focus:border-slate-800 shadow-sm font-mono h-[38px]" onChange={e=>setForm({...form, qty: e.target.value})} />
-                                    <p className="text-[8px] text-slate-400 mt-1 uppercase font-bold tracking-widest font-industrial">System Limit: {actionModal.data.req_qty} {actionModal.data.item_unit}</p>
+                                <div className="bg-slate-50 p-3 rounded-xl text-center shadow-inner font-industrial uppercase font-bold">
+                                    <label className="text-[9px] font-black text-slate-500 uppercase block mb-1 tracking-widest font-industrial uppercase font-bold">Set Quantity</label>
+                                    <input type="number" defaultValue={actionModal.data.req_qty} className="w-full bg-white p-2 border-2 rounded-lg text-center text-lg font-black outline-none focus:border-slate-800 shadow-sm font-mono h-[38px] font-bold uppercase" onChange={e=>setForm({...form, qty: e.target.value})} />
+                                    <p className="text-[8px] text-slate-400 mt-1 uppercase font-bold tracking-widest font-industrial uppercase font-bold uppercase">System Limit: {actionModal.data.req_qty} {actionModal.data.item_unit}</p>
                                 </div>
                             )}
-                            <div>
-                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1 font-industrial">{(actionModal.type.includes('reject')) ? 'Mandatory Reason' : 'Log Comment'}</label>
-                                <textarea className="w-full p-2 border-2 rounded-lg text-xs h-16 outline-none focus:border-slate-800 mt-1 font-mono leading-tight shadow-inner uppercase font-bold" placeholder="Type detail log..." onChange={e=>setForm({...form, comment: e.target.value})}></textarea>
-                            </div>
-                            <div className="flex flex-col gap-2 pt-1 font-industrial uppercase">
-                                <button onClick={handleProcess} className={`w-full py-2.5 font-black rounded-lg uppercase text-[10px] shadow-lg text-white ${actionModal.type.includes('reject') ? 'bg-red-600' : 'bg-slate-900'} hover:opacity-90 transition-all font-industrial tracking-widest font-bold uppercase`}>Confirm Audit Log</button>
-                                <button onClick={()=>setActionModal(null)} className="w-full py-1 text-slate-400 text-[9px] font-bold uppercase tracking-widest font-industrial uppercase font-bold">Cancel</button>
+                            <div><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1 font-industrial uppercase font-bold">{(actionModal.type.includes('reject')) ? 'Mandatory Reason' : 'Audit Note'}</label><textarea className="w-full p-2 border-2 rounded-lg text-xs h-16 outline-none focus:border-slate-800 mt-1 font-mono leading-tight shadow-inner uppercase font-bold uppercase" placeholder="Type detail..." onChange={e=>setForm({...form, comment: e.target.value})}></textarea></div>
+                            <div className="flex flex-col gap-2 pt-1 font-industrial uppercase font-bold">
+                                <button onClick={handleProcess} className={`w-full py-2.5 font-black rounded-xl uppercase text-[10px] shadow-lg text-white ${actionModal.type.includes('reject') ? 'bg-red-600' : 'bg-slate-900'} hover:opacity-90 font-bold uppercase font-bold tracking-widest`}>Confirm</button>
+                                <button onClick={()=>setActionModal(null)} className="w-full py-1 text-slate-400 text-[9px] font-bold uppercase tracking-widest font-industrial uppercase font-bold font-bold">Cancel</button>
                             </div>
                         </div>
                     </div>
