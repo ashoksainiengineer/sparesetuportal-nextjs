@@ -26,7 +26,7 @@ export default function SpareSetuApp() {
     return () => authListener.subscription.unsubscribe();
   }, []);
 
-  // REAL-TIME NOTIFICATION LOGIC
+  // REAL-TIME NOTIFICATION ENGINE
   useEffect(() => {
     if (!profile?.id || !profile?.unit) return;
     const fetchAllCounts = async () => {
@@ -35,7 +35,7 @@ export default function SpareSetuApp() {
         setPendingCount((incoming || 0) + (updates || 0));
     };
     fetchAllCounts();
-    const channel = supabase.channel('sparesetu-global-sync').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAllCounts(); }).subscribe();
+    const channel = supabase.channel('sparesetu-global-sync-v2').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAllCounts(); }).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [profile]);
 
@@ -122,7 +122,7 @@ export default function SpareSetuApp() {
   );
 }
 
-// --- AUTH VIEW (100% ORIGINAL AS PER INSTRUCTIONS) ---
+// --- AUTH VIEW (UNTOUCHED) ---
 function AuthView() {
   const [view, setView] = useState<"login" | "register" | "otp" | "forgot">("login");
   const [form, setForm] = useState({ email: "", pass: "", name: "", unit: "", enteredOtp: "", generatedOtp: "" });
@@ -200,16 +200,18 @@ function AuthView() {
   );
 }
 
-// --- GLOBAL SEARCH (FONT & BUTTON FIXED) ---
+// --- GLOBAL SEARCH VIEW (TOP CONTRIBUTORS & EXACT FONT MATCHING) ---
 function GlobalSearchView({ profile }: any) {
-  const [items, setItems] = useState<any[]>([]); 
+  const [items, setItems] = useState<any[]>([]);
+  const [contributors, setContributors] = useState<any[]>([]);
   const [search, setSearch] = useState(""); 
   const [selCat, setSelCat] = useState("all");
   const [requestItem, setRequestItem] = useState<any>(null);
   const [reqForm, setReqForm] = useState({ qty: "", comment: "" });
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => { fetchAll(); lead(); }, []);
   const fetchAll = async () => { const { data } = await supabase.from("inventory").select("*"); if (data) setItems(data); };
+  const lead = async () => { const { data } = await supabase.from("profiles").select("name, unit, item_count").order("item_count", { ascending: false }).limit(3); if (data) setContributors(data); };
 
   const handleSendRequest = async () => {
     if (!reqForm.qty || Number(reqForm.qty) <= 0 || Number(reqForm.qty) > requestItem.qty) { alert("Invalid quantity!"); return; }
@@ -223,27 +225,34 @@ function GlobalSearchView({ profile }: any) {
 
   return (
     <div className="space-y-6 animate-fade-in font-inter uppercase font-bold">
+      {/* TOP CONTRIBUTORS SECTION ADDED AS PER SCREENSHOT */}
+      <section className="bg-white p-4 rounded-xl border flex flex-wrap items-center gap-4 shadow-sm">
+         <h2 className="text-sm font-bold uppercase text-slate-700 font-industrial"><i className="fa-solid fa-trophy text-yellow-500 mr-2"></i> Top Contributors</h2>
+         <div className="flex gap-3 overflow-x-auto flex-1 pb-1">{contributors.map((c, idx) => (<div key={idx} className="bg-slate-50 p-2 rounded-lg border flex items-center gap-3 min-w-[180px] shadow-sm"><div className="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs border-2 border-orange-400">{c.name.charAt(0)}</div><div><p className="text-xs font-bold text-slate-800 truncate">{c.name}</p><p className="text-[9px] text-slate-400 uppercase">{c.unit}</p><p className="text-[9px] font-bold text-green-600">{c.item_count || 0} Items</p></div></div>))}</div>
+      </section>
+
       <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b bg-slate-50/80 flex flex-wrap items-center gap-2">
-             <div className="relative flex-grow md:w-80 font-bold"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Global Search..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none focus:ring-1 font-bold uppercase" onChange={e=>setSearch(e.target.value)} /></div>
-             <select className="border rounded-md text-xs font-bold p-2 bg-white uppercase" onChange={e=>setSelCat(e.target.value)}><option value="all">All Items</option>{[...new Set(items.map(i => i.cat))].sort().map(c => <option key={c} value={c}>{c}</option>)}</select>
+             <div className="relative flex-grow md:w-80 font-bold"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Global Inventory Search..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none focus:ring-1 font-bold uppercase" onChange={e=>setSearch(e.target.value)} /></div>
+             <select className="border rounded-md text-xs font-bold p-2 bg-white uppercase" onChange={e=>setSelCat(e.target.value)}><option value="all">Category: All</option>{[...new Set(items.map(i => i.cat))].sort().map(c => <option key={c} value={c}>{c}</option>)}</select>
         </div>
-        <div className="overflow-x-auto"><table className="w-full text-left font-industrial tracking-tight"><thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-black border-b tracking-widest"><tr><th className="p-4 pl-6 font-bold">Item Detail</th><th className="p-4 font-bold">Spec</th><th className="p-4 text-center font-bold">Total Stock</th><th className="p-4 text-center font-bold">Action</th></tr></thead>
+        <div className="overflow-x-auto"><table className="w-full text-left font-industrial tracking-tight"><thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-black border-b tracking-widest"><tr><th className="p-4 pl-6 font-bold">Item Details</th><th className="p-4 font-bold">Spec</th><th className="p-4 text-center font-bold">Qty</th><th className="p-4 text-center font-bold">Action</th></tr></thead>
           <tbody className="divide-y text-sm">
             {filtered.map((i: any, idx: number) => (
               <tr key={idx} className={`hover:bg-slate-50 transition border-b border-slate-50 ${i.qty === 0 ? 'bg-red-50/20' : ''}`}>
+                {/* EXACT FONT STYLING MATCHED TO image_fcf3af.png */}
                 <td className="p-4 pl-6 leading-tight font-inter">
                   <div className="text-slate-800 font-bold text-[13.5px] tracking-tight uppercase">{i.item}</div>
-                  <div className="text-[9px] text-slate-400 font-bold uppercase mt-1 tracking-wider">{i.cat}</div>
+                  <div className="text-[10px] text-slate-400 font-bold uppercase mt-1 tracking-wider">{i.cat}</div>
                 </td>
                 <td className="p-4">
-                  <span className="bg-white border border-slate-200 px-2.5 py-1 rounded-[4px] text-[10.5px] font-bold text-slate-500 shadow-sm uppercase font-inter inline-block">
-                    {i.spec}
-                  </span>
+                  <span className="bg-white border border-slate-200 px-2.5 py-1 rounded-[4px] text-[11px] font-bold text-slate-600 shadow-sm uppercase font-inter inline-block">{i.spec}</span>
                 </td>
-                <td className="p-4 text-center font-mono font-bold whitespace-nowrap text-slate-800 text-[14px]">{i.qty} {i.unit}</td>
+                <td className="p-4 text-center font-mono font-bold whitespace-nowrap text-slate-800 text-[14px]">
+                    {i.qty} <span className="text-slate-500 text-[11px]">{i.unit}</span>
+                </td>
                 <td className="p-4 text-center">
-                    {i.holder_uid === profile?.id ? <span className="text-[10px] font-black text-green-600 italic tracking-tighter uppercase font-bold">MY STORE</span> : <button onClick={()=>setRequestItem(i)} className="bg-[#ff6b00] text-white px-4 py-1.5 rounded-[4px] text-[10.5px] font-black shadow-sm uppercase font-industrial tracking-widest">Request</button>}
+                    {i.holder_uid === profile?.id ? <span className="text-[10px] font-black text-green-600 italic tracking-tighter uppercase font-bold">MY STOCK</span> : <button onClick={()=>setRequestItem(i)} className="bg-[#ff6b00] text-white px-4 py-1.5 rounded-[4px] text-[10.5px] font-black shadow-sm uppercase font-industrial tracking-widest">Request</button>}
                 </td>
               </tr>
             ))}
@@ -253,13 +262,13 @@ function GlobalSearchView({ profile }: any) {
       {requestItem && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
             <div className="bg-white w-full max-w-[320px] rounded-2xl shadow-2xl p-5 animate-scale-in border-t-8 border-orange-500 font-inter">
-                <h3 className="text-[11px] font-black text-slate-800 uppercase border-b pb-2 mb-4 font-industrial tracking-widest uppercase">Request Part</h3>
+                <h3 className="text-[11px] font-black text-slate-800 uppercase border-b pb-2 mb-4 font-industrial tracking-widest uppercase">Request Material</h3>
                 <div className="text-[11px] font-black text-indigo-600 mb-1 leading-tight uppercase truncate">{requestItem.item}</div>
-                <div className="text-[9px] text-slate-400 mb-5 bg-slate-50 p-2 rounded uppercase font-bold tracking-tighter">Source: {requestItem.holder_unit} ({requestItem.holder_name})</div>
+                <div className="text-[9px] text-slate-500 mb-5 bg-slate-50 p-2 rounded uppercase font-bold tracking-tighter">From: {requestItem.holder_unit} ({requestItem.holder_name})</div>
                 <div className="space-y-4">
                     <div><label className="text-[9px] font-black text-slate-400 uppercase font-bold font-industrial">Qty ({requestItem.unit})</label><input type="number" className="w-full p-2 border-2 rounded-lg text-center text-lg font-black outline-none focus:border-orange-500 font-mono" value={reqForm.qty} onChange={e=>setReqForm({...reqForm, qty: e.target.value})} /></div>
                     <div><label className="text-[9px] font-black text-slate-400 uppercase font-bold font-industrial">Log Note</label><textarea className="w-full p-2 border-2 rounded-lg text-xs h-16 outline-none focus:border-orange-500 font-mono leading-tight uppercase" placeholder="Purpose..." onChange={e=>setReqForm({...reqForm, comment: e.target.value})}></textarea></div>
-                    <div className="flex gap-2 pt-1 font-industrial"><button onClick={()=>setRequestItem(null)} className="flex-1 py-2 bg-slate-100 text-slate-600 font-bold rounded-lg uppercase text-[9px]">Cancel</button><button onClick={handleSendRequest} className="flex-1 py-2 iocl-btn text-white font-bold rounded-lg uppercase text-[9px] shadow-lg">Submit Request</button></div>
+                    <div className="flex gap-2 pt-1 font-industrial"><button onClick={()=>setRequestItem(null)} className="flex-1 py-2 bg-slate-100 text-slate-600 font-bold rounded-lg uppercase text-[9px]">Cancel</button><button onClick={handleSendRequest} className="flex-1 py-2 iocl-btn text-white font-bold rounded-lg uppercase text-[9px] shadow-lg">Submit</button></div>
                 </div>
             </div>
         </div>
@@ -268,7 +277,7 @@ function GlobalSearchView({ profile }: any) {
   );
 }
 
-// --- MY STORE VIEW ---
+// --- MY STORE VIEW (FONT MATCHED) ---
 function MyStoreView({ profile, fetchProfile }: any) {
   const [myItems, setMyItems] = useState<any[]>([]); 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -296,7 +305,7 @@ function MyStoreView({ profile, fetchProfile }: any) {
               {myItems.map(i => (<tr key={i.id} className="hover:bg-slate-50 transition border-b border-slate-50 font-bold">
                 <td className="p-5 pl-8 text-[9px] font-bold text-slate-400 uppercase leading-none">{i.cat}</td>
                 <td className="p-5 leading-tight font-inter"><div className="text-slate-800 font-bold text-[13.5px] tracking-tight uppercase">{i.item}</div></td>
-                <td className="p-5 font-mono uppercase font-bold"><span className="bg-white border border-slate-200 px-2.5 py-1 rounded-[4px] text-[10.5px] font-bold text-slate-500 shadow-sm uppercase inline-block">{i.spec}</span></td>
+                <td className="p-5 font-mono uppercase font-bold"><span className="bg-white border border-slate-200 px-2.5 py-1 rounded-[4px] text-[10.5px] font-bold text-slate-600 shadow-sm uppercase font-inter inline-block">{i.spec}</span></td>
                 <td className="p-5 font-bold text-center font-mono uppercase whitespace-nowrap text-slate-800 text-[14px]">{i.qty} {i.unit}</td>
               </tr>))}
           </tbody>
@@ -320,7 +329,7 @@ function MyStoreView({ profile, fetchProfile }: any) {
   );
 }
 
-// --- MISSING COMPONENTS RESTORED TO FIX VERCEL ERROR ---
+// --- USAGE HISTORY & ANALYSIS (RESTORED TO FIX VERCEL ERROR) ---
 function UsageHistoryView({ profile }: any) {
   const [logs, setLogs] = useState<any[]>([]);
   useEffect(() => { if (profile) fetch(); }, [profile]);
@@ -334,7 +343,7 @@ function MonthlyAnalysisView({ profile }: any) {
   return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-industrial uppercase tracking-tight font-bold"><div className="col-span-3 pb-4 text-xs font-black text-slate-400 tracking-widest text-center border-b font-industrial">Analytical Summary</div>{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md uppercase font-bold"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-[0.2em] font-industrial">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner font-bold"><i className="fa-solid fa-chart-line font-bold"></i></div><div className="text-3xl font-black text-slate-800 font-industrial">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase font-industrial tracking-widest">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase font-industrial tracking-tighter">{a.count} Logged Records</div></div>))}</div>);
 }
 
-// --- RETURNS LEDGER (BRACKET QTY RESTORED) ---
+// --- RETURNS LEDGER (BRACKET QTY + FONT MATCHED) ---
 function ReturnsLedgerView({ profile, onAction }: any) { 
     const [pending, setPending] = useState<any[]>([]);
     const [given, setGiven] = useState<any[]>([]);
