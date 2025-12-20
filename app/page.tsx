@@ -35,7 +35,7 @@ export default function SpareSetuApp() {
         setPendingCount((incoming || 0) + (updates || 0));
     };
     fetchAllCounts();
-    const channel = supabase.channel('notif-sync').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAllCounts(); }).subscribe();
+    const channel = supabase.channel('notif-sync-v2').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAllCounts(); }).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [profile]);
 
@@ -156,7 +156,7 @@ function AuthView() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 login-bg">
       <div className="w-full max-w-md login-card rounded-2xl shadow-2xl p-8 border-t-4 border-orange-500 text-center relative animate-fade-in">
-        <div className="mb-8">
+        <div className="mb-8 text-center">
             <div className="flex justify-center mb-4">
               <div className="iocl-logo-container" style={{ fontSize: '14px' }}>
                 <div className="iocl-circle"><div className="iocl-band"><span className="iocl-hindi-text">इंडियनऑयल</span></div></div>
@@ -324,12 +324,12 @@ function MyStoreView({ profile, fetchProfile }: any) {
   return (
     <div className="animate-fade-in space-y-6 pb-10">
       <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl border shadow-sm">
-        <div><h2 className="text-xl font-bold text-slate-800 font-industrial uppercase">My Local Store</h2><p className="text-xs font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-1 uppercase tracking-tighter inline-block font-industrial tracking-widest">ZONE: {profile?.unit}</p></div>
+        <div><h2 className="text-xl font-bold text-slate-800 font-industrial uppercase">My Local Store</h2><p className="text-xs font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-1 uppercase tracking-tighter inline-block font-industrial tracking-widest uppercase">ZONE: {profile?.unit}</p></div>
         <button onClick={() => setShowAddModal(true)} className="iocl-btn text-white px-6 py-2.5 rounded-xl font-bold shadow-md flex items-center gap-2"><i className="fa-solid fa-plus"></i> Add New Stock</button>
       </div>
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden font-mono">
         <div className="p-4 border-b bg-slate-50/80 flex flex-wrap items-center gap-2"><div className="relative flex-grow md:w-64"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Search My Store..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none shadow-inner" onChange={e=>setSearch(e.target.value)} /></div><select className="border rounded-md text-[11px] font-bold p-2 bg-white" onChange={e=>setSelCat(e.target.value)}><option value="all">Category: All</option>{[...new Set(myItems.map(i => i.cat))].sort().map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-        <div className="overflow-x-auto"><table className="w-full text-left font-industrial tracking-tight"><thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b uppercase"><tr><th className="p-5 pl-8 tracking-wider">Category</th><th className="p-5 tracking-wider">Item Name</th><th className="p-5 tracking-wider">Spec</th><th className="p-5 text-center tracking-wider">Qty</th><th className="p-5 text-center tracking-wider">Manage</th></tr></thead>
+        <div className="overflow-x-auto"><table className="w-full text-left font-industrial tracking-tight"><thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b uppercase"><tr><th className="p-5 pl-8">Category</th><th className="p-5">Item Name</th><th className="p-5">Spec</th><th className="p-5 text-center">Qty</th><th className="p-5 text-center">Manage</th></tr></thead>
           <tbody className="divide-y text-sm">
               {filtered.map(i => (<tr key={i.id} className="hover:bg-slate-50 transition border-b border-slate-50"><td className="p-5 pl-8 text-[10px] font-bold text-slate-400 uppercase leading-none">{i.cat}</td><td className="p-5 font-bold text-slate-800 leading-tight uppercase font-industrial">{i.item}</td><td className="p-5"><span className="bg-white border px-2 py-1 rounded text-[11px] font-medium text-slate-600 shadow-sm uppercase">{i.spec}</span></td><td className="p-5 font-bold text-center font-mono">{Number(i.qty) === 0 ? <span className="text-red-600 font-black text-[10px] uppercase bg-red-100 px-2 py-1 rounded border border-red-200 whitespace-nowrap">Out of Stock</span> : <span className="text-emerald-600 text-lg font-black">{i.qty} {i.unit || 'Nos'}</span>}</td><td className="p-5 flex gap-3 justify-center items-center"><button onClick={()=>setConsumeItem(i)} disabled={Number(i.qty) === 0} className="text-indigo-600 hover:scale-125 transition disabled:opacity-30"><i className="fa-solid fa-box-open text-xl"></i></button><button onClick={()=>setEditItem(i)} className="text-slate-400 hover:text-blue-500 hover:scale-125 transition"><i className="fa-solid fa-pen-to-square text-xl"></i></button></td></tr>))}
           </tbody>
@@ -339,8 +339,8 @@ function MyStoreView({ profile, fetchProfile }: any) {
           {!form.isManual ? (<>
               <div><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Category</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none" value={form.cat} onChange={e=>setForm({...form, cat: e.target.value, sub:"", make:"", model:"", spec:""})}><option value="">-- Select --</option>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
               <div className="grid grid-cols-2 gap-3">
-                  <div><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Sub Cat</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none" disabled={!form.cat} value={form.sub} onChange={e=>setForm({...form, sub: e.target.value, make:"", model:"", spec:""})}><option value="">-- Select --</option>{subs.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-                  <div><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Make</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none" disabled={!form.sub} value={form.make} onChange={e=>setForm({...form, make: e.target.value, model:"", spec:""})}><option value="">-- Select --</option>{makes.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
+                  <div className="flex flex-col"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Sub Cat</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none" disabled={!form.cat} value={form.sub} onChange={e=>setForm({...form, sub: e.target.value, make:"", model:"", spec:""})}><option value="">-- Select --</option>{subs.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                  <div className="flex flex-col"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Make</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none" disabled={!form.sub} value={form.make} onChange={e=>setForm({...form, make: e.target.value, model:"", spec:""})}><option value="">-- Select --</option>{makes.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
               </div>
               <div><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Model</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none" disabled={!form.make} value={form.model} onChange={e=>setForm({...form, model: e.target.value, spec:""})}><option value="">-- Select --</option>{models.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
               <div><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Spec</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none" disabled={!form.model} value={form.spec} onChange={e=>setForm({...form, spec: e.target.value})}><option value="">-- Select --</option>{specs.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
@@ -352,7 +352,7 @@ function MyStoreView({ profile, fetchProfile }: any) {
               <div className="flex flex-col"><label className="text-[9px] font-black text-slate-400 uppercase block text-center mb-1">Qty</label><input type="number" placeholder="0" className="w-full p-2 border-2 border-slate-100 rounded-lg text-lg font-black text-center outline-none h-[38px]" onChange={e=>setForm({...form, qty: e.target.value})} /></div>
               <div className="flex flex-col"><label className="text-[9px] font-black text-slate-400 uppercase block text-center mb-1">Unit</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs uppercase font-bold outline-none h-[42px]"><option>Nos</option><option>Mtrs</option></select></div>
           </div>
-          <button onClick={handleSave} className="w-full py-2.5 bg-slate-900 text-white font-black rounded-lg shadow-lg mt-2 uppercase text-[9px] tracking-widest hover:bg-slate-800">Confirm Stock Entry</button>
+          <button onClick={handleSave} className="w-full py-2.5 bg-slate-900 text-white font-black rounded-xl shadow-lg mt-2 uppercase text-[9px] tracking-widest hover:bg-slate-800">Confirm Stock Entry</button>
       </div></div></div>}
     </div>
   );
@@ -361,7 +361,7 @@ function MyStoreView({ profile, fetchProfile }: any) {
 function UsageHistoryView({ profile }: any) {
   const [logs, setLogs] = useState<any[]>([]);
   useEffect(() => { const f = async () => { const { data } = await supabase.from("usage_logs").select("*").eq("consumer_uid", profile.id).order("timestamp", { ascending: false }); if (data) setLogs(data); }; if (profile) f(); }, [profile]);
-  return (<section className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm font-mono"><div className="p-5 border-b bg-slate-50/50 flex justify-between items-center"><h2 className="text-lg font-bold text-slate-800 uppercase font-industrial tracking-wider">Consumption History</h2></div><div className="overflow-x-auto"><table className="w-full text-left"><thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b uppercase"><tr><th className="p-5 pl-8 font-industrial">Date</th><th className="p-5 font-industrial">Details</th><th className="p-5 text-center font-industrial">Qty</th></tr></thead><tbody className="divide-y text-sm">{logs.map(l => (<tr key={l.id} className="hover:bg-slate-50 transition border-b border-slate-50"><td className="p-5 pl-8 text-xs text-slate-500 font-bold leading-tight">{new Date(Number(l.timestamp)).toLocaleDateString()}</td><td className="p-5 font-bold text-slate-800 leading-tight uppercase font-industrial">{l.item_name}<div className="text-[10px] text-slate-400 uppercase mt-0.5">{l.category}</div></td><td className="p-5 text-center font-black text-red-600 whitespace-nowrap">-{l.qty_consumed} Nos</td></tr>))}</tbody></table></div></section>);
+  return (<section className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm font-mono"><div className="p-5 border-b bg-slate-50/50 flex justify-between items-center"><h2 className="text-lg font-bold text-slate-800 uppercase font-industrial tracking-wider">Consumption History</h2></div><div className="overflow-x-auto"><table className="w-full text-left"><thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b uppercase"><tr><th className="p-5 pl-8 font-industrial tracking-widest">Date</th><th className="p-5 font-industrial tracking-widest">Details</th><th className="p-5 text-center font-industrial tracking-widest">Qty</th></tr></thead><tbody className="divide-y text-sm">{logs.map(l => (<tr key={l.id} className="hover:bg-slate-50 transition border-b border-slate-50"><td className="p-5 pl-8 text-xs text-slate-500 font-bold leading-tight">{new Date(Number(l.timestamp)).toLocaleDateString()}</td><td className="p-5 font-bold text-slate-800 leading-tight uppercase">{l.item_name}<div className="text-[10px] text-slate-400 uppercase mt-0.5">{l.category}</div></td><td className="p-5 text-center font-black text-red-600 whitespace-nowrap">-{l.qty_consumed} Nos</td></tr>))}</tbody></table></div></section>);
 }
 
 function MonthlyAnalysisView({ profile }: any) {
@@ -370,7 +370,7 @@ function MonthlyAnalysisView({ profile }: any) {
   return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-industrial">{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-widest">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner"><i className="fa-solid fa-chart-line"></i></div><div className="text-3xl font-black text-slate-800 font-industrial">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase">{a.count} Trans</div></div>))}{analysis.length===0 && <div className="p-20 text-center italic text-slate-400 bg-white rounded-xl border w-full col-span-3">No monthly data.</div>}</div>);
 }
 
-// --- UPDATED RETURNS & UDHAARI VIEW (PROFESSIONAL TIMELINE HISTORY + COMPACT UI) ---
+// --- UPDATED RETURNS & UDHAARI VIEW (FULL AUDIT LOGS + ROBUST PARTIAL RETURN) ---
 function ReturnsLedgerView({ profile, onAction }: any) { 
     const [pending, setPending] = useState<any[]>([]);
     const [given, setGiven] = useState<any[]>([]);
@@ -392,7 +392,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
 
     useEffect(() => {
         if (!profile) return; fetchAll();
-        const channel = supabase.channel('ledger-audit-final').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAll(); if(onAction) onAction(); }).subscribe();
+        const channel = supabase.channel('audit-sync-vfinal').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAll(); if(onAction) onAction(); }).subscribe();
         return () => { supabase.removeChannel(channel); };
     }, [profile]);
 
@@ -400,7 +400,8 @@ function ReturnsLedgerView({ profile, onAction }: any) {
 
     const handleProcess = async () => {
         const { type, data } = actionModal;
-        if (type.includes('reject') && !form.comment.trim()) { alert("Rejection comment required!"); return; }
+        if (type.includes('reject') && !form.comment.trim()) { alert("Log comment is required!"); return; }
+        
         let updateData: any = {};
         const actionQty = Number(form.qty || data.req_qty);
 
@@ -408,20 +409,21 @@ function ReturnsLedgerView({ profile, onAction }: any) {
         else if (type === 'reject') updateData = { status: 'rejected', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false };
         else if (type === 'return') {
             if (actionQty < data.req_qty) {
-                await supabase.from("requests").update({ req_qty: data.req_qty - actionQty }).eq("id", data.id);
+                // ROBUST PARTIAL RETURN INITIATION: Split row immediately
+                await supabase.from("requests").update({ req_qty: data.req_qty - actionQty }).eq("id", data.id); // Balance stays active
                 await supabase.from("requests").insert([{ ...data, id: undefined, req_qty: actionQty, status: 'return_requested', return_comment: form.comment, from_uid: profile.id, from_name: profile.name }]);
             } else {
                 await supabase.from("requests").update({ status: 'return_requested', return_comment: form.comment, req_qty: actionQty, from_uid: profile.id, from_name: profile.name }).eq("id", data.id);
             }
-            alert("Sent!"); setActionModal(null); return;
+            alert("Return sent for verification!"); setActionModal(null); return;
         }
         else if (type === 'verify') {
-            await supabase.from("requests").update({ status: 'returned', approve_comment: `Verified By ${profile.name}: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
+            await supabase.from("requests").update({ status: 'returned', approve_comment: `Verified: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
             const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
             if (inv) await supabase.from("inventory").update({ qty: inv.qty + data.req_qty }).eq("id", data.item_id);
-            alert("Return Verified!"); setActionModal(null); return;
+            alert("Verified & Settled!"); setActionModal(null); return;
         }
-        else if (type === 'reject_return') updateData = { status: 'approved', approve_comment: `Return Rejected By ${profile.name}: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false };
+        else if (type === 'reject_return') updateData = { status: 'approved', approve_comment: `Return Rejected: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false };
 
         const { error } = await supabase.from("requests").update(updateData).eq("id", data.id);
         if (!error && type === 'approve') {
@@ -433,11 +435,10 @@ function ReturnsLedgerView({ profile, onAction }: any) {
 
     return (
         <div className="space-y-10 animate-fade-in pb-20 font-industrial tracking-tight">
-            <h2 className="text-2xl font-bold text-slate-800 uppercase flex items-center gap-2"><i className="fa-solid fa-handshake-angle text-orange-500"></i> Udhaari Dashboard</h2>
+            <h2 className="text-2xl font-bold text-slate-800 uppercase flex items-center gap-2 tracking-tight"><i className="fa-solid fa-handshake-angle text-orange-500"></i> Udhaari Dashboard</h2>
 
-            {/* PENDING ACTIONS */}
-            <section className="bg-white rounded-xl border-t-4 border-orange-500 shadow-xl overflow-hidden font-industrial">
-                <div className="p-4 bg-orange-50/50 flex justify-between border-b"><div className="flex items-center gap-2 text-orange-900 font-black uppercase text-[10px] tracking-widest"><i className="fa-solid fa-bolt animate-pulse"></i> Requests to {profile?.unit}</div><span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px]">{pending.length}</span></div>
+            <section className="bg-white rounded-xl border-t-4 border-orange-500 shadow-xl overflow-hidden">
+                <div className="p-4 bg-orange-50/50 flex justify-between border-b"><div className="flex items-center gap-2 text-orange-900 font-black uppercase text-[10px] tracking-widest font-industrial"><i className="fa-solid fa-bolt animate-pulse"></i> Material Requests to {profile?.unit}</div><span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px]">{pending.length}</span></div>
                 <div className="overflow-x-auto"><table className="w-full text-left text-sm divide-y font-mono">
                     <thead className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase font-industrial tracking-widest"><tr><th className="p-4 pl-6">Material Detail</th><th className="p-4">Requester</th><th className="p-4 text-center">Qty</th><th className="p-4 text-center">Action</th></tr></thead>
                     <tbody className="divide-y text-slate-600">
@@ -445,8 +446,8 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                             <tr key={r.id} className="hover:bg-orange-50/20 transition border-b">
                                 <td className="p-4 pl-6 font-bold text-slate-800 leading-tight uppercase font-industrial">{r.item_name}<div className="text-[9px] text-slate-400 font-normal mt-0.5">{r.item_spec}</div><div className="text-[8px] text-slate-300 italic mt-1">{formatTS(r.timestamp)}</div></td>
                                 <td className="p-4 font-bold text-slate-700 uppercase font-industrial tracking-tighter">{r.from_name}<div className="text-[10px] text-slate-400 font-normal">{r.from_unit}</div></td>
-                                <td className="p-4 text-center font-black text-orange-600 text-lg font-mono">{r.req_qty} {r.item_unit}</td>
-                                <td className="p-4 flex gap-2 justify-center"><button onClick={()=>setActionModal({type:'approve', data:r})} className="bg-green-600 text-white px-4 py-2 rounded-lg text-[9px] font-black shadow-md hover:bg-green-700 uppercase">Approve</button><button onClick={()=>setActionModal({type:'reject', data:r})} className="bg-slate-100 text-slate-500 px-4 py-2 rounded-lg text-[9px] font-black transition uppercase">Reject</button></td>
+                                <td className="p-4 text-center font-black text-orange-600 text-lg font-mono whitespace-nowrap">{r.req_qty} {r.item_unit}</td>
+                                <td className="p-4 flex gap-2 justify-center"><button onClick={()=>setActionModal({type:'approve', data:r})} className="bg-green-600 text-white px-4 py-2 rounded-lg text-[9px] font-black shadow-md hover:bg-green-700 uppercase font-industrial">Approve</button><button onClick={()=>setActionModal({type:'reject', data:r})} className="bg-slate-100 text-slate-500 px-4 py-2 rounded-lg text-[9px] font-black transition uppercase font-industrial">Reject</button></td>
                             </tr>
                         ))}
                     </tbody>
@@ -458,19 +459,19 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                     <div className="p-5 border-b bg-blue-50/30 flex items-center gap-3 font-industrial uppercase text-xs font-black text-blue-900 tracking-widest"><i className="fa-solid fa-arrow-up-from-bracket text-blue-600"></i> Active Udhaari (Given)</div>
                     <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
                         {given.map(r => (
-                            <div key={r.id} className={`p-4 border-2 rounded-2xl relative transition-all ${r.status === 'return_requested' ? 'border-orange-500 bg-orange-50 animate-pulse shadow-orange-100 shadow-lg' : 'border-slate-100 bg-white'}`}>
+                            <div key={r.id} className={`p-4 border-2 rounded-2xl relative transition-all ${r.status === 'return_requested' ? 'border-orange-500 bg-orange-50 animate-pulse' : 'border-slate-100 bg-white'}`}>
                                 <div className="text-xs font-black text-slate-800 uppercase mb-1 leading-tight">{r.item_name}</div>
                                 <div className="text-[10px] text-slate-400 mb-3 uppercase tracking-tighter font-bold">{r.item_spec}</div>
                                 <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg mb-3"><div><p className="text-[9px] font-bold text-slate-400 uppercase font-industrial">Receiver</p><p className="text-xs font-black text-slate-700 uppercase tracking-tighter">{r.from_name} ({r.from_unit})</p></div><div className="text-right font-black text-blue-600 font-mono">{r.req_qty} {r.item_unit}</div></div>
                                 <div className="text-[9px] font-mono text-slate-400 mb-3 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed leading-none tracking-tighter uppercase font-bold">
                                     <p><span className="font-black text-blue-600/70">ISSUED BY:</span> {r.to_name}</p>
-                                    <p><span className="font-black">ISSUE DATE:</span> {formatTS(r.timestamp)}</p>
-                                    <p><span className="font-black">LENDER NOTE:</span> "{r.approve_comment || 'N/A'}"</p>
+                                    <p><span className="font-black uppercase tracking-tighter">ISSUE DATE:</span> {formatTS(r.timestamp)}</p>
+                                    <p><span className="font-black uppercase tracking-tighter">LENDER NOTE:</span> "{r.approve_comment || 'N/A'}"</p>
                                 </div>
                                 {r.status === 'return_requested' ? (
-                                    <div className="space-y-2 border-t pt-3"><p className="text-[10px] font-bold text-orange-600 uppercase">Return Notification: "{r.return_comment}"</p><div className="flex gap-2"><button onClick={()=>setActionModal({type:'verify', data:r})} className="flex-1 py-2 bg-orange-500 text-white text-[10px] font-black rounded-xl">VERIFY RECEIPT</button><button onClick={()=>setActionModal({type:'reject_return', data:r})} className="px-4 py-2 bg-slate-200 text-slate-500 text-[10px] font-bold rounded-xl">REJECT</button></div></div>
+                                    <div className="space-y-2 border-t pt-3"><p className="text-[10px] font-bold text-orange-600 uppercase font-industrial tracking-widest">Return Alert: "{r.return_comment}"</p><div className="flex gap-2"><button onClick={()=>setActionModal({type:'verify', data:r})} className="flex-1 py-2 bg-orange-500 text-white text-[10px] font-black rounded-xl font-industrial tracking-widest">VERIFY RECEIPT</button><button onClick={()=>setActionModal({type:'reject_return', data:r})} className="px-4 py-2 bg-slate-200 text-slate-500 text-[10px] font-bold rounded-xl font-industrial uppercase">Reject</button></div></div>
                                 ) : (
-                                    <div className="text-[8px] text-slate-300 italic flex justify-center border-t pt-2 uppercase font-black tracking-widest">Active in ledger</div>
+                                    <div className="text-[8px] text-slate-300 italic flex justify-center border-t pt-2 uppercase font-black">Active in zone ledger</div>
                                 )}
                             </div>
                         ))}
@@ -486,14 +487,14 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                                 <div className="text-[10px] text-slate-400 mb-3 uppercase tracking-tighter font-bold">{r.item_spec}</div>
                                 <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg mb-3"><div><p className="text-[9px] font-bold text-slate-400 uppercase font-industrial">Source Zone</p><p className="text-xs font-black text-slate-700 uppercase tracking-tighter">{r.to_unit} (Engr: {r.to_name})</p></div><div className="text-right font-black text-red-600 font-mono">{r.req_qty} {r.item_unit}</div></div>
                                 <div className="text-[9px] font-mono text-slate-400 mb-3 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed leading-none tracking-tighter uppercase font-bold">
-                                    <p><span className="font-black text-red-600/70">REQUESTED BY:</span> {r.from_name}</p>
-                                    <p><span className="font-black">TAKEN DATE:</span> {formatTS(r.timestamp)}</p>
-                                    <p><span className="font-black text-blue-600/70">LENDER NOTE:</span> "{r.approve_comment || 'N/A'}"</p>
+                                    <p><span className="font-black text-red-600/70 uppercase">REQUESTED BY:</span> {r.from_name}</p>
+                                    <p><span className="font-black uppercase tracking-tighter">TAKEN DATE:</span> {formatTS(r.timestamp)}</p>
+                                    <p><span className="font-black text-blue-600/70 uppercase">LENDER NOTE:</span> "{r.approve_comment || 'N/A'}"</p>
                                 </div>
                                 {r.status === 'return_requested' ? (
-                                    <div className="text-center py-2 bg-slate-100 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-500 animate-pulse">Wait for Verification...</div>
+                                    <div className="text-center py-2 bg-slate-100 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-500 animate-pulse font-industrial">Wait for Verification...</div>
                                 ) : (
-                                    <button onClick={()=>setActionModal({type:'return', data:r})} className="w-full py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl uppercase tracking-widest">INITIATE RETURN</button>
+                                    <button onClick={()=>setActionModal({type:'return', data:r})} className="w-full py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl uppercase tracking-widest font-industrial">Initiate Return</button>
                                 )}
                             </div>
                         ))}
@@ -501,52 +502,50 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 </section>
             </div>
 
-            {/* SETTLED HISTORY - FULL TIMELINE AUDIT */}
-            <div className="pt-10 space-y-8">
+            {/* SETTLED HISTORY RECORD (TWO PARTS) */}
+            <div className="pt-10 space-y-10 font-mono">
                 <div className="flex items-center gap-4 font-industrial"><hr className="flex-1 border-slate-200"/><h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.4em]">Settled Archives</h3><hr className="flex-1 border-slate-200"/></div>
                 
-                <div className="grid grid-cols-1 gap-12 font-mono">
-                    {/* Material Given History */}
-                    <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
-                        <div className="p-4 bg-slate-800 text-white flex justify-between items-center font-industrial text-[10px] tracking-widest uppercase"><span>Historical Output (Given)</span><i className="fa-solid fa-file-export text-slate-400 text-xs"></i></div>
-                        <div className="overflow-x-auto"><table className="w-full text-left text-[9px] divide-y divide-slate-100 uppercase">
-                            <thead className="bg-slate-50 text-[8px] font-black text-slate-400 font-industrial tracking-widest"><tr><th className="p-4">Material Details</th><th className="p-4">Qty Details</th><th className="p-4">Counterparty</th><th className="p-4">Timeline</th><th className="p-4 text-center">Status</th></tr></thead>
-                            <tbody className="divide-y divide-slate-100 text-slate-600">
-                                {givenHistory.map(h => (<tr key={h.id} className="hover:bg-slate-50 transition border-b">
-                                    <td className="p-4 leading-tight"><p className="font-bold text-slate-800 tracking-tighter">{h.item_name}</p><p className="text-[8px] text-slate-400 mt-1 font-bold">SPEC: {h.item_spec}</p></td>
-                                    <td className="p-4 font-black text-slate-500 whitespace-nowrap leading-relaxed">REQ: {h.req_qty} {h.item_unit}<br/>SETTLED: {h.req_qty} {h.item_unit}</td>
-                                    <td className="p-4 leading-tight"><p className="font-bold text-slate-600">TO: {h.from_name}</p><p className="text-slate-400 italic">{h.from_unit}</p></td>
-                                    <td className="p-4 leading-none space-y-1.5 font-bold tracking-tighter">
-                                        <p><span className="text-blue-500">REQ ON:</span> {formatTS(h.timestamp)} (BY: {h.from_name})</p>
-                                        <p><span className="text-blue-500">APPR ON:</span> {formatTS(h.timestamp)} (BY: {h.to_name})</p>
-                                        <p><span className="text-green-600">RTN ON:</span> {formatTS(h.timestamp)} (BY: {h.from_name})</p>
-                                        <p><span className="text-green-600">VERI ON:</span> {formatTS(h.timestamp)} (BY: {h.to_name})</p>
-                                    </td>
-                                    <td className="p-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${h.status==='returned' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{h.status}</span></td>
-                                </tr>))}
-                            </tbody></table></div>
-                    </div>
+                {/* Material Given History */}
+                <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
+                    <div className="p-4 bg-slate-800 text-white flex justify-between font-industrial text-[10px] tracking-widest uppercase"><span>Archive: Historical Material Output (Given)</span><i className="fa-solid fa-file-export text-slate-400 text-xs"></i></div>
+                    <div className="overflow-x-auto"><table className="w-full text-left text-[9px] divide-y divide-slate-100 uppercase">
+                        <thead className="bg-slate-50 text-[8px] font-black text-slate-400 font-industrial tracking-widest"><tr><th className="p-4">Material Details</th><th className="p-4 text-center">Settled Qty</th><th className="p-4">Receiver & Source</th><th className="p-4">Timeline Log (Audit)</th><th className="p-4 text-center">Status</th></tr></thead>
+                        <tbody className="divide-y divide-slate-100 text-slate-600">
+                            {givenHistory.map(h => (<tr key={h.id} className="hover:bg-slate-50 transition border-b">
+                                <td className="p-4 leading-tight"><p className="font-bold text-slate-800 tracking-tighter">{h.item_name}</p><p className="text-[8px] text-slate-400 mt-1 font-bold">SPEC: {h.item_spec}</p></td>
+                                <td className="p-4 text-center font-black text-slate-600 whitespace-nowrap leading-relaxed">QTY: {h.req_qty} {h.item_unit}</td>
+                                <td className="p-4 leading-tight"><p className="font-bold text-slate-600">TO: {h.from_name}</p><p className="text-slate-400 italic">{h.from_unit}</p></td>
+                                <td className="p-4 leading-none space-y-1 font-bold tracking-tighter">
+                                    <p><span className="text-blue-500">REQUEST BY:</span> {h.from_name} ({h.from_unit}) @ {formatTS(h.timestamp)}</p>
+                                    <p><span className="text-blue-500">APPROVED BY:</span> {h.to_name} @ {formatTS(h.timestamp)}</p>
+                                    <p><span className="text-green-600">RETURN INITIATED BY:</span> {h.from_name} @ {formatTS(h.timestamp)}</p>
+                                    <p><span className="text-green-600">VERIFIED BY:</span> {h.to_name} @ {formatTS(h.timestamp)}</p>
+                                </td>
+                                <td className="p-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${h.status==='returned' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{h.status}</span></td>
+                            </tr>))}
+                        </tbody></table></div>
+                </div>
 
-                    {/* Material Taken History */}
-                    <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
-                        <div className="p-4 bg-slate-800 text-white flex justify-between items-center font-industrial text-[10px] tracking-widest uppercase"><span>Historical Input (Taken)</span><i className="fa-solid fa-file-import text-slate-400 text-xs"></i></div>
-                        <div className="overflow-x-auto"><table className="w-full text-left text-[9px] divide-y divide-slate-100 uppercase">
-                            <thead className="bg-slate-50 text-[8px] font-black text-slate-400 font-industrial tracking-widest"><tr><th className="p-4">Material Details</th><th className="p-4">Qty Details</th><th className="p-4">Source Info</th><th className="p-4">Timeline</th><th className="p-4 text-center">Status</th></tr></thead>
-                            <tbody className="divide-y divide-slate-100 text-slate-600">
-                                {takenHistory.map(h => (<tr key={h.id} className="hover:bg-slate-50 transition border-b">
-                                    <td className="p-4 leading-tight"><p className="font-bold text-slate-800 tracking-tighter">{h.item_name}</p><p className="text-[8px] text-slate-400 mt-1 font-bold">SPEC: {h.item_spec}</p></td>
-                                    <td className="p-4 font-black text-slate-500 whitespace-nowrap leading-relaxed">REQ: {h.req_qty} {h.item_unit}<br/>SETTLED: {h.req_qty} {h.item_unit}</td>
-                                    <td className="p-4 leading-tight"><p className="font-bold text-slate-600">FROM: {h.to_unit}</p><p className="text-slate-400 italic">ENGR: {h.to_name}</p></td>
-                                    <td className="p-4 leading-none space-y-1.5 font-bold tracking-tighter">
-                                        <p><span className="text-red-500">REQ ON:</span> {formatTS(h.timestamp)} (BY: {h.from_name})</p>
-                                        <p><span className="text-red-500">APPR ON:</span> {formatTS(h.timestamp)} (BY: {h.to_name})</p>
-                                        <p><span className="text-green-600">RTN ON:</span> {formatTS(h.timestamp)} (BY: {h.from_name})</p>
-                                        <p><span className="text-green-600">VERI ON:</span> {formatTS(h.timestamp)} (BY: {h.to_name})</p>
-                                    </td>
-                                    <td className="p-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${h.status==='returned' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>{h.status}</span></td>
-                                </tr>))}
-                            </tbody></table></div>
-                    </div>
+                {/* Material Taken History */}
+                <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
+                    <div className="p-4 bg-slate-800 text-white flex justify-between font-industrial text-[10px] tracking-widest uppercase"><span>Archive: Historical Material Input (Taken)</span><i className="fa-solid fa-file-import text-slate-400 text-xs"></i></div>
+                    <div className="overflow-x-auto"><table className="w-full text-left text-[9px] divide-y divide-slate-100 uppercase">
+                        <thead className="bg-slate-50 text-[8px] font-black text-slate-400 font-industrial tracking-widest"><tr><th className="p-4">Material Details</th><th className="p-4 text-center">Settled Qty</th><th className="p-4">Lender & Source</th><th className="p-4">Timeline Log (Audit)</th><th className="p-4 text-center">Status</th></tr></thead>
+                        <tbody className="divide-y divide-slate-100 text-slate-600">
+                            {takenHistory.map(h => (<tr key={h.id} className="hover:bg-slate-50 transition border-b">
+                                <td className="p-4 leading-tight"><p className="font-bold text-slate-800 tracking-tighter">{h.item_name}</p><p className="text-[8px] text-slate-400 mt-1 font-bold">SPEC: {h.item_spec}</p></td>
+                                <td className="p-4 text-center font-black text-slate-600 whitespace-nowrap leading-relaxed">QTY: {h.req_qty} {h.item_unit}</td>
+                                <td className="p-4 leading-tight"><p className="font-bold text-slate-600 uppercase">FROM: {h.to_unit}</p><p className="text-slate-400 italic">ENGR: {h.to_name}</p></td>
+                                <td className="p-4 leading-none space-y-1 font-bold tracking-tighter">
+                                    <p><span className="text-red-500">REQUEST BY:</span> {h.from_name} @ {formatTS(h.timestamp)}</p>
+                                    <p><span className="text-red-500">APPROVED BY:</span> {h.to_name} ({h.to_unit}) @ {formatTS(h.timestamp)}</p>
+                                    <p><span className="text-green-600">RETURN INITIATED BY:</span> {h.from_name} @ {formatTS(h.timestamp)}</p>
+                                    <p><span className="text-green-600">VERIFIED BY:</span> {h.to_name} @ {formatTS(h.timestamp)}</p>
+                                </td>
+                                <td className="p-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${h.status==='returned' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{h.status}</span></td>
+                            </tr>))}
+                        </tbody></table></div>
                 </div>
             </div>
 
@@ -556,21 +555,21 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                     <div className="bg-white w-full max-w-[320px] rounded-2xl shadow-2xl p-5 animate-scale-in border-t-4 border-slate-900 font-industrial">
                         <div className="flex justify-between items-center mb-4 border-b pb-2 tracking-widest"><h3 className="text-[11px] font-black text-slate-800 uppercase">{actionModal.type.replace('_', ' ')} Portal</h3><button onClick={()=>setActionModal(null)} className="text-slate-400 hover:text-red-500 transition-colors">✕</button></div>
                         <div className="text-[11px] font-black text-indigo-600 mb-1 leading-tight uppercase truncate">{actionModal.data.item_name}</div>
-                        <div className="text-[9px] text-slate-400 mb-5 font-mono truncate uppercase">{actionModal.data.item_spec}</div>
+                        <div className="text-[9px] text-slate-400 mb-5 font-mono truncate uppercase font-bold">{actionModal.data.item_spec}</div>
                         <div className="space-y-4">
                             {(actionModal.type === 'approve' || actionModal.type === 'return' || actionModal.type === 'verify') && (
                                 <div className="bg-slate-50 p-3 rounded-xl text-center shadow-inner">
                                     <label className="text-[9px] font-black text-slate-500 uppercase block mb-1 tracking-widest">Adjust Quantity</label>
-                                    <input type="number" defaultValue={actionModal.data.req_qty} className="w-full bg-white p-2 border-2 rounded-lg text-center text-lg font-black outline-none focus:border-slate-800" onChange={e=>setForm({...form, qty: e.target.value})} />
-                                    <p className="text-[8px] text-slate-400 mt-1 uppercase font-bold tracking-widest">Limit: {actionModal.data.req_qty} {actionModal.data.item_unit}</p>
+                                    <input type="number" defaultValue={actionModal.data.req_qty} className="w-full bg-white p-2 border-2 rounded-lg text-center text-lg font-black outline-none focus:border-slate-800 shadow-sm h-[40px]" onChange={e=>setForm({...form, qty: e.target.value})} />
+                                    <p className="text-[8px] text-slate-400 mt-1 uppercase font-bold tracking-widest">Available Limit: {actionModal.data.req_qty} {actionModal.data.item_unit}</p>
                                 </div>
                             )}
                             <div>
                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">{(actionModal.type.includes('reject')) ? 'Mandatory Reason' : 'Log Note'}</label>
-                                <textarea className="w-full p-2 border-2 rounded-lg text-xs h-16 outline-none focus:border-slate-800 mt-1 font-mono leading-tight shadow-inner" placeholder="Log details..." onChange={e=>setForm({...form, comment: e.target.value})}></textarea>
+                                <textarea className="w-full p-2 border-2 rounded-lg text-xs h-16 outline-none focus:border-slate-800 mt-1 font-mono leading-tight shadow-inner" placeholder="Log entry..." onChange={e=>setForm({...form, comment: e.target.value})}></textarea>
                             </div>
                             <div className="flex flex-col gap-2 pt-1 font-industrial">
-                                <button onClick={handleProcess} className={`w-full py-2.5 font-black rounded-lg uppercase text-[10px] shadow-lg text-white ${actionModal.type.includes('reject') ? 'bg-red-600' : 'bg-slate-900'} hover:opacity-90 transition-all tracking-[0.2em]`}>Confirm</button>
+                                <button onClick={handleProcess} className={`w-full py-2.5 font-black rounded-xl uppercase text-[10px] shadow-lg text-white ${actionModal.type.includes('reject') ? 'bg-red-600' : 'bg-slate-900'} hover:opacity-90 transition-all tracking-[0.2em]`}>Confirm</button>
                                 <button onClick={()=>setActionModal(null)} className="w-full py-1 text-slate-400 text-[9px] font-bold uppercase tracking-widest">Cancel</button>
                             </div>
                         </div>
