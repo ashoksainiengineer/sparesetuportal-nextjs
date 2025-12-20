@@ -26,6 +26,7 @@ export default function SpareSetuApp() {
     return () => authListener.subscription.unsubscribe();
   }, []);
 
+  // REAL-TIME NOTIFICATION ENGINE
   useEffect(() => {
     if (!profile?.id || !profile?.unit) return;
     const fetchAllCounts = async () => {
@@ -121,7 +122,7 @@ export default function SpareSetuApp() {
   );
 }
 
-// --- AUTH VIEW (UNTOUCHED) ---
+// --- AUTH VIEW (ORIGINAL UNTOUCHED) ---
 function AuthView() {
   const [view, setView] = useState<"login" | "register" | "otp" | "forgot">("login");
   const [form, setForm] = useState({ email: "", pass: "", name: "", unit: "", enteredOtp: "", generatedOtp: "" });
@@ -199,7 +200,7 @@ function AuthView() {
   );
 }
 
-// --- GLOBAL SEARCH VIEW (FONT & DESIGN RESTORED) ---
+// --- GLOBAL SEARCH (SCREENSHOT MATCHED) ---
 function GlobalSearchView({ profile }: any) {
   const [items, setItems] = useState<any[]>([]); 
   const [search, setSearch] = useState(""); 
@@ -235,11 +236,7 @@ function GlobalSearchView({ profile }: any) {
                   <div className="text-slate-800 font-bold text-[13.5px] tracking-tight uppercase">{i.item}</div>
                   <div className="text-[9px] text-slate-400 font-bold uppercase mt-1 tracking-wider">{i.cat}</div>
                 </td>
-                <td className="p-4">
-                  <span className="bg-white border border-slate-200 px-2.5 py-1 rounded-[4px] text-[10.5px] font-bold text-slate-500 shadow-sm uppercase font-inter inline-block">
-                    {i.spec}
-                  </span>
-                </td>
+                <td className="p-4"><span className="bg-white border border-slate-200 px-2.5 py-1 rounded-[4px] text-[10.5px] font-bold text-slate-500 shadow-sm uppercase font-inter inline-block">{i.spec}</span></td>
                 <td className="p-4 text-center font-mono font-bold whitespace-nowrap text-slate-800 text-[14px]">{i.qty} {i.unit}</td>
                 <td className="p-4 text-center">
                     {i.holder_uid === profile?.id ? <span className="text-[10px] font-black text-green-600 italic tracking-tighter uppercase font-bold">MY STORE</span> : <button onClick={()=>setRequestItem(i)} className="bg-[#ff6b00] text-white px-4 py-1.5 rounded-[4px] text-[10.5px] font-black shadow-sm uppercase font-industrial tracking-widest">Request</button>}
@@ -249,7 +246,6 @@ function GlobalSearchView({ profile }: any) {
           </tbody>
         </table></div>
       </section>
-      {/* MODAL SECTION REMAINS FUNCTIONAL */}
       {requestItem && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
             <div className="bg-white w-full max-w-[320px] rounded-2xl shadow-2xl p-5 animate-scale-in border-t-8 border-orange-500 font-inter">
@@ -268,7 +264,7 @@ function GlobalSearchView({ profile }: any) {
   );
 }
 
-// --- MY STORE VIEW (MATCHING DESIGN) ---
+// --- MY STORE VIEW ---
 function MyStoreView({ profile, fetchProfile }: any) {
   const [myItems, setMyItems] = useState<any[]>([]); 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -295,20 +291,13 @@ function MyStoreView({ profile, fetchProfile }: any) {
           <tbody className="divide-y text-sm">
               {myItems.map(i => (<tr key={i.id} className="hover:bg-slate-50 transition border-b border-slate-50 font-bold">
                 <td className="p-5 pl-8 text-[9px] font-bold text-slate-400 uppercase leading-none">{i.cat}</td>
-                <td className="p-5 leading-tight font-inter">
-                  <div className="text-slate-800 font-bold text-[13.5px] tracking-tight uppercase">{i.item}</div>
-                </td>
-                <td className="p-5 font-mono uppercase font-bold">
-                  <span className="bg-white border border-slate-200 px-2.5 py-1 rounded-[4px] text-[10.5px] font-bold text-slate-500 shadow-sm uppercase inline-block">
-                    {i.spec}
-                  </span>
-                </td>
+                <td className="p-5 leading-tight font-inter"><div className="text-slate-800 font-bold text-[13.5px] tracking-tight uppercase">{i.item}</div></td>
+                <td className="p-5 font-mono uppercase font-bold"><span className="bg-white border border-slate-200 px-2.5 py-1 rounded-[4px] text-[10.5px] font-bold text-slate-500 shadow-sm uppercase inline-block">{i.spec}</span></td>
                 <td className="p-5 font-bold text-center font-mono uppercase whitespace-nowrap text-slate-800 text-[14px]">{i.qty} {i.unit}</td>
               </tr>))}
           </tbody>
         </table></div>
       </div>
-      {/* MODAL UNTOUCHED BUT FUNCTIONAL */}
       {showAddModal && <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto font-industrial"><div className="bg-white w-full max-w-[360px] rounded-2xl shadow-2xl p-5 relative animate-scale-in my-auto border-t-4 border-slate-900 font-inter font-bold uppercase"><button onClick={() => setShowAddModal(false)} className="absolute top-4 right-4 text-slate-400 font-bold text-xl">✕</button><h3 className="text-sm font-black text-slate-800 mb-6 border-b pb-2 uppercase tracking-widest text-center font-industrial uppercase font-bold">Inward Catalog Entry</h3><div className="space-y-3 font-industrial font-bold uppercase">
           <div><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-bold font-industrial">Main Category</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold bg-slate-50 font-industrial" value={form.cat} onChange={e=>setForm({...form, cat: e.target.value})}><option value="">Select Category</option>{[...new Set(masterCatalog.map(i => i.cat))].map(c => <option key={c} value={c}>{c}</option>)}</select></div>
           <div className="grid grid-cols-2 gap-3 uppercase font-bold font-industrial">
@@ -327,7 +316,21 @@ function MyStoreView({ profile, fetchProfile }: any) {
   );
 }
 
-// --- RETURNS LEDGER (RESTORED FONT & 4-STAGE BRACKET QTY) ---
+// --- MISSING COMPONENTS RESTORED ---
+function UsageHistoryView({ profile }: any) {
+  const [logs, setLogs] = useState<any[]>([]);
+  useEffect(() => { if (profile) fetch(); }, [profile]);
+  const fetch = async () => { const { data } = await supabase.from("usage_logs").select("*").eq("consumer_uid", profile.id).order("timestamp", { ascending: false }); if (data) setLogs(data); };
+  return (<section className="bg-white rounded-xl border border-slate-200 shadow-sm font-mono uppercase font-bold"><div className="p-5 border-b bg-slate-50/50 flex justify-between font-inter"><h2 className="text-lg font-bold text-slate-800 uppercase font-industrial tracking-wider">Log: Usage Feed</h2></div><div className="overflow-x-auto"><table className="w-full text-left text-xs uppercase font-mono font-bold"><thead className="bg-slate-50 border-b text-[10px] font-black uppercase tracking-widest font-industrial"><tr><th className="p-4 pl-8">Date</th><th className="p-4">Details</th><th className="p-4 text-center">Qty</th></tr></thead><tbody className="divide-y text-slate-600">{logs.map(l => (<tr key={l.id} className="hover:bg-slate-50 transition border-b border-slate-100"><td className="p-4 pl-8 uppercase font-mono">{new Date(Number(l.timestamp)).toLocaleDateString()}</td><td className="p-4 font-inter font-bold uppercase leading-tight"><div className="text-slate-800 font-bold text-sm tracking-tight uppercase">{l.item_name}</div><div className="text-[9px] text-slate-400 uppercase mt-0.5 tracking-tighter font-bold uppercase">{l.category}</div></td><td className="p-4 text-center font-black text-red-600">-{l.qty_consumed} Nos</td></tr>))}</tbody></table></div></section>);
+}
+
+function MonthlyAnalysisView({ profile }: any) {
+  const [analysis, setAnalysis] = useState<any[]>([]);
+  useEffect(() => { const f = async () => { const { data } = await supabase.from("usage_logs").select("*").eq("consumer_uid", profile.id); if (data) { const stats: any = {}; data.forEach((l: any) => { const month = new Date(Number(l.timestamp)).toLocaleString('default', { month: 'long', year: 'numeric' }); if (!stats[month]) stats[month] = { month, total: 0, count: 0 }; stats[month].total += Number(l.qty_consumed); stats[month].count += 1; }); setAnalysis(Object.values(stats)); } }; if (profile) f(); }, [profile]);
+  return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-industrial uppercase tracking-tight font-bold"><div className="col-span-3 pb-4 text-xs font-black text-slate-400 tracking-widest text-center border-b font-industrial">Analytical Summary</div>{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md uppercase font-bold"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-[0.2em] font-industrial">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner font-bold"><i className="fa-solid fa-chart-line font-bold"></i></div><div className="text-3xl font-black text-slate-800 font-industrial">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase font-industrial tracking-widest">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase font-industrial tracking-tighter">{a.count} Logged Records</div></div>))}</div>);
+}
+
+// --- RETURNS LEDGER (BRACKET QTY RESTORED) ---
 function ReturnsLedgerView({ profile, onAction }: any) { 
     const [pending, setPending] = useState<any[]>([]);
     const [given, setGiven] = useState<any[]>([]);
@@ -390,9 +393,6 @@ function ReturnsLedgerView({ profile, onAction }: any) {
             const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
             if (inv) await supabase.from("inventory").update({ qty: inv.qty + data.req_qty }).eq("id", data.item_id);
         }
-        else if (type === 'reject_return') {
-            await supabase.from("requests").update({ status: 'approved', approve_comment: `Denied: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
-        }
         setActionModal(null); setForm({comment:"", qty:""});
     };
 
@@ -400,7 +400,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
         <div className="space-y-10 animate-fade-in pb-20 font-industrial tracking-tight font-inter uppercase font-bold">
             <h2 className="text-2xl font-bold text-slate-800 uppercase flex items-center gap-2 font-industrial"><i className="fa-solid fa-handshake-angle text-orange-500"></i> Udhaari Dashboard</h2>
 
-            {/* ATTENTION REQUIRED - DESIGN MATCHED */}
+            {/* ATTENTION REQUIRED */}
             <section className="bg-white rounded-xl border-t-4 border-orange-500 shadow-xl overflow-hidden font-industrial uppercase font-bold">
                 <div className="p-4 bg-orange-50/50 flex justify-between border-b uppercase font-bold"><div className="flex items-center gap-2 text-orange-900 font-black uppercase text-[10px] tracking-widest font-inter uppercase font-bold"><i className="fa-solid fa-bolt animate-pulse"></i> Attention Required (Incoming Actions)</div><span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px] uppercase font-bold">{pending.length}</span></div>
                 <div className="overflow-x-auto"><table className="w-full text-left text-sm divide-y font-mono font-bold">
@@ -422,7 +422,6 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 </table></div>
             </section>
 
-            {/* LEDGER SECTIONS MATCHED TO SCREENSHOT Hierarchy */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 font-inter uppercase font-bold">
                 <section className="bg-white rounded-2xl border-t-4 border-blue-600 shadow-lg overflow-hidden font-mono uppercase font-bold">
                     <div className="p-5 border-b bg-blue-50/30 flex items-center gap-3 font-industrial text-xs font-black text-blue-900 tracking-widest uppercase"> <i className="fa-solid fa-arrow-up-from-bracket text-blue-600"></i> Active Ledger (Items Given)</div>
@@ -460,7 +459,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 </section>
             </div>
 
-            {/* SETTLED HISTORY RECORD (DESIGN + 4-STAGE BRACKET QTY RESTORED) */}
+            {/* SETTLED ARCHIVE (DESIGN + 4-STAGE BRACKET QTY RESTORED) */}
             <div className="pt-10 space-y-10 font-mono uppercase font-bold">
                 <div className="flex items-center gap-4 uppercase"><hr className="flex-1 border-slate-200"/><h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.4em] font-industrial uppercase">Digital Archive Logs</h3><hr className="flex-1 border-slate-200"/></div>
                 <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden uppercase">
@@ -477,13 +476,10 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                                     <td className="p-4 text-center font-black whitespace-nowrap uppercase">
                                       <div className="flex flex-col items-center gap-1 leading-none uppercase">
                                         <span className="text-[9.5px] text-blue-600/80 font-bold uppercase tracking-tighter uppercase">UDH: {h.req_qty} {h.item_unit}</span>
-                                        <span className={`text-[9.5px] font-black uppercase tracking-tighter uppercase ${h.status === 'returned' ? 'text-green-600' : 'text-slate-300'}`}>
-                                          RET: {h.status === 'returned' ? h.req_qty : 0} {h.item_unit}
-                                        </span>
+                                        <span className={`text-[9.5px] font-black uppercase tracking-tighter uppercase ${h.status === 'returned' ? 'text-green-600' : 'text-slate-300'}`}>RET: {h.status === 'returned' ? h.req_qty : 0} {h.item_unit}</span>
                                       </div>
                                     </td>
                                     <td className="p-4 leading-tight uppercase font-bold uppercase"><p className="text-blue-500 font-bold uppercase uppercase">BORR: {h.from_name}</p><p className="text-red-500 font-bold uppercase uppercase mt-1">LEND: {h.to_name}</p></td>
-                                    {/* 4-STAGE BRACKET QTY EXACTLY AS image_fd5226.png */}
                                     <td className="p-4 leading-none space-y-1.5 font-bold tracking-tighter uppercase text-[8.5px] uppercase">
                                         <p><span className="opacity-50 font-bold uppercase">1. REQUEST BY:</span> {h.from_name} ({h.from_unit}) (QTY: {h.req_qty}) @ {formatTS(h.timestamp)}</p>
                                         <p><span className="opacity-50 font-bold uppercase">2. APPROVED BY:</span> {h.to_name} (QTY: {h.req_qty}) @ {formatTS(h.timestamp)}</p>
@@ -497,7 +493,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 </div>
             </div>
 
-            {/* ACTION MODAL DESIGN MATCHED */}
+            {/* ACTION MODAL */}
             {actionModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md font-inter font-bold uppercase">
                     <div className="bg-white w-full max-w-[320px] rounded-2xl shadow-2xl p-5 animate-scale-in border-t-4 border-slate-900 font-industrial uppercase">
