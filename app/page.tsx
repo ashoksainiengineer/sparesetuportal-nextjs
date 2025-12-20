@@ -26,7 +26,7 @@ export default function SpareSetuApp() {
     return () => authListener.subscription.unsubscribe();
   }, []);
 
-  // REAL-TIME NOTIFICATION LOGIC
+  // REAL-TIME NOTIFICATION ENGINE
   useEffect(() => {
     if (!profile?.id || !profile?.unit) return;
     const fetchAllCounts = async () => {
@@ -35,7 +35,7 @@ export default function SpareSetuApp() {
         setPendingCount((incoming || 0) + (updates || 0));
     };
     fetchAllCounts();
-    const channel = supabase.channel('sparesetu-global-sync-final').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAllCounts(); }).subscribe();
+    const channel = supabase.channel('sparesetu-global-sync-vfinal').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAllCounts(); }).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [profile]);
 
@@ -122,7 +122,7 @@ export default function SpareSetuApp() {
   );
 }
 
-// --- AUTH VIEW (100% ORIGINAL LOOK) ---
+// --- AUTH VIEW (100% UNTOUCHED ORIGINAL) ---
 function AuthView() {
   const [view, setView] = useState<"login" | "register" | "otp" | "forgot">("login");
   const [form, setForm] = useState({ email: "", pass: "", name: "", unit: "", enteredOtp: "", generatedOtp: "" });
@@ -171,24 +171,24 @@ function AuthView() {
         <div className="space-y-4">
           {(view === "register") && (
             <>
-              <div className="relative"><i className="fa-solid fa-user absolute left-4 top-3.5 text-slate-400"></i><input type="text" placeholder="Engineer Full Name" className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold" onChange={e=>setForm({...form, name:e.target.value})} /></div>
-              <div className="relative"><i className="fa-solid fa-building absolute left-4 top-3.5 text-slate-400"></i><select className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm bg-slate-900 text-slate-300 font-bold" onChange={e=>setForm({...form, unit:e.target.value})}><option value="">Select Your Zone</option>{["RUP - South Block", "RUP - North Block", "LAB", "MSQU", "AU-5", "BS-VI", "GR-II & NBA", "GR-I", "OM&S", "OLD SRU & CETP", "Electrical Planning", "Electrical Testing", "Electrical Workshop", "FCC", "GRE", "CGP-I", "CGP-II & TPS", "Water Block & Bitumen", "Township - Estate Office", "AC Section", "GHC", "DHUMAD"].map(z=><option key={z} value={z}>{z}</option>)}</select></div>
+              <div className="relative"><i className="fa-solid fa-user absolute left-4 top-3.5 text-slate-400"></i><input type="text" placeholder="Engineer Full Name" className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold font-roboto" onChange={e=>setForm({...form, name:e.target.value})} /></div>
+              <div className="relative"><i className="fa-solid fa-building absolute left-4 top-3.5 text-slate-400"></i><select className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm bg-slate-900 text-slate-300 font-bold font-roboto" onChange={e=>setForm({...form, unit:e.target.value})}><option value="">Select Your Zone</option>{["RUP - South Block", "RUP - North Block", "LAB", "MSQU", "AU-5", "BS-VI", "GR-II & NBA", "GR-I", "OM&S", "OLD SRU & CETP", "Electrical Planning", "Electrical Testing", "Electrical Workshop", "FCC", "GRE", "CGP-I", "CGP-II & TPS", "Water Block & Bitumen", "Township - Estate Office", "AC Section", "GHC", "DHUMAD"].map(z=><option key={z} value={z}>{z}</option>)}</select></div>
             </>
           )}
           {view === "otp" ? (
              <div className="relative"><i className="fa-solid fa-key absolute left-4 top-3.5 text-slate-400"></i><input type="text" placeholder="######" maxLength={6} className="w-full p-3 rounded-lg login-input text-center text-2xl tracking-[0.5em] font-bold text-white outline-none font-mono" onChange={e=>setForm({...form, enteredOtp:e.target.value})} /></div>
           ) : (
-             <div className="relative"><i className="fa-solid fa-envelope absolute left-4 top-3.5 text-slate-400"></i><input type="email" value={form.email} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold" placeholder="Official Email ID" onChange={e=>setForm({...form, email:e.target.value})} /></div>
+             <div className="relative"><i className="fa-solid fa-envelope absolute left-4 top-3.5 text-slate-400"></i><input type="email" value={form.email} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold font-roboto" placeholder="Official Email ID" onChange={e=>setForm({...form, email:e.target.value})} /></div>
           )}
-          {(view === "login" || view === "register") && <div className="relative"><i className="fa-solid fa-lock absolute left-4 top-3.5 text-slate-400"></i><input type="password" placeholder="Password" className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold" onChange={e=>setForm({...form, pass:e.target.value})} /></div>}
+          {(view === "login" || view === "register") && <div className="relative"><i className="fa-solid fa-lock absolute left-4 top-3.5 text-slate-400"></i><input type="password" placeholder="Password" className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold font-roboto" onChange={e=>setForm({...form, pass:e.target.value})} /></div>}
           {view === "login" && (
-            <div className="text-right"><button onClick={()=>setView('forgot')} className="text-xs text-orange-500 hover:text-orange-400 font-bold transition font-roboto">Forgot Password?</button></div>
+            <div className="text-right font-roboto"><button onClick={()=>setView('forgot')} className="text-xs text-orange-500 hover:text-orange-400 font-bold transition">Forgot Password?</button></div>
           )}
-          <button onClick={handleAuth} disabled={authLoading} className="w-full h-12 mt-4 iocl-btn text-white font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 uppercase tracking-widest text-sm">
+          <button onClick={handleAuth} disabled={authLoading} className="w-full h-12 mt-4 iocl-btn text-white font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 uppercase tracking-widest text-sm font-roboto">
             {authLoading ? "Processing..." : view === 'login' ? "Secure Login →" : view === 'register' ? "Create Account" : view === 'otp' ? "Verify & Register" : "Send Reset Link"}
           </button>
-          <div className="mt-6 text-center border-t border-white/10 pt-4">
-            <p className="text-xs text-slate-400 font-roboto">{view==='login' ? "New User? " : "Already have an account? "}<button onClick={()=>setView(view==='login'?'register':'login')} className="text-white hover:text-orange-500 font-bold underline ml-1">{view==='login' ? "Create Account" : "Back to Login"}</button></p>
+          <div className="mt-6 text-center border-t border-white/10 pt-4 font-roboto">
+            <p className="text-xs text-slate-400">{view==='login' ? "New User? " : "Already have an account? "}<button onClick={()=>setView(view==='login'?'register':'login')} className="text-white hover:text-orange-500 font-bold underline ml-1">{view==='login' ? "Create Account" : "Back to Login"}</button></p>
           </div>
           <div className="mt-8 pt-6 border-t border-white/10 text-center font-roboto">
             <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider mb-1">Developed By Engineers</p>
@@ -200,7 +200,7 @@ function AuthView() {
   );
 }
 
-// --- GLOBAL SEARCH (ROBOTO + HIERARCHY MATCHED) ---
+// --- GLOBAL SEARCH ---
 function GlobalSearchView({ profile }: any) {
   const [items, setItems] = useState<any[]>([]);
   const [contributors, setContributors] = useState<any[]>([]);
@@ -230,16 +230,16 @@ function GlobalSearchView({ profile }: any) {
          <div className="flex gap-3 overflow-x-auto flex-1 pb-1">{contributors.map((c, idx) => (<div key={idx} className="bg-slate-50 p-2 rounded-lg border flex items-center gap-3 min-w-[180px] shadow-sm"><div className="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs border-2 border-orange-400">{c.name.charAt(0)}</div><div><p className="text-xs font-bold text-slate-800 truncate">{c.name}</p><p className="text-[9px] text-slate-400 uppercase tracking-tighter">{c.unit}</p><p className="text-[9px] font-bold text-green-600">{c.item_count || 0} Items</p></div></div>))}</div>
       </section>
 
-      <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden font-roboto">
         <div className="p-4 border-b bg-slate-50/80 flex flex-wrap items-center gap-2">
-             <div className="relative flex-grow md:w-80 font-bold"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Global Inventory Search..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none focus:ring-1 font-bold uppercase font-roboto" onChange={e=>setSearch(e.target.value)} /></div>
+             <div className="relative flex-grow md:w-80 font-bold font-roboto"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Global Inventory Search..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none focus:ring-1 font-bold uppercase font-roboto" onChange={e=>setSearch(e.target.value)} /></div>
              <select className="border rounded-md text-xs font-bold p-2 bg-white uppercase font-roboto" onChange={e=>setSelCat(e.target.value)}><option value="all">Category: All</option>{[...new Set(items.map(i => i.cat))].sort().map(c => <option key={c} value={c}>{c}</option>)}</select>
         </div>
-        <div className="overflow-x-auto"><table className="w-full text-left tracking-tight"><thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold border-b tracking-widest font-roboto"><tr><th className="p-4 pl-6 font-bold">Item Detail</th><th className="p-4 font-bold">Spec</th><th className="p-4 text-center font-bold">Qty</th><th className="p-4 text-center font-bold">Action</th></tr></thead>
+        <div className="overflow-x-auto font-roboto"><table className="w-full text-left tracking-tight"><thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold border-b tracking-widest font-roboto"><tr><th className="p-4 pl-6 font-bold font-roboto">Item Detail</th><th className="p-4 font-bold font-roboto">Spec</th><th className="p-4 text-center font-bold font-roboto">Qty</th><th className="p-4 text-center font-bold font-roboto">Action</th></tr></thead>
           <tbody className="divide-y text-sm">
             {filtered.map((i: any, idx: number) => (
               <tr key={idx} className={`hover:bg-slate-50 transition border-b border-slate-50 ${i.qty === 0 ? 'bg-red-50/20' : ''}`}>
-                <td className="p-4 pl-6 leading-tight">
+                <td className="p-4 pl-6 leading-tight font-roboto">
                   <div className="text-slate-800 font-bold text-[14px] tracking-tight uppercase font-roboto">{i.item}</div>
                   <div className="text-[9.5px] text-slate-400 font-bold uppercase mt-1 tracking-wider font-roboto">{i.cat}</div>
                 </td>
@@ -255,20 +255,6 @@ function GlobalSearchView({ profile }: any) {
           </tbody>
         </table></div>
       </section>
-      {requestItem && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-            <div className="bg-white w-full max-w-[320px] rounded-2xl shadow-2xl p-5 animate-scale-in border-t-8 border-orange-500 font-roboto">
-                <h3 className="text-[11px] font-black text-slate-800 uppercase border-b pb-2 mb-4 tracking-widest uppercase">Request Part</h3>
-                <div className="text-[11px] font-black text-indigo-600 mb-1 leading-tight uppercase truncate">{requestItem.item}</div>
-                <div className="text-[9px] text-slate-500 mb-5 bg-slate-50 p-2 rounded uppercase font-bold tracking-tighter">Source: {requestItem.holder_unit} ({requestItem.holder_name})</div>
-                <div className="space-y-4">
-                    <div><label className="text-[9px] font-black text-slate-400 uppercase font-bold">Qty ({requestItem.unit})</label><input type="number" className="w-full p-2 border-2 rounded-lg text-center text-lg font-black outline-none focus:border-orange-500 font-mono" value={reqForm.qty} onChange={e=>setReqForm({...reqForm, qty: e.target.value})} /></div>
-                    <div><label className="text-[9px] font-black text-slate-400 uppercase font-bold">Log Note</label><textarea className="w-full p-2 border-2 rounded-lg text-xs h-16 outline-none focus:border-orange-500 font-mono leading-tight uppercase" placeholder="Purpose..." onChange={e=>setReqForm({...reqForm, comment: e.target.value})}></textarea></div>
-                    <div className="flex gap-2 pt-1 font-roboto"><button onClick={()=>setRequestItem(null)} className="flex-1 py-2 bg-slate-100 text-slate-600 font-bold rounded-lg uppercase text-[9px]">Cancel</button><button onClick={handleSendRequest} className="flex-1 py-2 iocl-btn text-white font-bold rounded-lg uppercase text-[9px] shadow-lg">Submit</button></div>
-                </div>
-            </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -291,30 +277,30 @@ function MyStoreView({ profile, fetchProfile }: any) {
 
   return (
     <div className="animate-fade-in space-y-6 pb-10 uppercase font-roboto font-bold">
-      <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl border shadow-sm">
-        <div><h2 className="text-xl font-bold text-slate-800 uppercase tracking-widest leading-none font-black uppercase">My Local Store</h2><p className="text-[10px] font-black bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-2 uppercase font-bold tracking-tighter">ZONE: {profile?.unit}</p></div>
-        <button onClick={() => setShowAddModal(true)} className="iocl-btn text-white px-6 py-2.5 rounded-xl font-bold shadow-md flex items-center gap-2"><i className="fa-solid fa-plus"></i> Add New Stock</button>
+      <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl border shadow-sm font-roboto">
+        <div><h2 className="text-xl font-bold text-slate-800 uppercase tracking-widest leading-none font-black uppercase font-roboto">My Local Store</h2><p className="text-[10px] font-black bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-2 uppercase font-bold tracking-tighter font-roboto">ZONE: {profile?.unit}</p></div>
+        <button onClick={() => setShowAddModal(true)} className="iocl-btn text-white px-6 py-2.5 rounded-xl font-bold shadow-md flex items-center gap-2 font-roboto font-bold"><i className="fa-solid fa-plus"></i> Add New Stock</button>
       </div>
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden font-bold">
-        <div className="overflow-x-auto"><table className="w-full text-left tracking-tight"><thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b uppercase tracking-widest font-roboto"><tr><th className="p-5 pl-8 font-bold">Category</th><th className="p-5 font-bold">Item Name</th><th className="p-5 font-bold">Spec</th><th className="p-5 text-center font-bold">Qty</th></tr></thead>
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden font-bold font-roboto">
+        <div className="overflow-x-auto"><table className="w-full text-left tracking-tight font-roboto"><thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b uppercase tracking-widest font-roboto"><tr><th className="p-5 pl-8 font-bold">Category</th><th className="p-5 font-bold">Item Name</th><th className="p-5 font-bold">Spec</th><th className="p-5 text-center font-bold">Qty</th></tr></thead>
           <tbody className="divide-y text-sm">
-              {myItems.map(i => (<tr key={i.id} className="hover:bg-slate-50 transition border-b border-slate-50 font-bold uppercase">
+              {myItems.map(i => (<tr key={i.id} className="hover:bg-slate-50 transition border-b border-slate-50 font-bold uppercase font-roboto">
                 <td className="p-5 pl-8 text-[9.5px] font-bold text-slate-400 leading-none font-roboto">{i.cat}</td>
-                <td className="p-5 leading-tight uppercase font-roboto"><div className="text-slate-800 font-bold text-[14px] tracking-tight">{i.item}</div></td>
+                <td className="p-5 leading-tight uppercase font-roboto"><div className="text-slate-800 font-bold text-[14px] tracking-tight font-roboto">{i.item}</div></td>
                 <td className="p-5 font-mono uppercase font-bold"><span className="bg-white border border-slate-200 px-2.5 py-1 rounded-[4px] text-[10.5px] font-bold text-slate-500 shadow-sm uppercase font-roboto">{i.spec}</span></td>
                 <td className="p-5 font-bold text-center font-mono uppercase whitespace-nowrap text-slate-800 text-[14px] font-roboto">{i.qty} {i.unit}</td>
               </tr>))}
           </tbody>
         </table></div>
       </div>
-      {showAddModal && <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto"><div className="bg-white w-full max-w-[360px] rounded-2xl shadow-2xl p-5 relative animate-scale-in my-auto border-t-4 border-slate-900 font-roboto font-bold uppercase"><button onClick={() => setShowAddModal(false)} className="absolute top-4 right-4 text-slate-400 font-bold text-xl font-roboto">✕</button><h3 className="text-sm font-black text-slate-800 mb-6 border-b pb-2 uppercase tracking-widest text-center font-bold font-roboto">Inward Catalog Entry</h3><div className="space-y-3 font-bold uppercase font-roboto">
-          <div><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1 font-bold">Category</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold bg-slate-50" value={form.cat} onChange={e=>setForm({...form, cat: e.target.value})}><option value="">Select Category</option>{[...new Set(masterCatalog.map(i => i.cat))].map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+      {showAddModal && <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto"><div className="bg-white w-full max-w-[360px] rounded-2xl shadow-2xl p-5 relative animate-scale-in my-auto border-t-4 border-slate-900 font-roboto font-bold uppercase"><button onClick={() => setShowAddModal(false)} className="absolute top-4 right-4 text-slate-400 font-bold text-xl font-roboto font-bold">✕</button><h3 className="text-sm font-black text-slate-800 mb-6 border-b pb-2 uppercase tracking-widest text-center font-bold font-roboto font-bold">Inward Catalog Entry</h3><div className="space-y-3 font-bold uppercase font-roboto font-bold">
+          <div><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1 font-bold font-roboto">Category</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold bg-slate-50 font-roboto" value={form.cat} onChange={e=>setForm({...form, cat: e.target.value})}><option value="">Select Category</option>{[...new Set(masterCatalog.map(i => i.cat))].map(c => <option key={c} value={c}>{c}</option>)}</select></div>
           <div className="grid grid-cols-2 gap-3 uppercase font-bold">
-              <div className="flex flex-col"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1 font-bold">Sub Cat</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold h-[38px]" value={form.sub} onChange={e=>setForm({...form, sub: e.target.value})}><option value="">Sub</option>{[...new Set(masterCatalog.filter(i=>i.cat===form.cat).map(i=>i.sub))].map(s=><option key={s} value={s}>{s}</option>)}</select></div>
-              <div className="flex flex-col"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1 font-bold">Make</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold h-[38px]" value={form.make} onChange={e=>setForm({...form, make: e.target.value})}><option value="">Make</option>{[...new Set(masterCatalog.filter(i=>i.cat===form.cat && i.sub===form.sub).map(i=>i.make))].map(m=><option key={m} value={m}>{m}</option>)}</select></div>
+              <div className="flex flex-col font-roboto"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1 font-bold">Sub Cat</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold h-[38px] font-roboto" value={form.sub} onChange={e=>setForm({...form, sub: e.target.value})}><option value="">Sub</option>{[...new Set(masterCatalog.filter(i=>i.cat===form.cat).map(i=>i.sub))].map(s=><option key={s} value={s}>{s}</option>)}</select></div>
+              <div className="flex flex-col font-roboto"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1 font-bold">Make</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold h-[38px] font-roboto" value={form.make} onChange={e=>setForm({...form, make: e.target.value})}><option value="">Make</option>{[...new Set(masterCatalog.filter(i=>i.cat===form.cat && i.sub===form.sub).map(i=>i.make))].map(m=><option key={m} value={m}>{m}</option>)}</select></div>
           </div>
-          <div><label className="text-[9px] font-black text-slate-400 uppercase font-bold">Model</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold" value={form.model} onChange={e=>setForm({...form, model: e.target.value})}><option value="">Select Model</option>{[...new Set(masterCatalog.filter(i=>i.cat===form.cat && i.sub===form.sub && i.make===form.make).map(i=>i.model))].map(m=><option key={m} value={m}>{m}</option>)}</select></div>
-          <div><label className="text-[9px] font-black text-slate-400 uppercase font-bold">Technical Spec</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold" value={form.spec} onChange={e=>setForm({...form, spec: e.target.value})}><option value="">Select Spec</option>{[...new Set(masterCatalog.filter(i=>i.cat===form.cat && i.sub===form.sub && i.make===form.make && i.model===form.model).map(i=>i.spec))].map(s=><option key={s} value={s}>{s}</option>)}</select></div>
+          <div><label className="text-[9px] font-black text-slate-400 uppercase font-bold font-roboto">Model</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold font-roboto" value={form.model} onChange={e=>setForm({...form, model: e.target.value})}><option value="">Select Model</option>{[...new Set(masterCatalog.filter(i=>i.cat===form.cat && i.sub===form.sub && i.make===form.make).map(i=>i.model))].map(m=><option key={m} value={m}>{m}</option>)}</select></div>
+          <div><label className="text-[9px] font-black text-slate-400 uppercase font-bold font-roboto">Technical Spec</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold font-roboto" value={form.spec} onChange={e=>setForm({...form, spec: e.target.value})}><option value="">Select Spec</option>{[...new Set(masterCatalog.filter(i=>i.cat===form.cat && i.sub===form.sub && i.make===form.make && i.model===form.model).map(i=>i.spec))].map(s=><option key={s} value={s}>{s}</option>)}</select></div>
           <div className="grid grid-cols-2 gap-3 border-t pt-3 font-bold font-roboto">
               <div className="flex flex-col font-roboto"><label className="text-[9px] font-black text-slate-400 uppercase block text-center mb-1 font-bold font-roboto">Qty</label><input type="number" placeholder="0" className="w-full p-2 border-2 border-slate-100 rounded-lg text-lg font-black text-center outline-none h-[38px] font-mono font-roboto" onChange={e=>setForm({...form, qty: e.target.value})} /></div>
               <div className="flex flex-col font-roboto"><label className="text-[9px] font-black text-slate-400 uppercase block text-center mb-1 font-bold font-roboto">Unit</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs uppercase font-bold outline-none h-[38px] font-roboto"><option>Nos</option><option>Mtrs</option></select></div>
@@ -325,21 +311,21 @@ function MyStoreView({ profile, fetchProfile }: any) {
   );
 }
 
-// --- USAGE HISTORY & ANALYSIS (RESTORED) ---
+// --- MISSING COMPONENTS (USAGE & ANALYSIS RESTORED) ---
 function UsageHistoryView({ profile }: any) {
   const [logs, setLogs] = useState<any[]>([]);
   useEffect(() => { if (profile) fetch(); }, [profile]);
   const fetch = async () => { const { data } = await supabase.from("usage_logs").select("*").eq("consumer_uid", profile.id).order("timestamp", { ascending: false }); if (data) setLogs(data); };
-  return (<section className="bg-white rounded-xl border border-slate-200 shadow-sm font-roboto font-bold uppercase"><div className="p-5 border-b bg-slate-50/50 flex justify-between"><h2 className="text-lg font-bold text-slate-800 uppercase tracking-wider">Log: Usage Feed</h2></div><div className="overflow-x-auto"><table className="w-full text-left text-xs font-mono font-bold uppercase"><thead className="bg-slate-50 border-b text-[10px] font-black uppercase tracking-widest"><tr><th className="p-4 pl-8">Date</th><th className="p-4">Details</th><th className="p-4 text-center">Qty</th></tr></thead><tbody className="divide-y text-slate-600">{logs.map(l => (<tr key={l.id} className="hover:bg-slate-50 transition border-b border-slate-100"><td className="p-4 pl-8 uppercase font-mono">{new Date(Number(l.timestamp)).toLocaleDateString()}</td><td className="p-4 font-bold uppercase leading-tight font-roboto"><div className="text-slate-800 font-bold text-[13px] tracking-tight uppercase">{l.item_name}</div><div className="text-[9px] text-slate-400 uppercase mt-0.5 tracking-tighter uppercase">{l.category}</div></td><td className="p-4 text-center font-black text-red-600">-{l.qty_consumed} Nos</td></tr>))}</tbody></table></div></section>);
+  return (<section className="bg-white rounded-xl border border-slate-200 shadow-sm font-roboto font-bold uppercase"><div className="p-5 border-b bg-slate-50/50 flex justify-between font-roboto"><h2 className="text-lg font-bold text-slate-800 uppercase tracking-wider font-roboto">Log: Usage Feed</h2></div><div className="overflow-x-auto font-roboto"><table className="w-full text-left text-xs font-mono font-bold uppercase font-roboto"><thead className="bg-slate-50 border-b text-[10px] font-black uppercase tracking-widest font-roboto"><tr><th className="p-4 pl-8 font-roboto">Date</th><th className="p-4 font-roboto">Details</th><th className="p-4 text-center font-roboto">Qty</th></tr></thead><tbody className="divide-y text-slate-600 font-roboto">{logs.map(l => (<tr key={l.id} className="hover:bg-slate-50 transition border-b border-slate-100 font-roboto"><td className="p-4 pl-8 uppercase font-mono font-roboto">{new Date(Number(l.timestamp)).toLocaleDateString()}</td><td className="p-4 font-bold uppercase leading-tight font-roboto"><div className="text-slate-800 font-bold text-[13px] tracking-tight uppercase font-roboto">{l.item_name}</div><div className="text-[9px] text-slate-400 uppercase mt-0.5 tracking-tighter uppercase font-roboto">{l.category}</div></td><td className="p-4 text-center font-black text-red-600 font-roboto">-{l.qty_consumed} Nos</td></tr>))}</tbody></table></div></section>);
 }
 
 function MonthlyAnalysisView({ profile }: any) {
   const [analysis, setAnalysis] = useState<any[]>([]);
   useEffect(() => { const f = async () => { const { data } = await supabase.from("usage_logs").select("*").eq("consumer_uid", profile.id); if (data) { const stats: any = {}; data.forEach((l: any) => { const month = new Date(Number(l.timestamp)).toLocaleString('default', { month: 'long', year: 'numeric' }); if (!stats[month]) stats[month] = { month, total: 0, count: 0 }; stats[month].total += Number(l.qty_consumed); stats[month].count += 1; }); setAnalysis(Object.values(stats)); } }; if (profile) f(); }, [profile]);
-  return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-roboto uppercase tracking-tight font-bold"><div className="col-span-3 pb-4 text-xs font-black text-slate-400 tracking-widest text-center border-b uppercase font-roboto">Analytical Summary</div>{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md uppercase font-bold font-roboto"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-[0.2em] font-roboto">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner font-bold"><i className="fa-solid fa-chart-line font-bold"></i></div><div className="text-3xl font-black text-slate-800 font-bold font-roboto">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase tracking-widest uppercase font-roboto">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase tracking-tighter uppercase font-bold font-roboto">{a.count} Logged Records</div></div>))}</div>);
+  return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-roboto uppercase tracking-tight font-bold font-roboto"><div className="col-span-3 pb-4 text-xs font-black text-slate-400 tracking-widest text-center border-b uppercase font-roboto">Analytical Summary</div>{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md uppercase font-bold font-roboto"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-[0.2em] font-roboto">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner font-bold font-roboto"><i className="fa-solid fa-chart-line font-bold"></i></div><div className="text-3xl font-black text-slate-800 font-bold font-roboto">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase tracking-widest uppercase font-roboto">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase tracking-tighter uppercase font-bold font-roboto">{a.count} Logged Records</div></div>))}</div>);
 }
 
-// --- RETURNS LEDGER (BLACK BOX HEADER + BRACKET QTY + ROBOTO) ---
+// --- RETURNS LEDGER (BLACK BOX HEADER UPDATED) ---
 function ReturnsLedgerView({ profile, onAction }: any) { 
     const [pending, setPending] = useState<any[]>([]);
     const [given, setGiven] = useState<any[]>([]);
@@ -354,14 +340,14 @@ function ReturnsLedgerView({ profile, onAction }: any) {
         const { data: g } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).eq("status", "approved").order("id", { ascending: false });
         const { data: t } = await supabase.from("requests").select("*").eq("from_unit", profile.unit).eq("status", "approved").order("id", { ascending: false });
         const { data: gh } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).in("status", ["returned", "rejected"]).order("id", { ascending: false });
-        const { data: th } = await supabase.from("requests").select("*").eq("from_unit", profile.unit).in("status", ["returned", "rejected"]).order("id", { ascending: false });
+        const { data: th = [] } = await supabase.from("requests").select("*").eq("from_unit", profile.unit).in("status", ["returned", "rejected"]).order("id", { ascending: false });
         if (p) setPending(p); if (g) setGiven(g); if (t) setTaken(t);
         if (gh) setGivenHistory(gh); if (th) setTakenHistory(th);
     };
 
     useEffect(() => {
         if (!profile) return; fetchAll();
-        const channel = supabase.channel('sparesetu-global-sync-vfinal').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAll(); if(onAction) onAction(); }).subscribe();
+        const channel = supabase.channel('sparesetu-sync-vfinal').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAll(); if(onAction) onAction(); }).subscribe();
         return () => { supabase.removeChannel(channel); };
     }, [profile]);
 
@@ -407,11 +393,12 @@ function ReturnsLedgerView({ profile, onAction }: any) {
 
     return (
         <div className="space-y-10 animate-fade-in pb-20 font-roboto uppercase font-bold tracking-tight">
-            <h2 className="text-2xl font-bold text-slate-800 uppercase flex items-center gap-2"><i className="fa-solid fa-handshake-angle text-orange-500"></i> Udhaari Dashboard</h2>
+            <h2 className="text-2xl font-bold text-slate-800 uppercase flex items-center gap-2 font-roboto"><i className="fa-solid fa-handshake-angle text-orange-500 font-roboto"></i> Udhaari Dashboard</h2>
 
+            {/* ATTENTION REQUIRED */}
             <section className="bg-white rounded-xl border-t-4 border-orange-500 shadow-xl overflow-hidden font-roboto">
-                <div className="p-4 bg-orange-50/50 flex justify-between border-b uppercase font-bold font-roboto"><div className="flex items-center gap-2 text-orange-900 font-black uppercase text-[10px] tracking-widest font-roboto"><i className="fa-solid fa-bolt animate-pulse"></i> Attention Required (Incoming Actions)</div><span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px] uppercase font-bold font-roboto">{pending.length}</span></div>
-                <div className="overflow-x-auto"><table className="w-full text-left text-sm divide-y font-mono font-bold uppercase font-roboto">
+                <div className="p-4 bg-orange-50/50 flex justify-between border-b uppercase font-bold font-roboto"><div className="flex items-center gap-2 text-orange-900 font-black uppercase text-[10px] tracking-widest font-roboto"><i className="fa-solid fa-bolt animate-pulse font-roboto"></i> Attention Required (Incoming Actions)</div><span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px] uppercase font-bold font-roboto">{pending.length}</span></div>
+                <div className="overflow-x-auto font-roboto font-bold"><table className="w-full text-left text-sm divide-y font-mono font-bold uppercase font-roboto">
                     <thead className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-roboto"><tr><th className="p-4 pl-6 font-roboto">Material Detail</th><th className="p-4 font-roboto">Counterparty</th><th className="p-4 text-center font-roboto">Qty</th><th className="p-4 text-center font-roboto">Action</th></tr></thead>
                     <tbody className="divide-y text-slate-600 uppercase font-bold font-roboto">
                         {pending.map(r => (
@@ -423,59 +410,61 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                                 </td>
                                 <td className="p-4 font-bold text-slate-700 uppercase font-roboto leading-tight">{r.from_name}<div className="text-[10px] text-slate-400 font-normal uppercase font-mono font-roboto">{r.from_unit}</div></td>
                                 <td className="p-4 text-center font-black text-orange-600 text-[14px] font-mono whitespace-nowrap font-roboto">{r.req_qty} {r.item_unit}</td>
-                                <td className="p-4 flex gap-2 justify-center font-roboto"><button onClick={()=>setActionModal({type: r.status==='pending' ? 'approve' : 'verify', data:r})} className="bg-[#ff6b00] text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md hover:bg-orange-600 tracking-widest font-roboto"> {r.status==='pending' ? 'Issue' : 'Verify'} </button><button onClick={()=>setActionModal({type: r.status==='pending' ? 'reject' : 'reject_return', data:r})} className="bg-slate-100 text-slate-500 px-4 py-2 rounded-lg text-[9px] font-black transition tracking-widest uppercase font-roboto">Reject</button></td>
+                                <td className="p-4 flex gap-2 justify-center font-roboto"><button onClick={()=>setActionModal({type: r.status==='pending' ? 'approve' : 'verify', data:r})} className="bg-[#ff6b00] text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md hover:bg-orange-600 tracking-widest font-roboto font-bold"> {r.status==='pending' ? 'Issue' : 'Verify'} </button><button onClick={()=>setActionModal({type: r.status==='pending' ? 'reject' : 'reject_return', data:r})} className="bg-slate-100 text-slate-500 px-4 py-2 rounded-lg text-[9px] font-black transition tracking-widest uppercase font-roboto font-bold">Reject</button></td>
                             </tr>
                         ))}
                     </tbody>
                 </table></div>
             </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 font-roboto uppercase">
-                <section className="bg-white rounded-2xl border-t-4 border-blue-600 shadow-lg overflow-hidden font-mono uppercase">
-                    <div className="p-5 border-b bg-blue-50/30 flex items-center gap-3 uppercase text-xs font-black text-blue-900 tracking-widest font-roboto"><i className="fa-solid fa-arrow-up-from-bracket text-blue-600"></i> Active Ledger (Items Given)</div>
-                    <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto font-roboto">
+            {/* LEDGERS */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 font-roboto uppercase font-bold">
+                <section className="bg-white rounded-2xl border-t-4 border-blue-600 shadow-lg overflow-hidden font-mono uppercase font-bold">
+                    <div className="p-5 border-b bg-blue-50/30 flex items-center gap-3 uppercase text-xs font-black text-blue-900 tracking-widest font-roboto font-bold"><i className="fa-solid fa-arrow-up-from-bracket text-blue-600 font-bold"></i> Active Ledger (Items Given)</div>
+                    <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto font-roboto font-bold">
                         {given.map(r => (
-                            <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative shadow-sm uppercase font-bold font-roboto">
-                                <div className="text-slate-800 font-bold text-[14px] tracking-tight mb-1 font-roboto">{r.item_name}</div>
-                                <div className="text-[10px] text-slate-400 mb-3 uppercase tracking-tighter font-roboto">{r.item_spec}</div>
-                                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg mb-3 font-roboto"><div><p className="text-[9px] font-bold text-slate-400 uppercase font-roboto">Receiver</p><p className="text-[12.5px] font-black text-slate-700 uppercase tracking-tighter font-roboto">{r.from_name} ({r.from_unit})</p></div><div className="text-right font-black text-blue-600 font-mono text-[14px] font-roboto">{r.req_qty} {r.item_unit}</div></div>
-                                <div className="text-[9px] font-mono text-slate-400 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed tracking-tighter font-roboto">
-                                    <p><span className="font-black text-blue-600/70 uppercase font-roboto">ISSUED BY:</span> {r.to_name}</p>
-                                    <p><span className="font-black uppercase tracking-tighter font-roboto">LOG DATE:</span> {formatTS(r.timestamp)}</p>
+                            <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative shadow-sm uppercase font-bold font-roboto font-bold">
+                                <div className="text-slate-800 font-bold text-[14px] tracking-tight mb-1 font-roboto font-bold">{r.item_name}</div>
+                                <div className="text-[10px] text-slate-400 mb-3 uppercase tracking-tighter font-roboto font-bold">{r.item_spec}</div>
+                                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg mb-3 font-roboto font-bold"><div><p className="text-[9px] font-bold text-slate-400 uppercase font-roboto font-bold">Receiver</p><p className="text-[12.5px] font-black text-slate-700 uppercase tracking-tighter font-roboto font-bold">{r.from_name} ({r.from_unit})</p></div><div className="text-right font-black text-blue-600 font-mono text-[14px] font-roboto font-bold">{r.req_qty} {r.item_unit}</div></div>
+                                <div className="text-[9px] font-mono text-slate-400 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed tracking-tighter font-roboto font-bold">
+                                    <p><span className="font-black text-blue-600/70 uppercase font-roboto font-bold">ISSUED BY:</span> {r.to_name}</p>
+                                    <p><span className="font-black uppercase tracking-tighter font-roboto font-bold">LOG DATE:</span> {formatTS(r.timestamp)}</p>
                                 </div>
                             </div>
                         ))}
                     </div>
                 </section>
 
-                <section className="bg-white rounded-2xl border-t-4 border-red-600 shadow-lg overflow-hidden font-mono uppercase font-roboto">
-                    <div className="p-5 border-b bg-red-50/30 flex items-center gap-3 uppercase text-xs font-black text-red-900 tracking-widest font-roboto"><i className="fa-solid fa-arrow-down-long text-red-600"></i> Active Ledger (Items Taken)</div>
-                    <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto font-roboto">
+                <section className="bg-white rounded-2xl border-t-4 border-red-600 shadow-lg overflow-hidden font-mono uppercase font-bold font-roboto">
+                    <div className="p-5 border-b bg-red-50/30 flex items-center gap-3 uppercase text-xs font-black text-red-900 tracking-widest font-roboto font-bold"><i className="fa-solid fa-arrow-down-long text-red-600 font-bold"></i> Active Ledger (Items Taken)</div>
+                    <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto font-roboto font-bold">
                         {taken.map(r => (
-                            <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative uppercase font-bold font-roboto">
-                                <div className="text-slate-800 font-bold text-[14px] tracking-tight mb-1 font-roboto">{r.item_name}</div>
-                                <div className="text-[10px] text-slate-400 mb-3 uppercase tracking-tighter font-roboto">{r.item_spec}</div>
-                                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg mb-3 font-bold font-roboto"><div><p className="text-[9px] font-bold text-slate-400 uppercase font-roboto">Source</p><p className="text-[12.5px] font-black text-slate-700 uppercase tracking-tighter font-roboto">{r.to_unit} ({r.to_name})</p></div><div className="text-right font-black text-red-600 font-mono text-[14px] font-roboto">{r.req_qty} {r.item_unit}</div></div>
-                                <div className="text-[9px] font-mono text-slate-400 mb-3 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed tracking-tighter font-roboto">
-                                    <p><span className="font-black text-red-600/70 uppercase font-roboto">TAKEN BY:</span> {r.from_name}</p>
-                                    <p><span className="font-black uppercase tracking-tighter font-roboto">DATE:</span> {formatTS(r.timestamp)}</p>
+                            <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative uppercase font-bold font-roboto font-bold">
+                                <div className="text-slate-800 font-bold text-[14px] tracking-tight mb-1 font-roboto font-bold">{r.item_name}</div>
+                                <div className="text-[10px] text-slate-400 mb-3 uppercase tracking-tighter font-roboto font-bold">{r.item_spec}</div>
+                                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg mb-3 font-bold font-roboto font-bold"><div><p className="text-[9px] font-bold text-slate-400 uppercase font-roboto font-bold">Source</p><p className="text-[12.5px] font-black text-slate-700 uppercase tracking-tighter font-roboto font-bold">{r.to_unit} ({r.to_name})</p></div><div className="text-right font-black text-red-600 font-mono text-[14px] font-roboto font-bold">{r.req_qty} {r.item_unit}</div></div>
+                                <div className="text-[9px] font-mono text-slate-400 mb-3 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed tracking-tighter font-roboto font-bold">
+                                    <p><span className="font-black text-red-600/70 uppercase font-roboto font-bold">TAKEN BY:</span> {r.from_name}</p>
+                                    <p><span className="font-black uppercase tracking-tighter font-roboto font-bold">DATE:</span> {formatTS(r.timestamp)}</p>
                                 </div>
-                                <button onClick={()=>setActionModal({type:'return', data:r})} className="w-full py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow-md font-roboto">Initiate Partial/Full Return</button>
+                                <button onClick={()=>setActionModal({type:'return', data:r})} className="w-full py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow-md font-roboto font-bold">Initiate Partial/Full Return</button>
                             </div>
                         ))}
                     </div>
                 </section>
             </div>
 
-            {/* SETTLED ARCHIVE (BLACK BOX HEADER UPDATED + ROBOTO) */}
-            <div className="pt-10 space-y-10 font-roboto uppercase font-bold">
+            {/* SETTLED ARCHIVE (UPDATED HEADER + ROBOTO) */}
+            <div className="pt-10 space-y-10 font-roboto uppercase font-bold font-roboto">
                 <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden uppercase font-bold font-roboto">
-                    <div className="p-4 bg-slate-800 text-white flex justify-between text-[10px] tracking-widest uppercase font-bold font-roboto">
-                      {/* HEADER UPDATED TO BLACK BOX STYLE AS PER REQUEST */}
-                      <span>Digital Archive Logs</span>
+                    <div className="p-4 bg-slate-800 text-white flex justify-between items-center font-roboto">
+                      {/* HEADER UPDATED & FONT SIZE INCREASED */}
+                      <span className="text-[12px] font-bold tracking-widest uppercase">Digital Archive Logs</span>
+                      <span className="text-[9px] opacity-70 font-black tracking-widest uppercase hidden md:inline-block">(UDH: Udhaari • RET: Returned)</span>
                       <i className="fa-solid fa-file-shield text-slate-400"></i>
                     </div>
-                    <div className="overflow-x-auto font-roboto"><table className="w-full text-left text-[9px] divide-y divide-slate-100 uppercase font-mono font-bold font-roboto">
+                    <div className="overflow-x-auto font-roboto font-bold"><table className="w-full text-left text-[9px] divide-y divide-slate-100 uppercase font-mono font-bold font-roboto">
                         <thead className="bg-slate-50 text-[8.5px] font-black text-slate-400 tracking-widest uppercase font-roboto"><tr><th className="p-4 uppercase font-roboto">Material Details & Technical Spec</th><th className="p-4 text-center uppercase font-roboto">Qty</th><th className="p-4 uppercase font-roboto">Receiver & Lender Info</th><th className="p-4 uppercase font-roboto">7-Point Audit Life-Cycle Log</th><th className="p-4 text-center uppercase font-roboto">Status</th></tr></thead>
                         <tbody className="divide-y text-slate-600 font-bold uppercase font-roboto">
                             {[...givenHistory, ...takenHistory].sort((a,b)=>Number(b.timestamp)-Number(a.timestamp)).map(h => (
