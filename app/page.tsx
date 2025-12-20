@@ -26,32 +26,54 @@ export default function SpareSetuApp() {
     return () => authListener.subscription.unsubscribe();
   }, []);
 
-  // GLOBAL REAL-TIME LISTENER FOR BADGE
+  // GLOBAL REAL-TIME NOTIFICATION ENGINE
   useEffect(() => {
-    if (!profile?.unit) return;
-    fetchPendingCount(profile.unit);
+    if (!profile?.id || !profile?.unit) return;
+    
+    const fetchAllCounts = async () => {
+        // 1. Incoming Actions (To my zone)
+        const { count: incoming } = await supabase.from("requests")
+            .select("*", { count: 'exact', head: true })
+            .eq("to_unit", profile.unit)
+            .in("status", ["pending", "return_requested"]);
 
-    const channel = supabase
-      .channel('global-notifications')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => {
-        fetchPendingCount(profile.unit);
-      })
-      .subscribe();
+        // 2. Status Updates (For requests I sent)
+        const { count: updates } = await supabase.from("requests")
+            .select("*", { count: 'exact', head: true })
+            .eq("from_uid", profile.id)
+            .eq("viewed_by_requester", false)
+            .in("status", ["approved", "rejected", "returned"]);
+
+        setPendingCount((incoming || 0) + (updates || 0));
+    };
+
+    fetchAllCounts();
+
+    const channel = supabase.channel('notif-system')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => {
+            fetchAllCounts();
+        })
+        .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, [profile]);
 
+  // Clear notifications when visiting Returns tab
+  useEffect(() => {
+    if (activeTab === 'returns' && profile?.id) {
+        const clearNotifs = async () => {
+            await supabase.from("requests")
+                .update({ viewed_by_requester: true })
+                .eq("from_uid", profile.id)
+                .eq("viewed_by_requester", false);
+        };
+        clearNotifs();
+    }
+  }, [activeTab, profile]);
+
   const fetchProfile = async (uid: string) => {
     const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
     if (data) setProfile(data);
-  };
-
-  const fetchPendingCount = async (unit: string) => {
-    const { count } = await supabase.from("requests")
-      .select("*", { count: 'exact', head: true })
-      .eq("to_unit", unit) 
-      .in("status", ["pending", "return_requested"]);
-    setPendingCount(count || 0);
   };
 
   if (loading) return (
@@ -92,7 +114,7 @@ export default function SpareSetuApp() {
             <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-white font-bold text-xs">{profile?.name?.charAt(0)}</div>
             <div className="overflow-hidden"><p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Logged in</p><div className="text-xs font-bold text-slate-700 truncate">{profile?.name}</div></div>
           </div>
-          <button onClick={() => supabase.auth.signOut().then(()=>window.location.reload())} className="w-full py-2 text-xs text-red-500 hover:bg-red-50 font-bold rounded-lg transition border border-red-100">Logout</button>
+          <button onClick={() => supabase.auth.signOut().then(()=>window.location.reload())} className="w-full py-2 text-xs text-red-500 hover:bg-red-50 font-bold rounded-lg transition border border-red-100 text-center block">Logout</button>
         </div>
       </aside>
 
@@ -105,9 +127,9 @@ export default function SpareSetuApp() {
                 <div className="iocl-english-text" style={{ color: 'white' }}>IndianOil</div>
                 <div className="font-script text-orange-400 text-[10px] mt-1 whitespace-nowrap">The Energy of India</div>
               </div>
-              <div className="flex flex-col items-center"> 
+              <div className="flex flex-col items-center text-center"> 
                 <h1 className="font-industrial text-2xl md:text-3xl uppercase tracking-wider leading-none font-bold">Gujarat Refinery</h1>
-                <p className="font-hindi text-blue-400 text-xs font-bold tracking-wide mt-1 text-center">जहाँ प्रगति ही जीवन सार है</p>
+                <p className="font-hindi text-blue-400 text-xs font-bold tracking-wide mt-1">जहाँ प्रगति ही जीवन सार है</p>
               </div>
             </div>
             <h2 className="font-industrial text-xl text-orange-500 tracking-[0.1em] font-bold uppercase hidden md:block">SPARE SETU PORTAL</h2>
@@ -119,14 +141,14 @@ export default function SpareSetuApp() {
           {activeTab === "mystore" && <MyStoreView profile={profile} fetchProfile={()=>fetchProfile(user.id)} />}
           {activeTab === "usage" && <UsageHistoryView profile={profile} />}
           {activeTab === "analysis" && <MonthlyAnalysisView profile={profile} />}
-          {activeTab === "returns" && <ReturnsLedgerView profile={profile} onAction={()=>fetchPendingCount(profile.unit)} />}
+          {activeTab === "returns" && <ReturnsLedgerView profile={profile} />}
         </div>
       </main>
     </div>
   );
 }
 
-// --- AUTH VIEW (NO CHANGES) ---
+// --- AUTH VIEW ---
 function AuthView() {
   const [view, setView] = useState<"login" | "register" | "otp" | "forgot">("login");
   const [form, setForm] = useState({ email: "", pass: "", name: "", unit: "", enteredOtp: "", generatedOtp: "" });
@@ -229,7 +251,8 @@ function GlobalSearchView({ profile }: any) {
         to_name: requestItem.holder_name,
         to_uid: requestItem.holder_uid,
         to_unit: requestItem.holder_unit,
-        status: 'pending'
+        status: 'pending',
+        viewed_by_requester: false
     }]);
     if (!error) { alert("Request Sent Successfully!"); setRequestItem(null); setReqForm({ qty: "", comment: "" }); } else alert(error.message);
   };
@@ -274,7 +297,7 @@ function GlobalSearchView({ profile }: any) {
       {requestItem && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
             <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-scale-in p-6">
-                <h3 className="text-lg font-bold text-slate-800 uppercase border-b pb-2 mb-4">Request Material</h3>
+                <h3 className="text-lg font-bold text-slate-800 uppercase border-b pb-2 mb-4 font-industrial tracking-widest">Request Material</h3>
                 <div className="text-sm font-bold text-indigo-600 mb-2">{requestItem.item}</div>
                 <div className="text-xs text-slate-500 mb-4">From: {requestItem.holder_unit} ({requestItem.holder_name})</div>
                 <div className="space-y-4">
@@ -290,13 +313,13 @@ function GlobalSearchView({ profile }: any) {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-2xl rounded-2xl p-6 relative shadow-2xl animate-scale-in">
              <button onClick={()=>setBreakdown(null)} className="absolute top-4 right-4 text-slate-400 font-bold text-xl hover:text-red-500 transition">✕</button>
-             <h3 className="text-xl font-bold mb-1 text-slate-800">{breakdown.item}</h3>
+             <h3 className="text-xl font-bold mb-1 text-slate-800 font-industrial">{breakdown.item}</h3>
              <p className="text-xs text-slate-400 mb-6 uppercase font-bold tracking-wider">{breakdown.spec}</p>
              <div className="overflow-hidden border border-slate-100 rounded-xl bg-slate-50/50">
                <table className="w-full text-left">
                  <thead className="bg-slate-100 text-xs font-bold text-slate-500 uppercase border-b"><tr><th className="p-4 pl-6">Unit / Zone</th><th className="p-4">Engineer</th><th className="p-4 text-right">Qty</th><th className="p-4 pr-6 text-center">Action</th></tr></thead>
                  <tbody className="divide-y text-sm bg-white">
-                   {breakdown.holders.map((h:any, idx:number)=>(<tr key={idx} className="hover:bg-indigo-50/30 transition"><td className="p-4 pl-6 font-bold text-slate-700">{h.holder_unit}</td><td className="p-4 flex items-center gap-2 text-slate-500"><div className="w-6 h-6 rounded-full bg-slate-200 text-[10px] flex items-center justify-center font-bold">{h.holder_name?.charAt(0)}</div>{h.holder_name}</td><td className="p-4 text-right font-black text-indigo-600">{h.qty} Nos</td><td className="p-4 pr-6 text-center">{h.holder_uid === profile?.id ? <span className="text-[10px] text-green-600 font-black uppercase italic">Your Stock</span> : <button className="bg-orange-500 text-white px-3 py-1 rounded text-xs font-bold shadow-sm" onClick={()=>{setRequestItem(h); setBreakdown(null);}}>Request</button>}</td></tr>))}
+                   {breakdown.holders.map((h:any, idx:number)=>(<tr key={idx} className="hover:bg-indigo-50/30 transition"><td className="p-4 pl-6 font-bold text-slate-700">{h.holder_unit}</td><td className="p-4 flex items-center gap-2 text-slate-500"><div className="w-6 h-6 rounded-full bg-slate-200 text-[10px] flex items-center justify-center font-bold">{h.holder_name?.charAt(0)}</div>{h.holder_name}</td><td className="p-4 text-right font-black text-indigo-600">{h.qty} {h.unit || 'Nos'}</td><td className="p-4 pr-6 text-center">{h.holder_uid === profile?.id ? <span className="text-[10px] text-green-600 font-black uppercase italic">Your Stock</span> : <button className="bg-orange-500 text-white px-3 py-1 rounded text-xs font-bold shadow-sm" onClick={()=>{setRequestItem(h); setBreakdown(null);}}>Request</button>}</td></tr>))}
                  </tbody>
                </table>
              </div>
@@ -333,10 +356,10 @@ function MyStoreView({ profile, fetchProfile }: any) {
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b bg-slate-50/80 flex flex-wrap items-center gap-2"><div className="relative flex-grow md:w-64"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Search My Store..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none shadow-inner" onChange={e=>setSearch(e.target.value)} /></div><select className="border rounded-md text-[11px] font-bold p-2 bg-white" onChange={e=>setSelCat(e.target.value)}><option value="all">Category: All</option>{[...new Set(myItems.map(i => i.cat))].sort().map(c => <option key={c} value={c}>{c}</option>)}</select></div>
         <div className="overflow-x-auto"><table className="w-full text-left"><thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b uppercase"><tr><th className="p-5 pl-8">Category</th><th className="p-5">Item Name</th><th className="p-5">Spec</th><th className="p-5 text-center">Qty</th><th className="p-5 text-center">Manage</th></tr></thead>
-          <tbody className="divide-y text-sm">{filtered.map(i => (<tr key={i.id} className="hover:bg-slate-50 transition border-b border-slate-50"><td className="p-5 pl-8 text-[10px] font-bold text-slate-400 uppercase">{i.cat}</td><td className="p-5 font-bold text-slate-800 leading-tight">{i.item}</td><td className="p-5"><span className="bg-white border px-2 py-1 rounded text-[11px] font-medium text-slate-600 shadow-sm">{i.spec}</span></td><td className="p-5 font-bold text-center">{Number(i.qty) === 0 ? <span className="text-red-600 font-black text-[10px] uppercase bg-red-100 px-2 py-1 rounded border border-red-200">Out of Stock</span> : <span className="text-emerald-600 text-lg font-black">{i.qty} Nos</span>}</td><td className="p-5 flex gap-3 justify-center items-center"><button onClick={()=>setConsumeItem(i)} disabled={Number(i.qty) === 0} className="text-indigo-600 hover:scale-125 transition disabled:opacity-30"><i className="fa-solid fa-box-open text-xl"></i></button><button onClick={()=>setEditItem(i)} className="text-slate-400 hover:text-blue-500 hover:scale-125 transition"><i className="fa-solid fa-pen-to-square text-xl"></i></button></td></tr>))}</tbody></table></div>
+          <tbody className="divide-y text-sm">{filtered.map(i => (<tr key={i.id} className="hover:bg-slate-50 transition border-b border-slate-50"><td className="p-5 pl-8 text-[10px] font-bold text-slate-400 uppercase">{i.cat}</td><td className="p-5 font-bold text-slate-800 leading-tight">{i.item}</td><td className="p-5"><span className="bg-white border px-2 py-1 rounded text-[11px] font-medium text-slate-600 shadow-sm">{i.spec}</span></td><td className="p-5 font-bold text-center">{Number(i.qty) === 0 ? <span className="text-red-600 font-black text-[10px] uppercase bg-red-100 px-2 py-1 rounded border border-red-200">Out of Stock</span> : <span className="text-emerald-600 text-lg font-black">{i.qty} {i.unit || 'Nos'}</span>}</td><td className="p-5 flex gap-3 justify-center items-center"><button onClick={()=>setConsumeItem(i)} disabled={Number(i.qty) === 0} className="text-indigo-600 hover:scale-125 transition disabled:opacity-30"><i className="fa-solid fa-box-open text-xl"></i></button><button onClick={()=>setEditItem(i)} className="text-slate-400 hover:text-blue-500 hover:scale-125 transition"><i className="fa-solid fa-pen-to-square text-xl"></i></button></td></tr>))}</tbody></table></div>
       </div>
-      {consumeItem && <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"><div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-scale-in text-center p-6"><h3 className="text-lg font-bold text-slate-800 uppercase mb-4 border-b pb-2">Consume Stock</h3><div className="text-sm font-bold text-slate-700 mb-4">{consumeItem.item}</div><input type="number" id="cQty" placeholder="Qty used" className="w-full p-4 border-2 rounded-xl text-2xl font-black text-center outline-none mb-4" /><button onClick={async ()=>{ const qU = parseInt((document.getElementById('cQty') as HTMLInputElement).value); if(!qU || qU > consumeItem.qty) return alert("Invalid Qty!"); const {error}=await supabase.from('inventory').update({qty: consumeItem.qty - qU}).eq('id', consumeItem.id); if(!error){ await supabase.from('usage_logs').insert([{ item_name: consumeItem.item, category: consumeItem.cat, spec: consumeItem.spec, qty_consumed: qU, consumer_uid: profile.id, consumer_name: profile.name, consumer_unit: profile.unit }]); alert("Recorded!"); fetch(); setConsumeItem(null); } }} className="w-full py-4 bg-indigo-600 text-white font-black rounded-xl shadow-lg uppercase">Confirm Job Done</button></div></div>}
-      {editItem && <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"><div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-scale-in p-6 text-center"><div className="flex justify-between items-center mb-6 border-b pb-2 uppercase text-blue-800 font-bold"><h3 className="text-lg">Correct Qty</h3><button onClick={()=>setEditItem(null)}>✕</button></div><input type="number" id="eQty" defaultValue={editItem.qty} className="w-full p-4 border-2 rounded-xl text-center text-4xl font-black mb-6 outline-none shadow-inner" /><button onClick={async ()=>{ const nQ = parseInt((document.getElementById('eQty') as HTMLInputElement).value); const {error}=await supabase.from('inventory').update({qty: nQ}).eq('id', editItem.id); if(!error){ alert("Updated!"); fetch(); setEditItem(null); } }} className="w-full py-4 bg-blue-600 text-white font-black rounded-xl uppercase">Apply Update</button></div></div>}
+      {consumeItem && <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"><div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-scale-in text-center p-6"><h3 className="text-lg font-bold text-slate-800 uppercase mb-4 border-b pb-2 font-industrial">Consume Stock</h3><div className="text-sm font-bold text-slate-700 mb-4">{consumeItem.item}</div><input type="number" id="cQty" placeholder="Qty used" className="w-full p-4 border-2 rounded-xl text-2xl font-black text-center outline-none mb-4" /><button onClick={async ()=>{ const qU = parseInt((document.getElementById('cQty') as HTMLInputElement).value); if(!qU || qU > consumeItem.qty) return alert("Invalid Qty!"); const {error}=await supabase.from('inventory').update({qty: consumeItem.qty - qU}).eq('id', consumeItem.id); if(!error){ await supabase.from('usage_logs').insert([{ item_name: consumeItem.item, category: consumeItem.cat, spec: consumeItem.spec, qty_consumed: qU, consumer_uid: profile.id, consumer_name: profile.name, consumer_unit: profile.unit }]); alert("Recorded!"); fetch(); setConsumeItem(null); } }} className="w-full py-4 bg-indigo-600 text-white font-black rounded-xl shadow-lg uppercase">Confirm Job Done</button></div></div>}
+      {editItem && <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"><div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-scale-in p-6 text-center"><div className="flex justify-between items-center mb-6 border-b pb-2 uppercase text-blue-800 font-bold font-industrial tracking-widest"><h3 className="text-lg">Correct Qty</h3><button onClick={()=>setEditItem(null)}>✕</button></div><input type="number" id="eQty" defaultValue={editItem.qty} className="w-full p-4 border-2 rounded-xl text-center text-4xl font-black mb-6 outline-none shadow-inner" /><button onClick={async ()=>{ const nQ = parseInt((document.getElementById('eQty') as HTMLInputElement).value); const {error}=await supabase.from('inventory').update({qty: nQ}).eq('id', editItem.id); if(!error){ alert("Updated!"); fetch(); setEditItem(null); } }} className="w-full py-4 bg-blue-600 text-white font-black rounded-xl uppercase">Apply Update</button></div></div>}
       {showAddModal && <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md overflow-y-auto"><div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-8 relative animate-scale-in my-auto"><button onClick={() => setShowAddModal(false)} className="absolute top-4 right-4 text-slate-400 font-bold text-xl">✕</button><h3 className="text-lg font-bold text-slate-800 mb-6 border-b pb-2 uppercase tracking-wide text-center font-industrial">Add New Stock</h3><div className="space-y-4"><div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Category</label><select className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm bg-slate-50 focus:border-orange-500 outline-none" value={form.cat} onChange={e=>setForm({...form, cat: e.target.value})}><option value="">-- Select --</option>{[...new Set(masterCatalog.map(i => i.cat))].sort().map(c => <option key={c} value={c}>{c}</option>)}</select></div><div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1 block text-center">Qty</label><input type="number" placeholder="0" className="w-full p-3 border-2 border-slate-100 rounded-lg text-2xl font-black text-center" onChange={e=>setForm({...form, qty: e.target.value})} /></div><button onClick={handleSave} className="w-full py-4 bg-slate-900 text-white font-black rounded-xl shadow-lg mt-2 uppercase tracking-widest">Save Stock</button></div></div></div>}
     </div>
   );
@@ -354,7 +377,7 @@ function MonthlyAnalysisView({ profile }: any) {
   return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6">{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-widest">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner"><i className="fa-solid fa-chart-line"></i></div><div className="text-3xl font-black text-slate-800">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase">{a.count} Trans</div></div>))}{analysis.length===0 && <div className="p-20 text-center italic text-slate-400 bg-white rounded-xl border w-full col-span-3">No monthly data.</div>}</div>);
 }
 
-// --- FINALIZED RETURNS & UDHAARI VIEW (REALTIME + PARTIAL RETURNS + PROFESSIONAL HISTORY) ---
+// --- FINALIZED RETURNS & UDHAARI VIEW (REALTIME + PARTIAL ACTIONS + PRO HISTORY) ---
 function ReturnsLedgerView({ profile, onAction }: any) { 
     const [pending, setPending] = useState<any[]>([]);
     const [given, setGiven] = useState<any[]>([]);
@@ -365,24 +388,19 @@ function ReturnsLedgerView({ profile, onAction }: any) {
     const [form, setForm] = useState({ comment: "", qty: "" });
 
     const fetchAll = async () => {
-        // Pending
         const { data: p } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).eq("status", "pending").order("id", { ascending: false });
-        // Ledger Active
         const { data: g } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).in("status", ["approved", "return_requested"]).order("id", { ascending: false });
         const { data: t } = await supabase.from("requests").select("*").eq("from_unit", profile.unit).in("status", ["approved", "return_requested"]).order("id", { ascending: false });
-        // History (Professional View)
         const { data: gh } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).in("status", ["returned", "rejected"]).order("id", { ascending: false });
         const { data: th } = await supabase.from("requests").select("*").eq("from_unit", profile.unit).in("status", ["returned", "rejected"]).order("id", { ascending: false });
-
         if (p) setPending(p); if (g) setGiven(g); if (t) setTaken(t);
         if (gh) setGivenHistory(gh); if (th) setTakenHistory(th);
     };
 
-    // REAL-TIME LISTENER FOR AUTOMATIC UPDATES
     useEffect(() => {
         if (!profile) return;
         fetchAll();
-        const channel = supabase.channel('requests-realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAll(); onAction(); }).subscribe();
+        const channel = supabase.channel('ledger-realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAll(); if(onAction) onAction(); }).subscribe();
         return () => { supabase.removeChannel(channel); };
     }, [profile]);
 
@@ -390,58 +408,57 @@ function ReturnsLedgerView({ profile, onAction }: any) {
 
     const handleProcess = async () => {
         const { type, data } = actionModal;
-        if ((type === 'reject' || type === 'reject_return') && !form.comment.trim()) { alert("Comment required for rejection!"); return; }
+        if ((type.includes('reject')) && !form.comment.trim()) { alert("Rejection comment required!"); return; }
 
         let updateData: any = {};
-        if (type === 'approve') updateData = { status: 'approved', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name };
-        else if (type === 'reject') updateData = { status: 'rejected', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name };
+        const issuedQty = Number(form.qty || data.req_qty);
+
+        if (type === 'approve') updateData = { status: 'approved', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name, req_qty: issuedQty, viewed_by_requester: false };
+        else if (type === 'reject') updateData = { status: 'rejected', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false };
         else if (type === 'return') updateData = { status: 'return_requested', return_comment: form.comment, req_qty: Number(form.qty || data.req_qty), from_uid: profile.id, from_name: profile.name };
         else if (type === 'verify') {
             const returningQty = Number(form.qty || data.req_qty);
             if (returningQty < data.req_qty) {
-                // PARTIAL RETURN: Update current to 'approved' with remaining qty + Create new 'returned' entry
+                // PARTIAL RETURN: Split record
                 await supabase.from("requests").update({ req_qty: data.req_qty - returningQty, status: 'approved' }).eq("id", data.id);
-                await supabase.from("requests").insert([{ ...data, id: undefined, req_qty: returningQty, status: 'returned', approve_comment: `Verified: ${form.comment}`, to_uid: profile.id, to_name: profile.name }]);
+                await supabase.from("requests").insert([{ ...data, id: undefined, req_qty: returningQty, status: 'returned', approve_comment: `Partial Return Verified: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }]);
             } else {
-                // FULL RETURN
-                await supabase.from("requests").update({ status: 'returned', approve_comment: `Verified: ${form.comment}`, to_uid: profile.id, to_name: profile.name }).eq("id", data.id);
+                await supabase.from("requests").update({ status: 'returned', approve_comment: `Return Verified: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
             }
-            // Update Inventory (Lender gets stock back)
             const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
             if (inv) await supabase.from("inventory").update({ qty: inv.qty + returningQty }).eq("id", data.item_id);
-            alert("Return Verified!"); setActionModal(null); return;
+            alert("Verified!"); setActionModal(null); return;
         }
-        else if (type === 'reject_return') updateData = { status: 'approved', approve_comment: `Return Rejected: ${form.comment}`, to_uid: profile.id, to_name: profile.name };
+        else if (type === 'reject_return') updateData = { status: 'approved', approve_comment: `Return Rejected: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false };
 
         const { error } = await supabase.from("requests").update(updateData).eq("id", data.id);
         if (!error && type === 'approve') {
             const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
-            if (inv) await supabase.from("inventory").update({ qty: inv.qty - data.req_qty }).eq("id", data.item_id);
+            if (inv) await supabase.from("inventory").update({ qty: inv.qty - issuedQty }).eq("id", data.item_id);
         }
         setActionModal(null); setForm({comment:"", qty:""});
     };
 
     return (
         <div className="space-y-10 animate-fade-in pb-20">
-            <h2 className="text-2xl font-bold text-slate-800 font-industrial uppercase tracking-tight flex items-center gap-2"><i className="fa-solid fa-handshake-angle text-orange-500"></i> Live Udhaari Ledger</h2>
+            <h2 className="text-2xl font-bold text-slate-800 font-industrial uppercase tracking-tight flex items-center gap-2"><i className="fa-solid fa-handshake-angle text-orange-500"></i> Udhaari Dashboard</h2>
 
             {/* PENDING ACTIONS (Zone Wide) */}
             <section className="bg-white rounded-xl border-t-4 border-orange-500 shadow-xl overflow-hidden">
                 <div className="p-4 bg-orange-50/50 flex justify-between items-center border-b">
-                    <div className="flex items-center gap-2 text-orange-900 font-black uppercase text-xs tracking-widest"><i className="fa-solid fa-bolt animate-pulse"></i> Attention Required</div>
-                    <span className="bg-orange-600 text-white px-3 py-1 rounded-full font-black text-xs">{pending.length}</span>
+                    <div className="flex items-center gap-2 text-orange-900 font-black uppercase text-[10px] tracking-[0.2em]"><i className="fa-solid fa-bolt animate-pulse"></i> Material Requests to {profile?.unit}</div>
+                    <span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px]">{pending.length}</span>
                 </div>
-                <div className="overflow-x-auto"><table className="w-full text-left"><thead className="bg-slate-50 text-slate-400 text-[10px] font-bold border-b uppercase"><tr><th className="p-4 pl-6">Material Detail</th><th className="p-4">Requester</th><th className="p-4 text-center">Qty</th><th className="p-4 text-center">Action</th></tr></thead>
+                <div className="overflow-x-auto"><table className="w-full text-left"><thead className="bg-slate-50 text-slate-400 text-[10px] font-bold border-b uppercase"><tr><th className="p-4 pl-6">Material Detail</th><th className="p-4">Requester</th><th className="p-4 text-center">Requested Qty</th><th className="p-4 text-center">Action</th></tr></thead>
                     <tbody className="divide-y text-sm">
                         {pending.map(r => (
                             <tr key={r.id} className="hover:bg-orange-50/20 transition">
-                                <td className="p-4 pl-6 font-bold text-slate-800">{r.item_name}<div className="text-[10px] text-slate-400 font-normal">{r.item_spec}</div><div className="text-[9px] text-slate-300 font-medium italic mt-1">{formatTS(r.timestamp)}</div></td>
+                                <td className="p-4 pl-6 font-bold text-slate-800 leading-tight">{r.item_name}<div className="text-[10px] text-slate-400 font-normal mt-0.5">{r.item_spec}</div><div className="text-[9px] text-slate-300 font-medium italic mt-1">{formatTS(r.timestamp)}</div></td>
                                 <td className="p-4 font-bold text-slate-700">{r.from_name}<div className="text-[10px] text-slate-400 font-normal">{r.from_unit}</div></td>
                                 <td className="p-4 text-center font-black text-orange-600 text-lg">{r.req_qty} {r.item_unit}</td>
-                                <td className="p-4 flex gap-2 justify-center"><button onClick={()=>setActionModal({type:'approve', data:r})} className="bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-black shadow-md">ISSUE</button><button onClick={()=>setActionModal({type:'reject', data:r})} className="bg-slate-100 text-slate-500 px-4 py-2 rounded-lg text-xs font-bold transition">REJECT</button></td>
+                                <td className="p-4 flex gap-2 justify-center"><button onClick={()=>setActionModal({type:'approve', data:r})} className="bg-green-600 text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md hover:bg-green-700">APPROVE</button><button onClick={()=>setActionModal({type:'reject', data:r})} className="bg-slate-100 text-slate-500 px-4 py-2 rounded-lg text-[10px] font-black transition hover:bg-red-50 hover:text-red-500">REJECT</button></td>
                             </tr>
                         ))}
-                        {pending.length === 0 && <tr><td colSpan={4} className="p-10 text-center italic text-slate-400">No pending requests in your zone.</td></tr>}
                     </tbody>
                 </table></div>
             </section>
@@ -449,7 +466,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* ACTIVE GIVEN */}
                 <section className="bg-white rounded-2xl border-t-4 border-blue-600 shadow-lg overflow-hidden">
-                    <div className="p-5 border-b bg-blue-50/30 flex items-center gap-3"><i className="fa-solid fa-arrow-up-from-bracket text-blue-600"></i><h3 className="text-blue-900 font-black uppercase text-xs tracking-widest">Active Udhaari (Given)</h3></div>
+                    <div className="p-5 border-b bg-blue-50/30 flex items-center gap-3"><i className="fa-solid fa-arrow-up-from-bracket text-blue-600"></i><h3 className="text-blue-900 font-black uppercase text-[10px] tracking-widest">Zone Udhaari (Given)</h3></div>
                     <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
                         {given.map(r => (
                             <div key={r.id} className={`p-4 border-2 rounded-2xl relative transition-all ${r.status === 'return_requested' ? 'border-orange-500 bg-orange-50 animate-pulse shadow-orange-100 shadow-lg' : 'border-slate-100 bg-white'}`}>
@@ -460,7 +477,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                                     <div className="text-right font-black text-blue-600">{r.req_qty} {r.item_unit}</div>
                                 </div>
                                 {r.status === 'return_requested' ? (
-                                    <div className="space-y-2 border-t pt-3"><p className="text-[10px] font-bold text-orange-600 tracking-tight uppercase">Return Recv Note: "{r.return_comment}"</p>
+                                    <div className="space-y-2 border-t pt-3"><p className="text-[10px] font-bold text-orange-600 uppercase tracking-tight">Return Note: "{r.return_comment}"</p>
                                     <div className="flex gap-2"><button onClick={()=>setActionModal({type:'verify', data:r})} className="flex-1 py-2 bg-orange-500 text-white text-[10px] font-black rounded-xl shadow-lg">VERIFY RECEIPT</button><button onClick={()=>setActionModal({type:'reject_return', data:r})} className="px-4 py-2 bg-slate-200 text-slate-500 text-[10px] font-bold rounded-xl">REJECT</button></div></div>
                                 ) : (
                                     <div className="text-[9px] text-slate-400 italic flex justify-between border-t pt-2"><span>Issued By: {r.to_name}</span><span>{formatTS(r.timestamp)}</span></div>
@@ -472,7 +489,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
 
                 {/* ACTIVE TAKEN */}
                 <section className="bg-white rounded-2xl border-t-4 border-red-600 shadow-lg overflow-hidden">
-                    <div className="p-5 border-b bg-red-50/30 flex items-center gap-3"><i className="fa-solid fa-arrow-down-long text-red-600"></i><h3 className="text-red-900 font-black uppercase text-xs tracking-widest">Active Udhaari (Taken)</h3></div>
+                    <div className="p-5 border-b bg-red-50/30 flex items-center gap-3"><i className="fa-solid fa-arrow-down-long text-red-600"></i><h3 className="text-red-900 font-black uppercase text-[10px] tracking-widest">Zone Udhaari (Taken)</h3></div>
                     <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
                         {taken.map(r => (
                             <div key={r.id} className={`p-4 border-2 rounded-2xl relative ${r.status === 'return_requested' ? 'border-dashed border-slate-300 opacity-60' : 'border-slate-100 bg-white'}`}>
@@ -482,7 +499,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                                     <div className="text-right font-black text-red-600">{r.req_qty} {r.item_unit}</div>
                                 </div>
                                 {r.status === 'return_requested' ? (
-                                    <div className="text-center py-2 bg-slate-100 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-500">Wait for {r.to_unit} verification</div>
+                                    <div className="text-center py-2 bg-slate-100 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-500">Waiting for Verification</div>
                                 ) : (
                                     <button onClick={()=>setActionModal({type:'return', data:r})} className="w-full py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl uppercase tracking-tighter shadow-md">INITIATE RETURN</button>
                                 )}
@@ -492,44 +509,43 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 </section>
             </div>
 
-            {/* SETTLED HISTORY - PROFESSIONAL LAYOUT */}
+            {/* SETTLED HISTORY - MODERN PROFESSIONAL VIEW */}
             <div className="pt-10 space-y-6">
-                <div className="flex items-center gap-4"><hr className="flex-1"/><h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.3em]"><i className="fa-solid fa-clock-rotate-left"></i> Settled Transaction History</h3><hr className="flex-1"/></div>
+                <div className="flex items-center gap-4"><hr className="flex-1 border-slate-200"/><h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.4em]"><i className="fa-solid fa-clock-rotate-left mr-2"></i> Settled Transaction History</h3><hr className="flex-1 border-slate-200"/></div>
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Given History */}
-                    <div className="bg-white rounded-xl border border-slate-100 overflow-hidden shadow-sm">
-                        <div className="bg-slate-50 p-3 px-5 text-[10px] font-black text-slate-500 uppercase tracking-widest flex justify-between"><span>Archive: Given Out</span><i className="fa-solid fa-check-double text-green-500"></i></div>
-                        <div className="p-2 divide-y divide-slate-50">
-                            {givenHistory.map(h => (
-                                <div key={h.id} className="p-4 flex gap-4 items-start hover:bg-slate-50/50 transition">
-                                    <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-black ${h.status==='returned' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>{h.status==='returned' ? 'RTN' : 'REJ'}</div>
-                                    <div className="flex-1">
-                                        <div className="flex justify-between items-start"><span className="text-[11px] font-bold text-slate-700 leading-tight">{h.item_name}</span><span className="text-[10px] font-black text-slate-500 whitespace-nowrap">{h.req_qty} {h.item_unit}</span></div>
-                                        <p className="text-[9px] text-slate-400 mt-1 uppercase font-bold tracking-tighter">TO: {h.from_name} ({h.from_unit}) | DATE: {formatTS(h.timestamp)}</p>
-                                        <p className="text-[9px] text-slate-400 mt-2 bg-slate-50 p-1.5 rounded italic">"{h.approve_comment || 'No note available'}"</p>
-                                    </div>
-                                </div>
-                            ))}
-                            {givenHistory.length === 0 && <p className="text-center py-10 text-slate-300 italic text-xs">No given archive found.</p>}
-                        </div>
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="p-4 bg-slate-800 text-white flex justify-between items-center"><span className="text-[10px] font-black uppercase tracking-widest">Historical Output (Given)</span><i className="fa-solid fa-file-export text-slate-400 text-xs"></i></div>
+                        <div className="p-0 overflow-x-auto"><table className="w-full text-left text-xs"><thead className="bg-slate-50 border-b text-[9px] font-black text-slate-400 uppercase"><tr><th className="p-4">Material</th><th className="p-4">Qty</th><th className="p-4">Receiver</th><th className="p-4 text-center">Status</th></tr></thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {givenHistory.map(h => (
+                                    <tr key={h.id} className="hover:bg-slate-50 transition">
+                                        <td className="p-4"><p className="font-bold text-slate-700">{h.item_name}</p><p className="text-[9px] text-slate-400 uppercase mt-0.5">{formatTS(h.timestamp)}</p></td>
+                                        <td className="p-4 font-black text-slate-600">{h.req_qty} {h.item_unit}</td>
+                                        <td className="p-4"><p className="font-bold text-slate-600">{h.from_name}</p><p className="text-[9px] text-slate-400">{h.from_unit}</p></td>
+                                        <td className="p-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${h.status==='returned' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{h.status}</span></td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table></div>
                     </div>
 
                     {/* Taken History */}
-                    <div className="bg-white rounded-xl border border-slate-100 overflow-hidden shadow-sm">
-                        <div className="bg-slate-50 p-3 px-5 text-[10px] font-black text-slate-500 uppercase tracking-widest flex justify-between"><span>Archive: Taken In</span><i className="fa-solid fa-box-archive text-blue-500"></i></div>
-                        <div className="p-2 divide-y divide-slate-50">
-                            {takenHistory.map(h => (
-                                <div key={h.id} className="p-4 flex gap-4 items-start hover:bg-slate-50/50 transition">
-                                    <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-black ${h.status==='returned' ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'}`}>{h.status==='returned' ? 'RTN' : 'REJ'}</div>
-                                    <div className="flex-1">
-                                        <div className="flex justify-between items-start"><span className="text-[11px] font-bold text-slate-700 leading-tight">{h.item_name}</span><span className="text-[10px] font-black text-slate-500 whitespace-nowrap">{h.req_qty} {h.item_unit}</span></div>
-                                        <p className="text-[9px] text-slate-400 mt-1 uppercase font-bold tracking-tighter">FROM: {h.to_unit} (Engr: {h.to_name}) | DATE: {formatTS(h.timestamp)}</p>
-                                        <p className="text-[9px] text-slate-400 mt-2 bg-slate-50 p-1.5 rounded italic">"{h.approve_comment || 'No note available'}"</p>
-                                    </div>
-                                </div>
-                            ))}
-                            {takenHistory.length === 0 && <p className="text-center py-10 text-slate-300 italic text-xs">No taken archive found.</p>}
-                        </div>
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="p-4 bg-slate-800 text-white flex justify-between items-center"><span className="text-[10px] font-black uppercase tracking-widest">Historical Input (Taken)</span><i className="fa-solid fa-file-import text-slate-400 text-xs"></i></div>
+                        <div className="p-0 overflow-x-auto"><table className="w-full text-left text-xs"><thead className="bg-slate-50 border-b text-[9px] font-black text-slate-400 uppercase"><tr><th className="p-4">Material</th><th className="p-4">Qty</th><th className="p-4">Source</th><th className="p-4 text-center">Status</th></tr></thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {takenHistory.map(h => (
+                                    <tr key={h.id} className="hover:bg-slate-50 transition">
+                                        <td className="p-4"><p className="font-bold text-slate-700">{h.item_name}</p><p className="text-[9px] text-slate-400 uppercase mt-0.5">{formatTS(h.timestamp)}</p></td>
+                                        <td className="p-4 font-black text-slate-600">{h.req_qty} {h.item_unit}</td>
+                                        <td className="p-4"><p className="font-bold text-slate-600">{h.to_unit}</p><p className="text-[9px] text-slate-400">Engr: {h.to_name}</p></td>
+                                        <td className="p-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${h.status==='returned' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>{h.status}</span></td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table></div>
                     </div>
                 </div>
             </div>
@@ -538,26 +554,24 @@ function ReturnsLedgerView({ profile, onAction }: any) {
             {actionModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
                     <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 animate-scale-in border-t-8 border-slate-900">
-                        <div className="flex justify-between items-center mb-6 border-b pb-2"><h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">{actionModal.type.replace('_', ' ')} Materials</h3><button onClick={()=>setActionModal(null)} className="text-slate-400">✕</button></div>
+                        <div className="flex justify-between items-center mb-6 border-b pb-2"><h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">{actionModal.type.replace('_', ' ')} Portal</h3><button onClick={()=>setActionModal(null)} className="text-slate-400">✕</button></div>
                         <div className="text-xs font-black text-indigo-600 mb-2 leading-tight uppercase">{actionModal.data.item_name}</div>
                         <div className="text-[10px] text-slate-400 mb-6">{actionModal.data.item_spec}</div>
-                        
                         <div className="space-y-5">
-                            {(actionModal.type === 'return' || actionModal.type === 'verify') && (
+                            {(actionModal.type === 'approve' || actionModal.type === 'return' || actionModal.type === 'verify') && (
                                 <div className="bg-slate-50 p-4 rounded-xl">
                                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-tighter block mb-2 text-center">Confirm Quantity</label>
-                                    <input type="number" defaultValue={actionModal.data.req_qty} className="w-full bg-white p-3 border-2 rounded-xl text-center text-3xl font-black outline-none focus:border-indigo-500" onChange={e=>setForm({...form, qty: e.target.value})} />
-                                    <p className="text-[9px] text-center text-slate-400 mt-2">Available to return: {actionModal.data.req_qty} {actionModal.data.item_unit}</p>
+                                    <input type="number" defaultValue={actionModal.data.req_qty} className="w-full bg-white p-3 border-2 rounded-xl text-center text-3xl font-black outline-none focus:border-slate-800" onChange={e=>setForm({...form, qty: e.target.value})} />
+                                    <p className="text-[9px] text-center text-slate-400 mt-2 italic">Unit: {actionModal.data.item_unit || 'Nos'}</p>
                                 </div>
                             )}
                             <div>
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">{(actionModal.type.includes('reject')) ? 'Mandatory Reason' : 'Note / Remarks'}</label>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">{(actionModal.type.includes('reject')) ? 'Mandatory Reason/Note' : 'Remarks'}</label>
                                 <textarea className="w-full p-3 border-2 rounded-xl text-sm h-24 outline-none focus:border-slate-800 mt-1" placeholder="Type here..." onChange={e=>setForm({...form, comment: e.target.value})}></textarea>
                             </div>
-                            
-                            <div className="flex flex-col gap-2">
+                            <div className="flex flex-col gap-2 pt-2">
                                 <button onClick={handleProcess} className={`w-full py-4 font-black rounded-xl uppercase text-xs shadow-lg text-white ${actionModal.type.includes('reject') ? 'bg-red-600' : 'bg-slate-900'}`}>
-                                    {actionModal.type === 'return' ? 'SEND RETURN REQUEST' : 'CONFIRM ACTION'}
+                                    {actionModal.type === 'approve' ? 'ISSUE MATERIAL' : actionModal.type === 'return' ? 'SEND RETURN REQUEST' : 'CONFIRM ACTION'}
                                 </button>
                                 <button onClick={()=>setActionModal(null)} className="w-full py-2 text-slate-400 text-[10px] font-bold uppercase">Cancel</button>
                             </div>
