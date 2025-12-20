@@ -122,7 +122,7 @@ export default function SpareSetuApp() {
   );
 }
 
-// --- AUTH VIEW (UNTOUCHED) ---
+// --- AUTH VIEW ---
 function AuthView() {
   const [view, setView] = useState<"login" | "register" | "otp" | "forgot">("login");
   const [form, setForm] = useState({ email: "", pass: "", name: "", unit: "", enteredOtp: "", generatedOtp: "" });
@@ -255,6 +255,27 @@ function GlobalSearchView({ profile }: any) {
           </tbody>
         </table></div>
       </section>
+
+      {/* REQUEST MODAL */}
+      {requestItem && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
+            <div className="p-6 border-b bg-slate-50 flex justify-between items-center">
+              <h3 className="font-black text-slate-800 text-lg uppercase">Raise Request</h3>
+              <button onClick={()=>setRequestItem(null)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark"></i></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
+                <p className="text-[10px] text-orange-600 font-black uppercase mb-1">Requesting Material</p>
+                <p className="text-sm font-bold text-slate-800">{requestItem.item}</p>
+              </div>
+              <div><label className="text-[10px] font-black text-slate-400 uppercase">Quantity (Available: {requestItem.qty})</label><input type="number" placeholder="Enter Qty" className="w-full mt-1 p-3 border rounded-lg outline-none font-bold" onChange={e=>setReqForm({...reqForm, qty:e.target.value})} /></div>
+              <div><label className="text-[10px] font-black text-slate-400 uppercase">Purpose / Log Comment</label><textarea placeholder="Why do you need this?" className="w-full mt-1 p-3 border rounded-lg outline-none font-bold text-xs h-24" onChange={e=>setReqForm({...reqForm, comment:e.target.value})}></textarea></div>
+              <button onClick={handleSendRequest} className="w-full py-3 bg-[#ff6b00] text-white font-black rounded-xl shadow-lg uppercase tracking-widest">Submit Request</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -297,7 +318,7 @@ function MyStoreView({ profile, fetchProfile }: any) {
   );
 }
 
-// --- USAGE HISTORY & ANALYSIS RESTORED ---
+// --- USAGE HISTORY & ANALYSIS ---
 function UsageHistoryView({ profile }: any) {
   const [logs, setLogs] = useState<any[]>([]);
   useEffect(() => { if (profile) fetch(); }, [profile]);
@@ -311,7 +332,7 @@ function MonthlyAnalysisView({ profile }: any) {
   return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-roboto uppercase tracking-tight font-bold font-roboto"><div className="col-span-3 pb-4 text-xs font-black text-slate-400 tracking-widest text-center border-b uppercase font-roboto">Analytical Summary</div>{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md uppercase font-bold font-roboto font-bold"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-[0.2em] font-roboto font-bold">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner font-bold font-roboto font-bold"><i className="fa-solid fa-chart-line font-bold font-bold"></i></div><div className="text-3xl font-black text-slate-800 font-bold font-roboto font-bold">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase tracking-widest uppercase font-roboto font-bold">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase tracking-tighter uppercase font-bold font-roboto font-bold">{a.count} Logged Records</div></div>))}</div>);
 }
 
-// --- RETURNS LEDGER (BLACK BOX HEADER UPDATED) ---
+// --- RETURNS LEDGER ---
 function ReturnsLedgerView({ profile, onAction }: any) { 
     const [pending, setPending] = useState<any[]>([]);
     const [given, setGiven] = useState<any[]>([]);
@@ -341,7 +362,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
 
     const handleProcess = async () => {
         const { type, data } = actionModal;
-        if (type.includes('reject') && !form.comment.trim()) { alert("Provide a reason/log comment!"); return; }
+        if ((type.includes('reject') || type === 'return' || type === 'verify') && !form.comment.trim()) { alert("Provide a reason/log comment!"); return; }
         const actionQty = Number(form.qty || data.req_qty);
 
         if (type === 'approve') {
@@ -395,7 +416,10 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                                 </td>
                                 <td className="p-4 font-bold text-slate-700 uppercase font-roboto leading-tight font-bold">{r.from_name}<div className="text-[10px] text-slate-400 font-normal uppercase font-mono font-roboto font-bold">{r.from_unit}</div></td>
                                 <td className="p-4 text-center font-black text-orange-600 text-[14px] font-mono whitespace-nowrap font-roboto font-bold">{r.req_qty} {r.item_unit}</td>
-                                <td className="p-4 flex gap-2 justify-center font-roboto font-bold uppercase"><button onClick={()=>setActionModal({type: r.status==='pending' ? 'approve' : 'verify', data:r})} className="bg-[#ff6b00] text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md hover:bg-orange-600 tracking-widest font-roboto font-bold uppercase font-bold"> {r.status==='pending' ? 'Issue' : 'Verify'} </button><button onClick={()=>setActionModal({type: r.status==='pending' ? 'reject' : 'reject_return', data:r})} className="bg-slate-100 text-slate-500 px-4 py-2 rounded-lg text-[9px] font-black transition tracking-widest uppercase font-roboto font-bold font-bold uppercase">Reject</button></td>
+                                <td className="p-4 flex gap-2 justify-center font-roboto font-bold uppercase">
+                                  <button onClick={()=>setActionModal({type: r.status==='pending' ? 'approve' : 'verify', data:r})} className="bg-[#ff6b00] text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md hover:bg-orange-600 tracking-widest font-roboto font-bold uppercase font-bold"> {r.status==='pending' ? 'Issue' : 'Verify'} </button>
+                                  <button onClick={()=>setActionModal({type: r.status==='pending' ? 'reject' : 'reject_return', data:r})} className="bg-slate-100 text-slate-500 px-4 py-2 rounded-lg text-[9px] font-black transition tracking-widest uppercase font-roboto font-bold font-bold uppercase">Reject</button>
+                                </td>
                             </tr>
                         ))}
                     </tbody>
@@ -440,10 +464,35 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 </section>
             </div>
 
-            {/* SETTLED ARCHIVE (UPDATED HEADER DESIGN) */}
+            {/* ACTION MODAL (POPUP THAT WAS MISSING) */}
+            {actionModal && (
+              <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in font-roboto">
+                  <div className="p-6 border-b bg-slate-50 flex justify-between items-center">
+                    <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">
+                      {actionModal.type === 'approve' ? 'Issue Spare' : actionModal.type === 'return' ? 'Return Material' : actionModal.type === 'verify' ? 'Verify Return' : 'Reject Action'}
+                    </h3>
+                    <button onClick={()=>setActionModal(null)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark"></i></button>
+                  </div>
+                  <div className="p-6 space-y-4 uppercase">
+                    <div className="bg-slate-50 p-4 rounded-xl border">
+                      <p className="text-[9px] text-slate-400 font-black uppercase mb-1">Processing Material</p>
+                      <p className="text-sm font-bold text-slate-800">{actionModal.data.item_name}</p>
+                      <p className="text-[10px] text-slate-400 mt-1">{actionModal.data.item_spec}</p>
+                    </div>
+                    {actionModal.type === 'approve' && (
+                      <div><label className="text-[10px] font-black text-slate-400 uppercase">Quantity To Issue</label><input type="number" defaultValue={actionModal.data.req_qty} className="w-full mt-1 p-3 border rounded-lg outline-none font-bold text-slate-700" onChange={e=>setForm({...form, qty:e.target.value})} /></div>
+                    )}
+                    <div><label className="text-[10px] font-black text-slate-400 uppercase">Transaction Log / Comment</label><textarea placeholder="Write log details..." className="w-full mt-1 p-3 border rounded-lg outline-none font-bold text-xs h-24 text-slate-700" onChange={e=>setForm({...form, comment:e.target.value})}></textarea></div>
+                    <button onClick={handleProcess} className={`w-full py-3 ${actionModal.type === 'reject' ? 'bg-red-600' : 'bg-[#ff6b00]'} text-white font-black rounded-xl shadow-lg uppercase tracking-widest text-sm`}>Confirm & Save Process</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SETTLED ARCHIVE */}
             <div className="pt-10 space-y-10 font-roboto font-bold uppercase">
                 <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden font-roboto font-bold uppercase">
-                    {/* CENTERED BLACK BOX HEADER (20PX) WITH LEGEND */}
                     <div className="p-6 bg-slate-800 text-white flex flex-col items-center justify-center font-roboto">
                       <span className="text-[20px] font-bold tracking-widest uppercase font-roboto">Digital Archive Logs</span>
                       <span className="text-[10px] opacity-80 font-black tracking-[0.2em] uppercase mt-1 font-roboto">(UDH: UDHAARI • RET: RETURNED)</span>
@@ -464,7 +513,6 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                                       </div>
                                     </td>
                                     <td className="p-4 leading-tight font-roboto uppercase font-bold"><p className="text-blue-500 font-bold font-roboto uppercase font-bold">BORR: {h.from_name}</p><p className="text-red-500 font-bold mt-1 font-roboto uppercase font-bold">LEND: {h.to_name}</p></td>
-                                    {/* UPDATED AUDIT LOG: TIMESTAMP REMOVED, YEAR ADDED, LOGGED REMOVED */}
                                     <td className="p-4 leading-none space-y-1.5 font-bold tracking-tighter text-[8.5px] font-roboto font-bold uppercase">
                                         <p><span className="opacity-50 font-roboto uppercase">1. REQUEST BY:</span> {h.from_name} ({h.from_unit}) (QTY: {h.req_qty}) on {formatTS(h.timestamp)}</p>
                                         <p><span className="opacity-50 font-roboto uppercase">2. APPROVED BY:</span> {h.to_name} (QTY: {h.req_qty}) on {formatTS(h.timestamp)}</p>
