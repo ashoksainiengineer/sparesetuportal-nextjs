@@ -261,16 +261,17 @@ function GlobalSearchView({ profile }: any) {
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
             <div className="p-6 border-b bg-slate-50 flex justify-between items-center">
-              <h3 className="font-black text-slate-800 text-lg uppercase">Raise Request</h3>
+              <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Raise Request</h3>
               <button onClick={()=>setRequestItem(null)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark"></i></button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 font-bold uppercase">
               <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
-                <p className="text-[10px] text-orange-600 font-black uppercase mb-1">Requesting Material</p>
+                <p className="text-[10px] text-orange-600 font-black uppercase mb-1 tracking-widest">Requesting Material</p>
                 <p className="text-sm font-bold text-slate-800">{requestItem.item}</p>
+                <p className="text-[10px] text-slate-400 mt-1 uppercase">{requestItem.spec}</p>
               </div>
-              <div><label className="text-[10px] font-black text-slate-400 uppercase">Quantity (Available: {requestItem.qty})</label><input type="number" placeholder="Enter Qty" className="w-full mt-1 p-3 border rounded-lg outline-none font-bold" onChange={e=>setReqForm({...reqForm, qty:e.target.value})} /></div>
-              <div><label className="text-[10px] font-black text-slate-400 uppercase">Purpose / Log Comment</label><textarea placeholder="Why do you need this?" className="w-full mt-1 p-3 border rounded-lg outline-none font-bold text-xs h-24" onChange={e=>setReqForm({...reqForm, comment:e.target.value})}></textarea></div>
+              <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quantity (Available: {requestItem.qty})</label><input type="number" placeholder="Enter Qty" className="w-full mt-1 p-3 border rounded-lg outline-none font-bold text-slate-800" onChange={e=>setReqForm({...reqForm, qty:e.target.value})} /></div>
+              <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purpose / Log Comment</label><textarea placeholder="Why do you need this?" className="w-full mt-1 p-3 border rounded-lg outline-none font-bold text-xs h-24 text-slate-800" onChange={e=>setReqForm({...reqForm, comment:e.target.value})}></textarea></div>
               <button onClick={handleSendRequest} className="w-full py-3 bg-[#ff6b00] text-white font-black rounded-xl shadow-lg uppercase tracking-widest">Submit Request</button>
             </div>
           </div>
@@ -332,7 +333,7 @@ function MonthlyAnalysisView({ profile }: any) {
   return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-roboto uppercase tracking-tight font-bold font-roboto"><div className="col-span-3 pb-4 text-xs font-black text-slate-400 tracking-widest text-center border-b uppercase font-roboto">Analytical Summary</div>{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md uppercase font-bold font-roboto font-bold"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-[0.2em] font-roboto font-bold">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner font-bold font-roboto font-bold"><i className="fa-solid fa-chart-line font-bold font-bold"></i></div><div className="text-3xl font-black text-slate-800 font-bold font-roboto font-bold">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase tracking-widest uppercase font-roboto font-bold">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase tracking-tighter uppercase font-bold font-roboto font-bold">{a.count} Logged Records</div></div>))}</div>);
 }
 
-// --- RETURNS LEDGER ---
+// --- RETURNS LEDGER (PARTIAL RETURN SUPPORTED) ---
 function ReturnsLedgerView({ profile, onAction }: any) { 
     const [pending, setPending] = useState<any[]>([]);
     const [given, setGiven] = useState<any[]>([]);
@@ -362,8 +363,10 @@ function ReturnsLedgerView({ profile, onAction }: any) {
 
     const handleProcess = async () => {
         const { type, data } = actionModal;
-        if ((type.includes('reject') || type === 'return' || type === 'verify') && !form.comment.trim()) { alert("Provide a reason/log comment!"); return; }
         const actionQty = Number(form.qty || data.req_qty);
+
+        if (!form.comment.trim()) { alert("Provide a transaction log/reason!"); return; }
+        if (actionQty <= 0 || actionQty > data.req_qty) { alert(`Invalid Quantity! Range: 1 to ${data.req_qty}`); return; }
 
         if (type === 'approve') {
             const { error } = await supabase.from("requests").update({ status: 'approved', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name, req_qty: actionQty, viewed_by_requester: false }).eq("id", data.id);
@@ -376,10 +379,11 @@ function ReturnsLedgerView({ profile, onAction }: any) {
             await supabase.from("requests").update({ status: 'rejected', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
         }
         else if (type === 'return') {
+            // Partial/Full Return initiation
             const { error } = await supabase.from("requests").insert([{ 
                 item_id: data.item_id, item_name: data.item_name, item_spec: data.item_spec, item_unit: data.item_unit, req_qty: actionQty, status: 'return_requested', return_comment: form.comment, from_uid: profile.id, from_name: profile.name, from_unit: profile.unit, to_uid: data.to_uid, to_name: data.to_name, to_unit: data.to_unit, viewed_by_requester: false, approve_comment: `VERIFY_LINK_ID:${data.id}` 
             }]);
-            if (!error) alert("Return initiated! Lender will verify now.");
+            if (!error) alert("Return Request Sent to Lender!");
         }
         else if (type === 'verify') {
             const parentId = data.approve_comment?.match(/VERIFY_LINK_ID:(\d+)/)?.[1];
@@ -387,11 +391,12 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 const { data: parent } = await supabase.from("requests").select("req_qty").eq("id", parentId).single();
                 if (parent) {
                     const newBal = parent.req_qty - data.req_qty;
+                    // If balance becomes 0, borrow entry is settled (deleted or status changed), else balance updated
                     if (newBal <= 0) await supabase.from("requests").delete().eq("id", parentId);
                     else await supabase.from("requests").update({ req_qty: newBal }).eq("id", parentId);
                 }
             }
-            await supabase.from("requests").update({ status: 'returned', approve_comment: `Verified By ${profile.name}: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
+            await supabase.from("requests").update({ status: 'returned', approve_comment: `Verified: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
             const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
             if (inv) await supabase.from("inventory").update({ qty: inv.qty + data.req_qty }).eq("id", data.item_id);
         }
@@ -402,7 +407,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
         <div className="space-y-10 animate-fade-in pb-20 font-roboto uppercase font-bold tracking-tight">
             <h2 className="text-2xl font-bold text-slate-800 uppercase flex items-center gap-2"><i className="fa-solid fa-handshake-angle text-orange-500 font-bold uppercase"></i> Udhaari Dashboard</h2>
 
-            {/* ATTENTION REQUIRED */}
+            {/* ATTENTION REQUIRED (INCOMING ACTIONS) */}
             <section className="bg-white rounded-xl border-t-4 border-orange-500 shadow-xl overflow-hidden">
                 <div className="p-4 bg-orange-50/50 flex justify-between border-b uppercase font-bold font-roboto"><div className="flex items-center gap-2 text-orange-900 font-black uppercase text-[10px] tracking-widest"><i className="fa-solid fa-bolt animate-pulse font-bold uppercase"></i> Attention Required (Incoming Actions)</div><span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px] uppercase font-bold">{pending.length}</span></div>
                 <div className="overflow-x-auto"><table className="w-full text-left text-sm divide-y font-mono font-bold uppercase font-roboto font-bold"><thead className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-roboto"><tr><th className="p-4 pl-6 font-roboto">Material Detail</th><th className="p-4 font-roboto">Counterparty</th><th className="p-4 text-center font-roboto">Qty</th><th className="p-4 text-center font-roboto font-bold">Action</th></tr></thead>
@@ -416,17 +421,14 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                                 </td>
                                 <td className="p-4 font-bold text-slate-700 uppercase font-roboto leading-tight font-bold">{r.from_name}<div className="text-[10px] text-slate-400 font-normal uppercase font-mono font-roboto font-bold">{r.from_unit}</div></td>
                                 <td className="p-4 text-center font-black text-orange-600 text-[14px] font-mono whitespace-nowrap font-roboto font-bold">{r.req_qty} {r.item_unit}</td>
-                                <td className="p-4 flex gap-2 justify-center font-roboto font-bold uppercase">
-                                  <button onClick={()=>setActionModal({type: r.status==='pending' ? 'approve' : 'verify', data:r})} className="bg-[#ff6b00] text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md hover:bg-orange-600 tracking-widest font-roboto font-bold uppercase font-bold"> {r.status==='pending' ? 'Issue' : 'Verify'} </button>
-                                  <button onClick={()=>setActionModal({type: r.status==='pending' ? 'reject' : 'reject_return', data:r})} className="bg-slate-100 text-slate-500 px-4 py-2 rounded-lg text-[9px] font-black transition tracking-widest uppercase font-roboto font-bold font-bold uppercase">Reject</button>
-                                </td>
+                                <td className="p-4 flex gap-2 justify-center font-roboto font-bold uppercase"><button onClick={()=>setActionModal({type: r.status==='pending' ? 'approve' : 'verify', data:r})} className="bg-[#ff6b00] text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md hover:bg-orange-600 tracking-widest font-roboto font-bold uppercase font-bold"> {r.status==='pending' ? 'Issue' : 'Verify'} </button><button onClick={()=>setActionModal({type: 'reject', data:r})} className="bg-slate-100 text-slate-500 px-4 py-2 rounded-lg text-[9px] font-black transition tracking-widest uppercase font-roboto font-bold font-bold uppercase">Reject</button></td>
                             </tr>
                         ))}
                     </tbody>
                 </table></div>
             </section>
 
-            {/* LEDGERS */}
+            {/* ACTIVE LEDGERS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 font-roboto font-bold uppercase">
                 <section className="bg-white rounded-2xl border-t-4 border-blue-600 shadow-lg overflow-hidden font-mono uppercase font-bold">
                     <div className="p-5 border-b bg-blue-50/30 flex items-center gap-3 uppercase text-xs font-black text-blue-900 tracking-widest font-roboto font-bold"><i className="fa-solid fa-arrow-up-from-bracket text-blue-600 font-bold uppercase"></i> Active Ledger (Items Given)</div>
@@ -457,40 +459,52 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                                     <p><span className="font-black text-red-600/70 uppercase font-roboto font-bold font-bold">TAKEN BY:</span> {r.from_name}</p>
                                     <p><span className="font-black uppercase tracking-tighter font-roboto font-bold font-bold">DATE:</span> {formatTS(r.timestamp)}</p>
                                 </div>
-                                <button onClick={()=>setActionModal({type:'return', data:r})} className="w-full py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow-md font-roboto font-bold font-bold">Initiate Partial/Full Return</button>
+                                <button onClick={()=>setActionModal({type:'return', data:r})} className="w-full py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow-md font-roboto font-bold font-bold hover:bg-slate-800 transition">Initiate Partial/Full Return</button>
                             </div>
                         ))}
                     </div>
                 </section>
             </div>
 
-            {/* ACTION MODAL (POPUP THAT WAS MISSING) */}
+            {/* ACTION MODAL (FOR APPROVAL, RETURN & VERIFICATION) */}
             {actionModal && (
               <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in font-roboto">
+                <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in font-roboto font-bold uppercase">
                   <div className="p-6 border-b bg-slate-50 flex justify-between items-center">
                     <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">
-                      {actionModal.type === 'approve' ? 'Issue Spare' : actionModal.type === 'return' ? 'Return Material' : actionModal.type === 'verify' ? 'Verify Return' : 'Reject Action'}
+                      {actionModal.type === 'approve' ? 'Issue Spare' : actionModal.type === 'return' ? 'Initiate Return' : actionModal.type === 'verify' ? 'Verify Return' : 'Reject Action'}
                     </h3>
-                    <button onClick={()=>setActionModal(null)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark"></i></button>
+                    <button onClick={()=>setActionModal(null)} className="text-slate-400 hover:text-slate-600 transition-colors"><i className="fa-solid fa-xmark"></i></button>
                   </div>
-                  <div className="p-6 space-y-4 uppercase">
-                    <div className="bg-slate-50 p-4 rounded-xl border">
-                      <p className="text-[9px] text-slate-400 font-black uppercase mb-1">Processing Material</p>
-                      <p className="text-sm font-bold text-slate-800">{actionModal.data.item_name}</p>
-                      <p className="text-[10px] text-slate-400 mt-1">{actionModal.data.item_spec}</p>
+                  <div className="p-6 space-y-4">
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                      <p className="text-[9px] text-slate-400 font-black uppercase mb-1 tracking-widest">Transaction Details</p>
+                      <p className="text-[13px] font-bold text-slate-800">{actionModal.data.item_name}</p>
+                      <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-tighter">{actionModal.data.item_spec}</p>
                     </div>
-                    {actionModal.type === 'approve' && (
-                      <div><label className="text-[10px] font-black text-slate-400 uppercase">Quantity To Issue</label><input type="number" defaultValue={actionModal.data.req_qty} className="w-full mt-1 p-3 border rounded-lg outline-none font-bold text-slate-700" onChange={e=>setForm({...form, qty:e.target.value})} /></div>
+
+                    {/* Qty Field (Visible for Approve and Return for Partial Support) */}
+                    {(actionModal.type === 'approve' || actionModal.type === 'return') && (
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quantity {actionModal.type === 'return' ? '(Borrowed:' : '(Requested:'} {actionModal.data.req_qty})</label>
+                        <input type="number" defaultValue={actionModal.data.req_qty} className="w-full mt-1 p-3 border-2 rounded-lg outline-none font-black text-slate-800 focus:border-orange-500 transition-all" onChange={e=>setForm({...form, qty:e.target.value})} />
+                      </div>
                     )}
-                    <div><label className="text-[10px] font-black text-slate-400 uppercase">Transaction Log / Comment</label><textarea placeholder="Write log details..." className="w-full mt-1 p-3 border rounded-lg outline-none font-bold text-xs h-24 text-slate-700" onChange={e=>setForm({...form, comment:e.target.value})}></textarea></div>
-                    <button onClick={handleProcess} className={`w-full py-3 ${actionModal.type === 'reject' ? 'bg-red-600' : 'bg-[#ff6b00]'} text-white font-black rounded-xl shadow-lg uppercase tracking-widest text-sm`}>Confirm & Save Process</button>
+
+                    <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Transaction Log / Comment</label>
+                        <textarea placeholder="Reason/Log Details..." className="w-full mt-1 p-3 border-2 rounded-lg outline-none font-bold text-xs h-24 text-slate-800 focus:border-orange-500 transition-all uppercase" onChange={e=>setForm({...form, comment:e.target.value})}></textarea>
+                    </div>
+
+                    <button onClick={handleProcess} className={`w-full py-3 ${actionModal.type === 'reject' ? 'bg-red-600' : 'bg-[#ff6b00]'} text-white font-black rounded-xl shadow-lg uppercase tracking-widest text-sm hover:opacity-90 transition-opacity`}>
+                        {actionModal.type === 'return' ? 'Send Return Request' : 'Confirm Transaction'}
+                    </button>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* SETTLED ARCHIVE */}
+            {/* DIGITAL ARCHIVE LOGS (BLACK BOX DESIGN) */}
             <div className="pt-10 space-y-10 font-roboto font-bold uppercase">
                 <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden font-roboto font-bold uppercase">
                     <div className="p-6 bg-slate-800 text-white flex flex-col items-center justify-center font-roboto">
