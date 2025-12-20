@@ -122,7 +122,7 @@ export default function SpareSetuApp() {
   );
 }
 
-// --- AUTH VIEW (NO CHANGES AS PER INSTRUCTION) ---
+// --- AUTH VIEW (100% ORIGINAL - AS PER INSTRUCTION) ---
 function AuthView() {
   const [view, setView] = useState<"login" | "register" | "otp" | "forgot">("login");
   const [form, setForm] = useState({ email: "", pass: "", name: "", unit: "", enteredOtp: "", generatedOtp: "" });
@@ -232,7 +232,7 @@ function GlobalSearchView({ profile }: any) {
           <tbody className="divide-y text-sm">
             {filtered.map((i: any, idx: number) => (
               <tr key={idx} className={`hover:bg-slate-50 transition border-b border-slate-50 ${i.qty === 0 ? 'bg-red-50/20' : ''}`}>
-                <td className="p-4 pl-6 font-bold leading-tight uppercase font-inter">
+                <td className="p-4 pl-6 leading-tight uppercase font-inter">
                   <div className="text-slate-800 font-bold text-sm tracking-tight">{i.item}</div>
                   <div className="text-[9px] text-slate-400 font-bold uppercase mt-0.5 tracking-wider">{i.cat}</div>
                 </td>
@@ -250,7 +250,6 @@ function GlobalSearchView({ profile }: any) {
   );
 }
 
-// --- MY STORE VIEW (FONT UPDATED) ---
 function MyStoreView({ profile, fetchProfile }: any) {
   const [myItems, setMyItems] = useState<any[]>([]); const [showAddModal, setShowAddModal] = useState(false);
   const [form, setForm] = useState({ cat: "", sub: "", make: "", model: "", spec: "", qty: "", isManual: false });
@@ -287,7 +286,6 @@ function MyStoreView({ profile, fetchProfile }: any) {
   );
 }
 
-// --- USAGE HISTORY & ANALYSIS ---
 function UsageHistoryView({ profile }: any) {
   const [logs, setLogs] = useState<any[]>([]);
   useEffect(() => { if (profile) fetch(); }, [profile]);
@@ -301,7 +299,7 @@ function MonthlyAnalysisView({ profile }: any) {
   return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-industrial uppercase tracking-tight font-bold"><div className="col-span-3 pb-4 text-xs font-black text-slate-400 tracking-widest text-center border-b font-industrial">Analytical Summary</div>{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md uppercase font-bold"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-[0.2em] font-industrial">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner font-bold"><i className="fa-solid fa-chart-line font-bold"></i></div><div className="text-3xl font-black text-slate-800 font-industrial">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase font-industrial tracking-widest">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase font-industrial tracking-tighter">{a.count} Logged Records</div></div>))}</div>);
 }
 
-// --- UPDATED RETURNS & UDHAARI VIEW (FONT + ARCHIVE COLUMN UPDATED) ---
+// --- UPDATED RETURNS & UDHAARI VIEW (FONT + ARCHIVE LOGS UPDATED) ---
 function ReturnsLedgerView({ profile, onAction }: any) { 
     const [pending, setPending] = useState<any[]>([]);
     const [given, setGiven] = useState<any[]>([]);
@@ -421,6 +419,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                         {taken.map(r => (
                             <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative uppercase font-bold font-inter">
                                 <div className="text-slate-800 font-bold text-sm tracking-tight mb-1">{r.item_name}</div>
+                                <div className="text-[9px] text-slate-400 mb-3 uppercase tracking-tighter font-bold">{r.item_spec}</div>
                                 <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg mb-3 font-bold"><div><p className="text-[9px] font-bold text-slate-400 uppercase font-industrial">Source</p><p className="text-xs font-black text-slate-700 uppercase tracking-tighter">{r.to_unit} ({r.to_name})</p></div><div className="text-right font-black text-red-600 font-mono">{r.req_qty} {r.item_unit}</div></div>
                                 <div className="text-[9px] font-mono text-slate-400 mb-3 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed tracking-tighter uppercase font-bold">
                                     <p><span className="font-black text-red-600/70 uppercase">TAKEN BY:</span> {r.from_name}</p>
@@ -433,7 +432,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 </section>
             </div>
 
-            {/* SETTLED HISTORY RECORD (UPDATED QTY COLUMN & FONT) */}
+            {/* SETTLED HISTORY RECORD (QTY IN ALL 4 STAGES) */}
             <div className="pt-10 space-y-10 font-mono uppercase font-bold">
                 <div className="flex items-center gap-4"><hr className="flex-1 border-slate-200"/><h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.4em] font-industrial">Digital Archive Logs</h3><hr className="flex-1 border-slate-200"/></div>
                 <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
@@ -447,7 +446,6 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                                       <p className="text-slate-800 font-bold text-xs tracking-tight">{h.item_name}</p>
                                       <p className="text-[8px] text-slate-400 mt-1 uppercase">SPEC: {h.item_spec}</p>
                                     </td>
-                                    {/* UPDATED QTY COLUMN: SHOWING UDH & RET TOGETHER */}
                                     <td className="p-4 text-center font-black whitespace-nowrap">
                                       <div className="flex flex-col items-center gap-0.5 leading-none">
                                         <span className="text-[9px] text-blue-600/80 font-bold uppercase tracking-tighter">UDH: {h.req_qty} {h.item_unit}</span>
@@ -457,11 +455,12 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                                       </div>
                                     </td>
                                     <td className="p-4 leading-tight uppercase font-bold"><p className="text-blue-500 font-bold uppercase">BORR: {h.from_name}</p><p className="text-red-500 font-bold uppercase">LEND: {h.to_name}</p></td>
+                                    {/* FIXED: Added (QTY: X) to all four stages as per instructions */}
                                     <td className="p-4 leading-none space-y-1 font-bold tracking-tighter uppercase text-[8px]">
-                                        <p><span className="opacity-50 font-bold">1. REQUEST BY:</span> {h.from_name} ({h.from_unit}) @ {formatTS(h.timestamp)}</p>
-                                        <p><span className="opacity-50 font-bold">2. APPROVED BY:</span> {h.to_name} (Settled Qty: {h.req_qty}) @ {formatTS(h.timestamp)}</p>
-                                        <p><span className="opacity-50 font-bold">3. RETURN BY:</span> {h.from_name} @ {formatTS(h.timestamp)}</p>
-                                        <p><span className="opacity-50 font-black text-green-600 font-bold">4. FINAL VERIFY:</span> {h.to_name} @ {formatTS(h.timestamp)} (LOGGED)</p>
+                                        <p><span className="opacity-50 font-bold">1. REQUEST BY:</span> {h.from_name} ({h.from_unit}) (QTY: {h.req_qty}) @ {formatTS(h.timestamp)}</p>
+                                        <p><span className="opacity-50 font-bold">2. APPROVED BY:</span> {h.to_name} (QTY: {h.req_qty}) @ {formatTS(h.timestamp)}</p>
+                                        <p><span className="opacity-50 font-bold">3. RETURN BY:</span> {h.from_name} (QTY: {h.req_qty}) @ {formatTS(h.timestamp)}</p>
+                                        <p><span className="opacity-50 font-black text-green-600 font-bold">4. FINAL VERIFY:</span> {h.to_name} (QTY: {h.req_qty}) @ {formatTS(h.timestamp)} (LOGGED)</p>
                                     </td>
                                     <td className="p-4 text-center uppercase font-bold"><span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${h.status==='returned' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{h.status}</span></td>
                                 </tr>
