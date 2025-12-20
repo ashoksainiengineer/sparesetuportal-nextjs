@@ -64,16 +64,16 @@ export default function SpareSetuApp() {
         </div>
         <nav className="flex-1 px-3 space-y-1 mt-4 overflow-y-auto">
           {[
-            { id: 'search', label: 'Global Search', icon: 'fa-globe' },
-            { id: 'mystore', label: 'My Local Store', icon: 'fa-warehouse' },
-            { id: 'analysis', label: 'Monthly Analysis', icon: 'fa-chart-pie' },
-            { id: 'usage', label: 'My Usage History', icon: 'fa-clock-rotate-left' },
+            { id: 'search', label: 'Global Search', icon: 'fa-globe', badge: 0 },
+            { id: 'mystore', label: 'My Local Store', icon: 'fa-warehouse', badge: 0 },
+            { id: 'analysis', label: 'Monthly Analysis', icon: 'fa-chart-pie', badge: 0 },
+            { id: 'usage', label: 'My Usage History', icon: 'fa-clock-rotate-left', badge: 0 },
             { id: 'returns', label: 'Returns & Udhaari', icon: 'fa-hand-holding-hand', badge: pendingCount }
           ].map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`nav-item w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-medium relative ${activeTab === tab.id ? 'active-nav' : 'text-slate-600 hover:bg-slate-50'}`}>
               <i className={`fa-solid ${tab.icon} w-5`}></i> 
               <span>{tab.label}</span>
-              {tab.badge > 0 && <span className="absolute right-3 top-3.5 bg-orange-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-black animate-bounce">{tab.badge}</span>}
+              {(tab.badge || 0) > 0 && <span className="absolute right-3 top-3.5 bg-orange-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-black animate-bounce">{tab.badge}</span>}
             </button>
           ))}
         </nav>
@@ -116,7 +116,6 @@ export default function SpareSetuApp() {
   );
 }
 
-// --- AUTH VIEW (SAME AS PROVIDED) ---
 function AuthView() {
   const [view, setView] = useState<"login" | "register" | "otp" | "forgot">("login");
   const [form, setForm] = useState({ email: "", pass: "", name: "", unit: "", enteredOtp: "", generatedOtp: "" });
@@ -209,7 +208,6 @@ function AuthView() {
   );
 }
 
-// --- GLOBAL SEARCH (WITH ACTIVE REQUEST SYSTEM) ---
 function GlobalSearchView({ profile }: any) {
   const [items, setItems] = useState<any[]>([]); 
   const [contributors, setContributors] = useState<any[]>([]);
@@ -297,7 +295,6 @@ function GlobalSearchView({ profile }: any) {
         </table></div>
       </section>
 
-      {/* REQUEST MODAL */}
       {requestItem && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
             <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-scale-in p-6">
@@ -415,19 +412,15 @@ function MonthlyAnalysisView({ profile }: any) {
   return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6">{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-widest">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner"><i className="fa-solid fa-chart-line"></i></div><div className="text-3xl font-black text-slate-800">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase">{a.count} Trans</div></div>))}{analysis.length===0 && <div className="p-20 text-center italic text-slate-400 bg-white rounded-xl border w-full col-span-3">No monthly data.</div>}</div>);
 }
 
-// --- TRANSFER PORTAL (INCOMING & OUTGOING) ---
 function ReturnsLedgerView({ profile, onAction }: any) { 
     const [received, setReceived] = useState<any[]>([]);
     const [myRequests, setMyRequests] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
 
     const fetchAll = async () => {
-        setLoading(true);
         const { data: rec } = await supabase.from("requests").select("*").eq("to_uid", profile.id).order("id", { ascending: false });
         const { data: sent } = await supabase.from("requests").select("*").eq("from_uid", profile.id).order("id", { ascending: false });
         if (rec) setReceived(rec);
         if (sent) setMyRequests(sent);
-        setLoading(false);
     };
 
     useEffect(() => { if (profile) fetchAll(); }, [profile]);
@@ -436,7 +429,6 @@ function ReturnsLedgerView({ profile, onAction }: any) {
         const { error } = await supabase.from("requests").update({ status: newStatus }).eq("id", req.id);
         
         if (!error && newStatus === 'approved') {
-            // Subtract from sender's inventory
             const { data: inv } = await supabase.from("inventory").select("qty").eq("id", req.item_id).single();
             if (inv) {
                 await supabase.from("inventory").update({ qty: inv.qty - req.req_qty }).eq("id", req.item_id);
@@ -451,7 +443,6 @@ function ReturnsLedgerView({ profile, onAction }: any) {
 
     return (
         <div className="space-y-8 animate-fade-in pb-20">
-            {/* INCOMING REQUESTS */}
             <section className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
                 <div className="p-5 border-b bg-orange-50/50 flex items-center gap-3">
                     <i className="fa-solid fa-inbox text-orange-600"></i>
@@ -482,7 +473,6 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 </table></div>
             </section>
 
-            {/* MY OUTGOING REQUESTS */}
             <section className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
                 <div className="p-5 border-b bg-indigo-50/50 flex items-center gap-3">
                     <i className="fa-solid fa-paper-plane text-indigo-600"></i>
