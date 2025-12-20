@@ -9,15 +9,24 @@ export default function SpareSetuApp() {
   const [profile, setProfile] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("search");
   const [loading, setLoading] = useState(true);
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) { setUser(session.user); fetchProfile(session.user.id); }
+      if (session) { 
+        setUser(session.user); 
+        fetchProfile(session.user.id);
+        fetchPendingCount(session.user.id);
+      }
       setLoading(false);
     };
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session) { setUser(session.user); fetchProfile(session.user.id); }
+      if (session) { 
+        setUser(session.user); 
+        fetchProfile(session.user.id);
+        fetchPendingCount(session.user.id);
+      }
       else { setUser(null); setProfile(null); }
       setLoading(false);
     });
@@ -28,6 +37,11 @@ export default function SpareSetuApp() {
   const fetchProfile = async (uid: string) => {
     const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
     if (data) setProfile(data);
+  };
+
+  const fetchPendingCount = async (uid: string) => {
+    const { count } = await supabase.from("requests").select("*", { count: 'exact', head: true }).eq("to_uid", uid).eq("status", "pending");
+    setPendingCount(count || 0);
   };
 
   if (loading) return (
@@ -43,7 +57,6 @@ export default function SpareSetuApp() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#f1f5f9]">
-      {/* SIDEBAR */}
       <aside className="w-64 bg-white hidden md:flex flex-col flex-shrink-0 z-20 shadow-xl border-r border-slate-200">
         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
           <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-orange-600"><i className="fa-solid fa-layer-group"></i></div>
@@ -55,10 +68,12 @@ export default function SpareSetuApp() {
             { id: 'mystore', label: 'My Local Store', icon: 'fa-warehouse' },
             { id: 'analysis', label: 'Monthly Analysis', icon: 'fa-chart-pie' },
             { id: 'usage', label: 'My Usage History', icon: 'fa-clock-rotate-left' },
-            { id: 'returns', label: 'Returns & Udhaari', icon: 'fa-hand-holding-hand' }
+            { id: 'returns', label: 'Returns & Udhaari', icon: 'fa-hand-holding-hand', badge: pendingCount }
           ].map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`nav-item w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-medium ${activeTab === tab.id ? 'active-nav' : 'text-slate-600 hover:bg-slate-50'}`}>
-              <i className={`fa-solid ${tab.icon} w-5`}></i> <span>{tab.label}</span>
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`nav-item w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-medium relative ${activeTab === tab.id ? 'active-nav' : 'text-slate-600 hover:bg-slate-50'}`}>
+              <i className={`fa-solid ${tab.icon} w-5`}></i> 
+              <span>{tab.label}</span>
+              {tab.badge > 0 && <span className="absolute right-3 top-3.5 bg-orange-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-black animate-bounce">{tab.badge}</span>}
             </button>
           ))}
         </nav>
@@ -72,7 +87,6 @@ export default function SpareSetuApp() {
       </aside>
 
       <main className="flex-1 flex flex-col overflow-y-auto relative pb-20 md:pb-0">
-        {/* HEADER WITH WHITE LOGO TEXT */}
         <header className="header-bg text-white sticky top-0 z-30 shadow-md">
           <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-6">
@@ -95,14 +109,14 @@ export default function SpareSetuApp() {
           {activeTab === "mystore" && <MyStoreView profile={profile} fetchProfile={()=>fetchProfile(user.id)} />}
           {activeTab === "usage" && <UsageHistoryView profile={profile} />}
           {activeTab === "analysis" && <MonthlyAnalysisView profile={profile} />}
-          {activeTab === "returns" && <ReturnsLedgerView profile={profile} />}
+          {activeTab === "returns" && <ReturnsLedgerView profile={profile} onAction={()=>fetchPendingCount(user.id)} />}
         </div>
       </main>
     </div>
   );
 }
 
-// --- AUTH VIEW (100% IDENTICAL DESIGN + NEW FEATURES) ---
+// --- AUTH VIEW (SAME AS PROVIDED) ---
 function AuthView() {
   const [view, setView] = useState<"login" | "register" | "otp" | "forgot">("login");
   const [form, setForm] = useState({ email: "", pass: "", name: "", unit: "", enteredOtp: "", generatedOtp: "" });
@@ -195,16 +209,52 @@ function AuthView() {
   );
 }
 
-// --- GLOBAL SEARCH (TOTAL STOCK + SUMMARY MODAL) ---
+// --- GLOBAL SEARCH (WITH ACTIVE REQUEST SYSTEM) ---
 function GlobalSearchView({ profile }: any) {
-  const [items, setItems] = useState<any[]>([]); const [contributors, setContributors] = useState<any[]>([]);
-  const [search, setSearch] = useState(""); const [selCat, setSelCat] = useState("all"); const [breakdown, setBreakdown] = useState<any>(null); const [showSummary, setShowSummary] = useState(false);
+  const [items, setItems] = useState<any[]>([]); 
+  const [contributors, setContributors] = useState<any[]>([]);
+  const [search, setSearch] = useState(""); 
+  const [selCat, setSelCat] = useState("all"); 
+  const [breakdown, setBreakdown] = useState<any>(null); 
+  const [showSummary, setShowSummary] = useState(false);
+  const [requestItem, setRequestItem] = useState<any>(null);
+  const [reqForm, setReqForm] = useState({ qty: "", comment: "" });
 
   useEffect(() => { 
-    const fetchAll = async () => { const { data } = await supabase.from("inventory").select("*"); if (data) setItems(data); };
-    const lead = async () => { const { data } = await supabase.from("profiles").select("name, unit, item_count").order("item_count", { ascending: false }).limit(3); if (data) setContributors(data); };
     fetchAll(); lead();
   }, []);
+
+  const fetchAll = async () => { const { data } = await supabase.from("inventory").select("*"); if (data) setItems(data); };
+  const lead = async () => { const { data } = await supabase.from("profiles").select("name, unit, item_count").order("item_count", { ascending: false }).limit(3); if (data) setContributors(data); };
+
+  const handleSendRequest = async () => {
+    if (!reqForm.qty || Number(reqForm.qty) <= 0 || Number(reqForm.qty) > requestItem.qty) {
+        alert("Invalid quantity!"); return;
+    }
+    const { error } = await supabase.from("requests").insert([{
+        item_id: requestItem.id,
+        item_name: requestItem.item,
+        item_spec: requestItem.spec,
+        item_unit: requestItem.unit,
+        req_qty: Number(reqForm.qty),
+        req_comment: reqForm.comment,
+        from_name: profile.name,
+        from_uid: profile.id,
+        from_unit: profile.unit,
+        to_name: requestItem.holder_name,
+        to_uid: requestItem.holder_uid,
+        to_unit: requestItem.holder_unit,
+        status: 'pending'
+    }]);
+
+    if (!error) {
+        alert("Request Sent Successfully!");
+        setRequestItem(null);
+        setReqForm({ qty: "", comment: "" });
+    } else {
+        alert(error.message);
+    }
+  };
 
   const grouped: any = {};
   items.forEach(i => {
@@ -247,6 +297,25 @@ function GlobalSearchView({ profile }: any) {
         </table></div>
       </section>
 
+      {/* REQUEST MODAL */}
+      {requestItem && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+            <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-scale-in p-6">
+                <h3 className="text-lg font-bold text-slate-800 uppercase border-b pb-2 mb-4">Request Material</h3>
+                <div className="text-sm font-bold text-indigo-600 mb-2">{requestItem.item}</div>
+                <div className="text-xs text-slate-500 mb-4">From: {requestItem.holder_unit} ({requestItem.holder_name})</div>
+                <div className="space-y-4">
+                    <div><label className="text-[10px] font-black text-slate-400 uppercase">Quantity Required</label><input type="number" placeholder="Enter Qty" className="w-full p-3 border-2 rounded-xl text-center text-2xl font-black outline-none focus:border-orange-500" value={reqForm.qty} onChange={e=>setReqForm({...reqForm, qty: e.target.value})} /></div>
+                    <div><label className="text-[10px] font-black text-slate-400 uppercase">Justification / Comment</label><textarea className="w-full p-3 border-2 rounded-xl text-sm h-20 outline-none focus:border-orange-500" placeholder="e.g. For AU-5 breakdown" onChange={e=>setReqForm({...reqForm, comment: e.target.value})}></textarea></div>
+                    <div className="flex gap-2 pt-2">
+                        <button onClick={()=>setRequestItem(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl uppercase tracking-wider">Cancel</button>
+                        <button onClick={handleSendRequest} className="flex-1 py-3 iocl-btn text-white font-bold rounded-xl uppercase tracking-wider">Send Request</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
+
       {showSummary && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-scale-in max-h-[80vh] flex flex-col">
@@ -275,7 +344,7 @@ function GlobalSearchView({ profile }: any) {
                <table className="w-full text-left">
                  <thead className="bg-slate-100 text-xs font-bold text-slate-500 uppercase border-b"><tr><th className="p-4 pl-6">Unit / Zone</th><th className="p-4">Engineer</th><th className="p-4 text-right">Qty</th><th className="p-4 pr-6 text-center">Action</th></tr></thead>
                  <tbody className="divide-y text-sm bg-white">
-                   {breakdown.holders.map((h:any, idx:number)=>(<tr key={idx} className="hover:bg-indigo-50/30 transition"><td className="p-4 pl-6 font-bold text-slate-700">{h.holder_unit}</td><td className="p-4 flex items-center gap-2 text-slate-500"><div className="w-6 h-6 rounded-full bg-slate-200 text-[10px] flex items-center justify-center font-bold">{h.holder_name?.charAt(0)}</div>{h.holder_name}</td><td className="p-4 text-right font-black text-indigo-600">{h.qty} Nos</td><td className="p-4 pr-6 text-center">{h.holder_uid === profile?.id ? <span className="text-[10px] text-green-600 font-black uppercase italic">Your Stock</span> : <button className="bg-orange-500 text-white px-3 py-1 rounded text-xs font-bold shadow-sm" onClick={()=>alert(`Request logic coming soon`)}>Request</button>}</td></tr>))}
+                   {breakdown.holders.map((h:any, idx:number)=>(<tr key={idx} className="hover:bg-indigo-50/30 transition"><td className="p-4 pl-6 font-bold text-slate-700">{h.holder_unit}</td><td className="p-4 flex items-center gap-2 text-slate-500"><div className="w-6 h-6 rounded-full bg-slate-200 text-[10px] flex items-center justify-center font-bold">{h.holder_name?.charAt(0)}</div>{h.holder_name}</td><td className="p-4 text-right font-black text-indigo-600">{h.qty} Nos</td><td className="p-4 pr-6 text-center">{h.holder_uid === profile?.id ? <span className="text-[10px] text-green-600 font-black uppercase italic">Your Stock</span> : <button className="bg-orange-500 text-white px-3 py-1 rounded text-xs font-bold shadow-sm" onClick={()=>{setRequestItem(h); setBreakdown(null);}}>Request</button>}</td></tr>))}
                  </tbody>
                </table>
              </div>
@@ -334,7 +403,6 @@ function MyStoreView({ profile, fetchProfile }: any) {
   );
 }
 
-// --- LOGS & ANALYSIS ---
 function UsageHistoryView({ profile }: any) {
   const [logs, setLogs] = useState<any[]>([]);
   useEffect(() => { const f = async () => { const { data } = await supabase.from("usage_logs").select("*").eq("consumer_uid", profile.id).order("timestamp", { ascending: false }); if (data) setLogs(data); }; if (profile) f(); }, [profile]);
@@ -347,4 +415,100 @@ function MonthlyAnalysisView({ profile }: any) {
   return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6">{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-widest">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner"><i className="fa-solid fa-chart-line"></i></div><div className="text-3xl font-black text-slate-800">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase">{a.count} Trans</div></div>))}{analysis.length===0 && <div className="p-20 text-center italic text-slate-400 bg-white rounded-xl border w-full col-span-3">No monthly data.</div>}</div>);
 }
 
-function ReturnsLedgerView({ profile }: any) { return (<div className="bg-white p-20 rounded-xl border text-center italic text-slate-400 border-dashed uppercase tracking-widest text-xs font-black">Returns logic attached.</div>); }
+// --- TRANSFER PORTAL (INCOMING & OUTGOING) ---
+function ReturnsLedgerView({ profile, onAction }: any) { 
+    const [received, setReceived] = useState<any[]>([]);
+    const [myRequests, setMyRequests] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchAll = async () => {
+        setLoading(true);
+        const { data: rec } = await supabase.from("requests").select("*").eq("to_uid", profile.id).order("id", { ascending: false });
+        const { data: sent } = await supabase.from("requests").select("*").eq("from_uid", profile.id).order("id", { ascending: false });
+        if (rec) setReceived(rec);
+        if (sent) setMyRequests(sent);
+        setLoading(false);
+    };
+
+    useEffect(() => { if (profile) fetchAll(); }, [profile]);
+
+    const handleAction = async (req: any, newStatus: string) => {
+        const { error } = await supabase.from("requests").update({ status: newStatus }).eq("id", req.id);
+        
+        if (!error && newStatus === 'approved') {
+            // Subtract from sender's inventory
+            const { data: inv } = await supabase.from("inventory").select("qty").eq("id", req.item_id).single();
+            if (inv) {
+                await supabase.from("inventory").update({ qty: inv.qty - req.req_qty }).eq("id", req.item_id);
+                alert("Request Approved & Stock Updated!");
+            }
+        } else if (!error) {
+            alert(`Request ${newStatus}!`);
+        }
+        fetchAll();
+        onAction();
+    };
+
+    return (
+        <div className="space-y-8 animate-fade-in pb-20">
+            {/* INCOMING REQUESTS */}
+            <section className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                <div className="p-5 border-b bg-orange-50/50 flex items-center gap-3">
+                    <i className="fa-solid fa-inbox text-orange-600"></i>
+                    <h2 className="text-lg font-bold text-slate-800 uppercase font-industrial">Received Requests</h2>
+                </div>
+                <div className="overflow-x-auto"><table className="w-full text-left">
+                    <thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b uppercase"><tr><th className="p-5 pl-8">From Engineer</th><th className="p-5">Material Detail</th><th className="p-5 text-center">Req Qty</th><th className="p-5 text-center">Action</th></tr></thead>
+                    <tbody className="divide-y text-sm">
+                        {received.map(r => (
+                            <tr key={r.id} className="hover:bg-slate-50 transition border-b border-slate-50">
+                                <td className="p-5 pl-8 font-bold text-slate-700">{r.from_name}<div className="text-[10px] text-slate-400 font-bold">{r.from_unit}</div></td>
+                                <td className="p-5 font-bold text-slate-800 leading-tight">{r.item_name}<div className="text-[10px] text-slate-400 font-medium uppercase mt-0.5">{r.item_spec}</div><div className="text-[10px] italic text-orange-600 mt-1">"{r.req_comment}"</div></td>
+                                <td className="p-5 text-center font-black text-indigo-600">{r.req_qty} Nos</td>
+                                <td className="p-5 text-center">
+                                    {r.status === 'pending' ? (
+                                        <div className="flex gap-2 justify-center">
+                                            <button onClick={()=>handleAction(r, 'approved')} className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-[11px] font-bold shadow-sm"><i className="fa-solid fa-check"></i> Approve</button>
+                                            <button onClick={()=>handleAction(r, 'rejected')} className="bg-red-500 text-white px-3 py-1.5 rounded-lg text-[11px] font-bold shadow-sm"><i className="fa-solid fa-xmark"></i> Reject</button>
+                                        </div>
+                                    ) : (
+                                        <span className={`text-[10px] font-black uppercase px-2 py-1 rounded ${r.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>{r.status}</span>
+                                    )}
+                                </td>
+                            </tr>
+                        ))}
+                        {received.length === 0 && <tr><td colSpan={4} className="p-10 text-center italic text-slate-400">No incoming requests.</td></tr>}
+                    </tbody>
+                </table></div>
+            </section>
+
+            {/* MY OUTGOING REQUESTS */}
+            <section className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                <div className="p-5 border-b bg-indigo-50/50 flex items-center gap-3">
+                    <i className="fa-solid fa-paper-plane text-indigo-600"></i>
+                    <h2 className="text-lg font-bold text-slate-800 uppercase font-industrial">My Sent Requests</h2>
+                </div>
+                <div className="overflow-x-auto"><table className="w-full text-left">
+                    <thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b uppercase"><tr><th className="p-5 pl-8">To Zone/Engineer</th><th className="p-5">Material Detail</th><th className="p-5 text-center">Req Qty</th><th className="p-5 text-center">Status</th></tr></thead>
+                    <tbody className="divide-y text-sm">
+                        {myRequests.map(r => (
+                            <tr key={r.id} className="hover:bg-slate-50 transition border-b border-slate-50">
+                                <td className="p-5 pl-8 font-bold text-slate-700">{r.to_unit}<div className="text-[10px] text-slate-400 font-bold">Engr: {r.to_name}</div></td>
+                                <td className="p-5 font-bold text-slate-800 leading-tight">{r.item_name}<div className="text-[10px] text-slate-400 font-medium uppercase mt-0.5">{r.item_spec}</div></td>
+                                <td className="p-5 text-center font-black text-slate-700">{r.req_qty} Nos</td>
+                                <td className="p-5 text-center">
+                                    <span className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-full border ${
+                                        r.status === 'approved' ? 'bg-green-50 text-green-700 border-green-200' : 
+                                        r.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200 animate-pulse' : 
+                                        'bg-red-50 text-red-700 border-red-200'
+                                    }`}>{r.status}</span>
+                                </td>
+                            </tr>
+                        ))}
+                        {myRequests.length === 0 && <tr><td colSpan={4} className="p-10 text-center italic text-slate-400">No sent requests.</td></tr>}
+                    </tbody>
+                </table></div>
+            </section>
+        </div>
+    ); 
+}
