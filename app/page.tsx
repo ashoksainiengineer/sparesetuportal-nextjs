@@ -26,7 +26,7 @@ export default function SpareSetuApp() {
     return () => authListener.subscription.unsubscribe();
   }, []);
 
-  // REAL-TIME NOTIFICATION ENGINE
+  // REAL-TIME NOTIFICATION LOGIC
   useEffect(() => {
     if (!profile?.id || !profile?.unit) return;
     const fetchAllCounts = async () => {
@@ -122,7 +122,7 @@ export default function SpareSetuApp() {
   );
 }
 
-// --- AUTH VIEW (ORIGINAL UNTOUCHED) ---
+// --- AUTH VIEW (100% ORIGINAL AS PER INSTRUCTIONS) ---
 function AuthView() {
   const [view, setView] = useState<"login" | "register" | "otp" | "forgot">("login");
   const [form, setForm] = useState({ email: "", pass: "", name: "", unit: "", enteredOtp: "", generatedOtp: "" });
@@ -200,7 +200,7 @@ function AuthView() {
   );
 }
 
-// --- GLOBAL SEARCH (SCREENSHOT MATCHED) ---
+// --- GLOBAL SEARCH (FONT & BUTTON FIXED) ---
 function GlobalSearchView({ profile }: any) {
   const [items, setItems] = useState<any[]>([]); 
   const [search, setSearch] = useState(""); 
@@ -236,7 +236,11 @@ function GlobalSearchView({ profile }: any) {
                   <div className="text-slate-800 font-bold text-[13.5px] tracking-tight uppercase">{i.item}</div>
                   <div className="text-[9px] text-slate-400 font-bold uppercase mt-1 tracking-wider">{i.cat}</div>
                 </td>
-                <td className="p-4"><span className="bg-white border border-slate-200 px-2.5 py-1 rounded-[4px] text-[10.5px] font-bold text-slate-500 shadow-sm uppercase font-inter inline-block">{i.spec}</span></td>
+                <td className="p-4">
+                  <span className="bg-white border border-slate-200 px-2.5 py-1 rounded-[4px] text-[10.5px] font-bold text-slate-500 shadow-sm uppercase font-inter inline-block">
+                    {i.spec}
+                  </span>
+                </td>
                 <td className="p-4 text-center font-mono font-bold whitespace-nowrap text-slate-800 text-[14px]">{i.qty} {i.unit}</td>
                 <td className="p-4 text-center">
                     {i.holder_uid === profile?.id ? <span className="text-[10px] font-black text-green-600 italic tracking-tighter uppercase font-bold">MY STORE</span> : <button onClick={()=>setRequestItem(i)} className="bg-[#ff6b00] text-white px-4 py-1.5 rounded-[4px] text-[10.5px] font-black shadow-sm uppercase font-industrial tracking-widest">Request</button>}
@@ -316,7 +320,7 @@ function MyStoreView({ profile, fetchProfile }: any) {
   );
 }
 
-// --- MISSING COMPONENTS RESTORED ---
+// --- MISSING COMPONENTS RESTORED TO FIX VERCEL ERROR ---
 function UsageHistoryView({ profile }: any) {
   const [logs, setLogs] = useState<any[]>([]);
   useEffect(() => { if (profile) fetch(); }, [profile]);
@@ -459,7 +463,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 </section>
             </div>
 
-            {/* SETTLED ARCHIVE (DESIGN + 4-STAGE BRACKET QTY RESTORED) */}
+            {/* SETTLED ARCHIVE (BRACKET QTY RESTORED) */}
             <div className="pt-10 space-y-10 font-mono uppercase font-bold">
                 <div className="flex items-center gap-4 uppercase"><hr className="flex-1 border-slate-200"/><h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.4em] font-industrial uppercase">Digital Archive Logs</h3><hr className="flex-1 border-slate-200"/></div>
                 <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden uppercase">
