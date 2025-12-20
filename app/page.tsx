@@ -26,7 +26,7 @@ export default function SpareSetuApp() {
     return () => authListener.subscription.unsubscribe();
   }, []);
 
-  // GLOBAL REAL-TIME NOTIFICATION ENGINE
+  // GLOBAL REAL-TIME NOTIFICATION ENGINE (Unified Channel Name)
   useEffect(() => {
     if (!profile?.id || !profile?.unit) return;
     const fetchAllCounts = async () => {
@@ -35,7 +35,7 @@ export default function SpareSetuApp() {
         setPendingCount((incoming || 0) + (updates || 0));
     };
     fetchAllCounts();
-    const channel = supabase.channel('audit-sync-vfinal-v5').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAllCounts(); }).subscribe();
+    const channel = supabase.channel('sparesetu-global-sync').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAllCounts(); }).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [profile]);
 
@@ -115,14 +115,14 @@ export default function SpareSetuApp() {
           {activeTab === "mystore" && <MyStoreView profile={profile} fetchProfile={()=>fetchProfile(user.id)} />}
           {activeTab === "usage" && <UsageHistoryView profile={profile} />}
           {activeTab === "analysis" && <MonthlyAnalysisView profile={profile} />}
-          {activeTab === "returns" && <ReturnsLedgerView profile={profile} />}
+          {activeTab === "returns" && <ReturnsLedgerView profile={profile} onAction={() => {}} />}
         </div>
       </main>
     </div>
   );
 }
 
-// --- AUTH VIEW (100% ORIGINAL minute details restored) ---
+// --- AUTH VIEW (100% ORIGINAL - NO CHANGES) ---
 function AuthView() {
   const [view, setView] = useState<"login" | "register" | "otp" | "forgot">("login");
   const [form, setForm] = useState({ email: "", pass: "", name: "", unit: "", enteredOtp: "", generatedOtp: "" });
@@ -200,6 +200,7 @@ function AuthView() {
   );
 }
 
+// --- GLOBAL SEARCH VIEW ---
 function GlobalSearchView({ profile }: any) {
   const [items, setItems] = useState<any[]>([]); 
   const [search, setSearch] = useState(""); 
@@ -260,6 +261,7 @@ function GlobalSearchView({ profile }: any) {
   );
 }
 
+// --- MY STORE VIEW ---
 function MyStoreView({ profile, fetchProfile }: any) {
   const [myItems, setMyItems] = useState<any[]>([]); const [showAddModal, setShowAddModal] = useState(false);
   const [form, setForm] = useState({ cat: "", sub: "", make: "", model: "", spec: "", qty: "", isManual: false });
@@ -299,26 +301,27 @@ function MyStoreView({ profile, fetchProfile }: any) {
               <div className="flex flex-col"><label className="text-[9px] font-black text-slate-400 uppercase block text-center mb-1 font-bold">Qty</label><input type="number" placeholder="0" className="w-full p-2 border-2 border-slate-100 rounded-lg text-lg font-black text-center outline-none h-[38px] font-mono" onChange={e=>setForm({...form, qty: e.target.value})} /></div>
               <div className="flex flex-col"><label className="text-[9px] font-black text-slate-400 uppercase block text-center mb-1 font-bold">Unit</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs uppercase font-bold outline-none h-[38px] font-industrial"><option>Nos</option><option>Mtrs</option></select></div>
           </div>
-          <button onClick={handleSave} className="w-full py-2.5 bg-slate-900 text-white font-black rounded-lg shadow-lg mt-2 uppercase text-[9px] tracking-widest hover:bg-slate-800 font-industrial font-bold uppercase font-bold">Complete Entry</button>
+          <button onClick={handleSave} className="w-full py-2.5 bg-slate-900 text-white font-black rounded-lg shadow-lg mt-2 uppercase text-[9px] tracking-widest hover:bg-slate-800 font-industrial font-bold uppercase">Complete Entry</button>
       </div></div></div>}
     </div>
   );
 }
 
+// --- USAGE HISTORY & ANALYSIS ---
 function UsageHistoryView({ profile }: any) {
   const [logs, setLogs] = useState<any[]>([]);
   useEffect(() => { if (profile) fetch(); }, [profile]);
   const fetch = async () => { const { data } = await supabase.from("usage_logs").select("*").eq("consumer_uid", profile.id).order("timestamp", { ascending: false }); if (data) setLogs(data); };
-  return (<section className="bg-white rounded-xl border border-slate-200 shadow-sm font-mono uppercase font-bold uppercase font-bold"><div className="p-5 border-b bg-slate-50/50 flex justify-between font-inter"><h2 className="text-lg font-bold text-slate-800 uppercase font-industrial tracking-wider font-bold">Log: Usage Feed</h2></div><div className="overflow-x-auto"><table className="w-full text-left text-xs uppercase font-mono font-bold"><thead className="bg-slate-50 border-b text-[10px] font-black uppercase tracking-widest font-industrial uppercase"><tr><th className="p-4 pl-8">Date</th><th className="p-4">Details</th><th className="p-4 text-center">Qty</th></tr></thead><tbody className="divide-y text-slate-600">{logs.map(l => (<tr key={l.id} className="hover:bg-slate-50 transition border-b border-slate-100"><td className="p-4 pl-8 uppercase font-mono">{new Date(Number(l.timestamp)).toLocaleDateString()}</td><td className="p-4 font-inter font-bold uppercase leading-tight">{l.item_name}<div className="text-[10px] text-slate-400 uppercase mt-0.5 tracking-tighter">{l.category}</div></td><td className="p-4 text-center font-black text-red-600">-{l.qty_consumed} Nos</td></tr>))}</tbody></table></div></section>);
+  return (<section className="bg-white rounded-xl border border-slate-200 shadow-sm font-mono uppercase font-bold"><div className="p-5 border-b bg-slate-50/50 flex justify-between font-inter"><h2 className="text-lg font-bold text-slate-800 uppercase font-industrial tracking-wider">Log: Usage Feed</h2></div><div className="overflow-x-auto"><table className="w-full text-left text-xs uppercase font-mono font-bold"><thead className="bg-slate-50 border-b text-[10px] font-black uppercase tracking-widest font-industrial"><tr><th className="p-4 pl-8">Date</th><th className="p-4">Details</th><th className="p-4 text-center">Qty</th></tr></thead><tbody className="divide-y text-slate-600">{logs.map(l => (<tr key={l.id} className="hover:bg-slate-50 transition border-b border-slate-100"><td className="p-4 pl-8 uppercase font-mono">{new Date(Number(l.timestamp)).toLocaleDateString()}</td><td className="p-4 font-inter font-bold uppercase leading-tight">{l.item_name}<div className="text-[10px] text-slate-400 uppercase mt-0.5 tracking-tighter">{l.category}</div></td><td className="p-4 text-center font-black text-red-600">-{l.qty_consumed} Nos</td></tr>))}</tbody></table></div></section>);
 }
 
 function MonthlyAnalysisView({ profile }: any) {
   const [analysis, setAnalysis] = useState<any[]>([]);
   useEffect(() => { const f = async () => { const { data } = await supabase.from("usage_logs").select("*").eq("consumer_uid", profile.id); if (data) { const stats: any = {}; data.forEach((l: any) => { const month = new Date(Number(l.timestamp)).toLocaleString('default', { month: 'long', year: 'numeric' }); if (!stats[month]) stats[month] = { month, total: 0, count: 0 }; stats[month].total += Number(l.qty_consumed); stats[month].count += 1; }); setAnalysis(Object.values(stats)); } }; if (profile) f(); }, [profile]);
-  return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-industrial uppercase tracking-tight uppercase font-bold font-bold"><div className="col-span-3 pb-4 text-xs font-black text-slate-400 tracking-widest text-center border-b uppercase font-bold font-industrial uppercase">Analytical Summary</div>{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md uppercase font-bold"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-[0.2em] font-industrial uppercase font-bold">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner font-bold uppercase"><i className="fa-solid fa-chart-line font-bold"></i></div><div className="text-3xl font-black text-slate-800 font-industrial uppercase font-bold">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase font-industrial tracking-widest uppercase">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase font-industrial tracking-tighter uppercase font-bold">{a.count} Logged Records</div></div>))}</div>);
+  return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-industrial uppercase tracking-tight font-bold"><div className="col-span-3 pb-4 text-xs font-black text-slate-400 tracking-widest text-center border-b font-industrial">Analytical Summary</div>{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md uppercase font-bold"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-[0.2em] font-industrial">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner font-bold"><i className="fa-solid fa-chart-line font-bold"></i></div><div className="text-3xl font-black text-slate-800 font-industrial">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase font-industrial tracking-widest">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase font-industrial tracking-tighter">{a.count} Logged Records</div></div>))}</div>);
 }
 
-// --- UPDATED RETURNS & UDHAARI VIEW (PROFESSIONAL TIMELINE + SECURE VERIFICATION LOGIC) ---
+// --- UPDATED RETURNS & UDHAARI VIEW (FIXED ROUTING) ---
 function ReturnsLedgerView({ profile, onAction }: any) { 
     const [pending, setPending] = useState<any[]>([]);
     const [given, setGiven] = useState<any[]>([]);
@@ -329,12 +332,10 @@ function ReturnsLedgerView({ profile, onAction }: any) {
     const [form, setForm] = useState({ comment: "", qty: "" });
 
     const fetchAll = async () => {
-        // Attention Required: All 'pending' OR 'return_requested' status entries
+        // Fetch Attention Items: status 'pending' OR 'return_requested' matching current unit
         const { data: p } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).in("status", ["pending", "return_requested"]).order("id", { ascending: false });
-        // Active Ledger: Only 'approved' items currently on udhaari
         const { data: g } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).eq("status", "approved").order("id", { ascending: false });
         const { data: t } = await supabase.from("requests").select("*").eq("from_unit", profile.unit).eq("status", "approved").order("id", { ascending: false });
-        // Settle Archives: 'returned' or 'rejected'
         const { data: gh } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).in("status", ["returned", "rejected"]).order("id", { ascending: false });
         const { data: th } = await supabase.from("requests").select("*").eq("from_unit", profile.unit).in("status", ["returned", "rejected"]).order("id", { ascending: false });
         if (p) setPending(p); if (g) setGiven(g); if (t) setTaken(t);
@@ -343,7 +344,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
 
     useEffect(() => {
         if (!profile) return; fetchAll();
-        const channel = supabase.channel('audit-sync-vlocked-final-fixed-v2').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAll(); if(onAction) onAction(); }).subscribe();
+        const channel = supabase.channel('sparesetu-global-sync').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAll(); if(onAction) onAction(); }).subscribe();
         return () => { supabase.removeChannel(channel); };
     }, [profile]);
 
@@ -352,28 +353,42 @@ function ReturnsLedgerView({ profile, onAction }: any) {
     const handleProcess = async () => {
         const { type, data } = actionModal;
         if (type.includes('reject') && !form.comment.trim()) { alert("Provide a reason/log comment!"); return; }
-        let updateData: any = {};
         const actionQty = Number(form.qty || data.req_qty);
 
-        if (type === 'approve') updateData = { status: 'approved', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name, req_qty: actionQty, viewed_by_requester: false };
-        else if (type === 'reject') updateData = { status: 'rejected', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false };
+        if (type === 'approve') {
+            const { error } = await supabase.from("requests").update({ 
+                status: 'approved', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name, req_qty: actionQty, viewed_by_requester: false 
+            }).eq("id", data.id);
+            if (!error) {
+                const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
+                if (inv) await supabase.from("inventory").update({ qty: inv.qty - actionQty }).eq("id", data.item_id);
+            }
+        } 
+        else if (type === 'reject') {
+            await supabase.from("requests").update({ status: 'rejected', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
+        }
         else if (type === 'return') {
-            // ROBUST SPLIT LOGIC: DO NOT SUBTRACT FROM ORIGINAL UNTIL LENDER VERIFIES
-            await supabase.from("requests").insert([{ 
-                ...data, 
-                id: undefined, 
+            // FIX: Manually mapping to ensure it reaches the Original Lender (to_unit)
+            const { error } = await supabase.from("requests").insert([{ 
+                item_id: data.item_id,
+                item_name: data.item_name,
+                item_spec: data.item_spec,
+                item_unit: data.item_unit,
                 req_qty: actionQty, 
                 status: 'return_requested', 
                 return_comment: form.comment, 
                 from_uid: profile.id, 
                 from_name: profile.name, 
+                from_unit: profile.unit,
+                to_uid: data.to_uid, 
+                to_name: data.to_name,
+                to_unit: data.to_unit,
                 viewed_by_requester: false,
                 approve_comment: `VERIFY_LINK_ID:${data.id}` 
             }]);
-            alert("Return initiated! Quantity will decrease after Lender verification."); setActionModal(null); return;
+            if (!error) alert("Return initiated! Lender will verify now.");
         }
         else if (type === 'verify') {
-            // MANUAL VERIFY: NOW SUBTRACT FROM ORIGINAL AND RESTORE TO STOCK
             const parentId = data.approve_comment?.match(/VERIFY_LINK_ID:(\d+)/)?.[1];
             if (parentId) {
                 const { data: parent } = await supabase.from("requests").select("req_qty").eq("id", parentId).single();
@@ -383,129 +398,98 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                     else await supabase.from("requests").update({ req_qty: newBal }).eq("id", parentId);
                 }
             }
-            await supabase.from("requests").update({ status: 'returned', approve_comment: `Verified By ${profile.name}: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
+            await supabase.from("requests").update({ 
+                status: 'returned', approve_comment: `Verified By ${profile.name}: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false 
+            }).eq("id", data.id);
             const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
             if (inv) await supabase.from("inventory").update({ qty: inv.qty + data.req_qty }).eq("id", data.item_id);
-            alert("Verification Complete! Quantities updated."); setActionModal(null); return;
+            alert("Stock Restored Successfully!");
         }
-        else if (type === 'reject_return') updateData = { status: 'approved', approve_comment: `Verification Denied By ${profile.name}: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false };
+        else if (type === 'reject_return') {
+            await supabase.from("requests").update({ 
+                status: 'approved', approve_comment: `Denied: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false 
+            }).eq("id", data.id);
+        }
 
-        const { error } = await supabase.from("requests").update(updateData).eq("id", data.id);
-        if (!error && type === 'approve') {
-            const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
-            if (inv) await supabase.from("inventory").update({ qty: inv.qty - actionQty }).eq("id", data.item_id);
-        }
         setActionModal(null); setForm({comment:"", qty:""});
     };
 
     return (
         <div className="space-y-10 animate-fade-in pb-20 font-industrial tracking-tight font-inter uppercase font-bold">
-            <h2 className="text-2xl font-bold text-slate-800 uppercase flex items-center gap-2 tracking-tight uppercase font-industrial font-bold uppercase"><i className="fa-solid fa-handshake-angle text-orange-500"></i> Udhaari Dashboard</h2>
+            <h2 className="text-2xl font-bold text-slate-800 uppercase flex items-center gap-2 font-industrial"><i className="fa-solid fa-handshake-angle text-orange-500"></i> Udhaari Dashboard</h2>
 
-            {/* PENDING ACTIONS (VERIFY REQUESTS APPEAR HERE FOR LENDER) */}
             <section className="bg-white rounded-xl border-t-4 border-orange-500 shadow-xl overflow-hidden font-industrial uppercase font-bold">
-                <div className="p-4 bg-orange-50/50 flex justify-between border-b uppercase font-bold uppercase font-bold"><div className="flex items-center gap-2 text-orange-900 font-black uppercase text-[10px] tracking-widest font-inter uppercase font-bold uppercase"><i className="fa-solid fa-bolt animate-pulse"></i> Attention Required (Borrow & Verify Requests)</div><span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px] uppercase font-bold uppercase">{pending.length}</span></div>
-                <div className="overflow-x-auto"><table className="w-full text-left text-sm divide-y font-mono uppercase font-bold font-mono">
-                    <thead className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase font-industrial tracking-widest uppercase font-bold uppercase"><tr><th className="p-4 pl-6">Material Detail</th><th className="p-4">Counterparty</th><th className="p-4 text-center">Qty</th><th className="p-4 text-center">Action</th></tr></thead>
-                    <tbody className="divide-y text-slate-600 uppercase font-bold font-mono uppercase">
+                <div className="p-4 bg-orange-50/50 flex justify-between border-b uppercase font-bold"><div className="flex items-center gap-2 text-orange-900 font-black uppercase text-[10px] tracking-widest font-inter uppercase font-bold"><i className="fa-solid fa-bolt animate-pulse"></i> Attention Required (Incoming Actions)</div><span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px] uppercase font-bold">{pending.length}</span></div>
+                <div className="overflow-x-auto"><table className="w-full text-left text-sm divide-y font-mono font-bold">
+                    <thead className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase font-industrial tracking-widest"><tr><th className="p-4 pl-6">Material Detail</th><th className="p-4">Counterparty</th><th className="p-4 text-center">Qty</th><th className="p-4 text-center">Action</th></tr></thead>
+                    <tbody className="divide-y text-slate-600 uppercase font-bold">
                         {pending.map(r => (
-                            <tr key={r.id} className={`${r.status==='return_requested' ? 'bg-orange-50 animate-pulse' : 'bg-white'} transition border-b uppercase font-bold`}>
-                                <td className="p-4 pl-6 font-bold text-slate-800 leading-tight uppercase font-inter font-bold uppercase uppercase">{r.item_name}<div className="text-[9px] text-slate-400 font-normal mt-0.5 uppercase tracking-tighter uppercase font-mono uppercase font-bold">{r.item_spec}</div><div className="text-[8px] text-slate-300 italic mt-1 font-mono uppercase font-bold tracking-tighter uppercase font-bold font-inter">{formatTS(r.timestamp)}</div></td>
-                                <td className="p-4 font-bold text-slate-700 uppercase font-inter leading-tight uppercase font-bold uppercase font-bold uppercase font-bold">{r.from_name}<div className="text-[10px] text-slate-400 font-normal uppercase font-mono font-bold uppercase uppercase font-bold uppercase">{r.from_unit}</div></td>
-                                <td className="p-4 text-center font-black text-orange-600 text-lg font-mono whitespace-nowrap uppercase font-bold font-bold uppercase font-bold uppercase font-bold font-mono">{r.req_qty} {r.item_unit}</td>
-                                <td className="p-4 flex gap-2 justify-center font-industrial uppercase font-bold font-bold uppercase font-bold uppercase font-bold uppercase font-bold"><button onClick={()=>setActionModal({type: r.status==='pending' ? 'approve' : 'verify', data:r})} className="bg-green-600 text-white px-4 py-2 rounded-lg text-[9px] font-black shadow-md hover:bg-green-700 tracking-widest font-bold uppercase font-inter uppercase font-bold font-bold uppercase font-bold uppercase font-bold uppercase"> {r.status==='pending' ? 'Issue' : 'Verify'} </button><button onClick={()=>setActionModal({type: r.status==='pending' ? 'reject' : 'reject_return', data:r})} className="bg-slate-100 text-slate-500 px-4 py-2 rounded-lg text-[9px] font-black transition tracking-widest uppercase font-bold font-inter uppercase font-bold font-bold uppercase font-bold uppercase font-bold font-inter">Reject</button></td>
+                            <tr key={r.id} className={`${r.status==='return_requested' ? 'bg-orange-50 animate-pulse' : 'bg-white'} transition border-b`}>
+                                <td className="p-4 pl-6 font-bold text-slate-800 leading-tight uppercase font-inter">{r.item_name}<div className="text-[9px] text-slate-400 font-normal mt-0.5 uppercase tracking-tighter font-mono">{r.item_spec}</div><div className="text-[8px] text-slate-300 italic mt-1 font-mono">{formatTS(r.timestamp)}</div></td>
+                                <td className="p-4 font-bold text-slate-700 uppercase font-inter leading-tight">{r.from_name}<div className="text-[10px] text-slate-400 font-normal uppercase font-mono">{r.from_unit}</div></td>
+                                <td className="p-4 text-center font-black text-orange-600 text-lg font-mono whitespace-nowrap">{r.req_qty} {r.item_unit}</td>
+                                <td className="p-4 flex gap-2 justify-center font-industrial"><button onClick={()=>setActionModal({type: r.status==='pending' ? 'approve' : 'verify', data:r})} className="bg-green-600 text-white px-4 py-2 rounded-lg text-[9px] font-black shadow-md hover:bg-green-700 tracking-widest font-bold uppercase font-inter"> {r.status==='pending' ? 'Issue' : 'Verify'} </button><button onClick={()=>setActionModal({type: r.status==='pending' ? 'reject' : 'reject_return', data:r})} className="bg-slate-100 text-slate-500 px-4 py-2 rounded-lg text-[9px] font-black transition tracking-widest uppercase font-bold font-inter">Reject</button></td>
                             </tr>
                         ))}
                     </tbody>
                 </table></div>
             </section>
 
-            {/* ACTIVE LEDGER (Active Udhaari Entries) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 font-inter uppercase font-bold font-bold uppercase font-bold font-inter uppercase font-bold font-bold">
-                <section className="bg-white rounded-2xl border-t-4 border-blue-600 shadow-lg overflow-hidden font-mono uppercase font-bold font-mono font-bold uppercase">
-                    <div className="p-5 border-b bg-blue-50/30 flex items-center gap-3 font-industrial uppercase text-xs font-black text-blue-900 tracking-widest font-bold uppercase uppercase font-bold font-inter uppercase font-bold"><i className="fa-solid fa-arrow-up-from-bracket text-blue-600"></i> Active Ledger (Items Given)</div>
-                    <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto uppercase font-bold font-inter uppercase">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 font-inter uppercase font-bold">
+                <section className="bg-white rounded-2xl border-t-4 border-blue-600 shadow-lg overflow-hidden font-mono uppercase font-bold">
+                    <div className="p-5 border-b bg-blue-50/30 flex items-center gap-3 font-industrial text-xs font-black text-blue-900 tracking-widest"> <i className="fa-solid fa-arrow-up-from-bracket text-blue-600"></i> Active Ledger (Items Given)</div>
+                    <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
                         {given.map(r => (
-                            <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative shadow-sm uppercase font-bold font-inter font-bold uppercase font-inter font-bold">
-                                <div className="text-xs font-black text-slate-800 uppercase mb-1 leading-tight uppercase font-bold uppercase font-bold font-bold font-inter uppercase">{r.item_name}</div>
-                                <div className="text-[10px] text-slate-400 mb-3 uppercase tracking-tighter font-bold uppercase uppercase font-bold font-bold font-mono uppercase font-inter">{r.item_spec}</div>
-                                <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg mb-3 uppercase font-bold font-inter font-bold uppercase"><div><p className="text-[9px] font-bold text-slate-400 uppercase font-industrial uppercase font-bold uppercase font-bold font-bold font-inter uppercase font-bold">Receiver</p><p className="text-xs font-black text-slate-700 uppercase tracking-tighter uppercase uppercase font-bold font-bold font-mono uppercase font-bold uppercase font-bold uppercase font-inter">{r.from_name} ({r.from_unit})</p></div><div className="text-right font-black text-blue-600 font-mono uppercase font-bold font-bold font-bold font-inter uppercase font-bold">{r.req_qty} {r.item_unit}</div></div>
-                                <div className="text-[9px] font-mono text-slate-400 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed tracking-tighter font-bold uppercase uppercase font-bold font-mono uppercase font-bold uppercase font-bold uppercase font-mono uppercase">
-                                    <p><span className="font-black text-blue-600/70 uppercase font-bold uppercase font-bold uppercase font-bold font-bold">ISSUED BY:</span> {r.to_name}</p>
-                                    <p><span className="font-black uppercase tracking-tighter uppercase font-bold uppercase font-bold uppercase font-bold font-bold font-mono">LOG DATE:</span> {formatTS(r.timestamp)}</p>
+                            <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative shadow-sm uppercase font-bold font-inter">
+                                <div className="text-xs font-black text-slate-800 uppercase mb-1 leading-tight">{r.item_name}</div>
+                                <div className="text-[10px] text-slate-400 mb-3 uppercase tracking-tighter font-bold">{r.item_spec}</div>
+                                <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg mb-3"><div><p className="text-[9px] font-bold text-slate-400 uppercase font-industrial">Receiver</p><p className="text-xs font-black text-slate-700 uppercase tracking-tighter">{r.from_name} ({r.from_unit})</p></div><div className="text-right font-black text-blue-600 font-mono">{r.req_qty} {r.item_unit}</div></div>
+                                <div className="text-[9px] font-mono text-slate-400 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed tracking-tighter">
+                                    <p><span className="font-black text-blue-600/70 uppercase">ISSUED BY:</span> {r.to_name}</p>
+                                    <p><span className="font-black uppercase tracking-tighter">LOG DATE:</span> {formatTS(r.timestamp)}</p>
                                 </div>
                             </div>
                         ))}
                     </div>
                 </section>
 
-                <section className="bg-white rounded-2xl border-t-4 border-red-600 shadow-lg overflow-hidden font-mono uppercase font-bold font-mono font-bold uppercase font-bold">
-                    <div className="p-5 border-b bg-red-50/30 flex items-center gap-3 font-industrial uppercase text-xs font-black text-red-900 tracking-widest font-bold uppercase uppercase font-bold uppercase font-bold font-inter uppercase"><i className="fa-solid fa-arrow-down-long text-red-600"></i> Active Ledger (Items Taken)</div>
-                    <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto uppercase font-bold uppercase font-bold font-inter uppercase font-bold uppercase">
+                <section className="bg-white rounded-2xl border-t-4 border-red-600 shadow-lg overflow-hidden font-mono uppercase font-bold">
+                    <div className="p-5 border-b bg-red-50/30 flex items-center gap-3 font-industrial text-xs font-black text-red-900 tracking-widest"> <i className="fa-solid fa-arrow-down-long text-red-600"></i> Active Ledger (Items Taken)</div>
+                    <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
                         {taken.map(r => (
-                            <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold font-inter font-bold">
-                                <div className="text-xs font-black text-slate-800 uppercase mb-1 leading-tight uppercase font-bold uppercase font-bold uppercase font-bold font-inter font-bold font-inter font-bold font-inter font-bold">{r.item_name}</div>
-                                <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg mb-3 uppercase font-bold font-bold uppercase font-bold font-inter font-bold"><div><p className="text-[9px] font-bold text-slate-400 uppercase font-industrial uppercase font-bold uppercase font-bold font-bold font-inter font-bold font-inter font-bold">Source</p><p className="text-xs font-black text-slate-700 uppercase tracking-tighter uppercase uppercase font-bold font-bold font-mono font-bold font-bold uppercase font-bold uppercase font-bold font-inter font-bold font-inter font-bold font-inter">{r.to_unit} ({r.to_name})</p></div><div className="text-right font-black text-red-600 font-mono uppercase font-bold font-bold font-bold font-bold uppercase font-bold font-mono font-bold">{r.req_qty} {r.item_unit}</div></div>
-                                <div className="text-[9px] font-mono text-slate-400 mb-3 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed tracking-tighter font-bold uppercase uppercase font-bold font-mono font-bold font-bold uppercase font-bold uppercase font-bold font-mono font-bold uppercase">
-                                    <p><span className="font-black text-red-600/70 uppercase font-bold font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold">TAKEN BY:</span> {r.from_name}</p>
-                                    <p><span className="font-black uppercase tracking-tighter uppercase font-bold font-bold font-bold uppercase font-bold uppercase font-bold font-mono uppercase font-bold font-bold">DATE:</span> {formatTS(r.timestamp)}</p>
+                            <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative uppercase font-bold font-inter">
+                                <div className="text-xs font-black text-slate-800 uppercase mb-1 leading-tight">{r.item_name}</div>
+                                <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg mb-3 font-bold"><div><p className="text-[9px] font-bold text-slate-400 uppercase font-industrial">Source</p><p className="text-xs font-black text-slate-700 uppercase tracking-tighter">{r.to_unit} ({r.to_name})</p></div><div className="text-right font-black text-red-600 font-mono">{r.req_qty} {r.item_unit}</div></div>
+                                <div className="text-[9px] font-mono text-slate-400 mb-3 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed tracking-tighter uppercase font-bold">
+                                    <p><span className="font-black text-red-600/70 uppercase">TAKEN BY:</span> {r.from_name}</p>
+                                    <p><span className="font-black uppercase tracking-tighter">DATE:</span> {formatTS(r.timestamp)}</p>
                                 </div>
-                                <button onClick={()=>setActionModal({type:'return', data:r})} className="w-full py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl uppercase tracking-widest font-industrial shadow-md font-bold uppercase font-bold font-bold font-bold uppercase font-bold font-inter font-bold font-bold uppercase font-bold uppercase font-bold">Initiate Partial/Full Return</button>
+                                <button onClick={()=>setActionModal({type:'return', data:r})} className="w-full py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl uppercase tracking-widest font-industrial shadow-md">Initiate Partial/Full Return</button>
                             </div>
                         ))}
                     </div>
                 </section>
             </div>
 
-            {/* SETTLED HISTORY RECORD (TWO PARTS) */}
-            <div className="pt-10 space-y-10 font-mono uppercase font-bold font-mono uppercase font-bold font-mono uppercase font-bold uppercase font-bold">
-                <div className="flex items-center gap-4 font-industrial uppercase font-bold font-mono uppercase font-bold font-industrial uppercase font-bold font-inter font-bold font-inter font-bold uppercase font-bold"><hr className="flex-1 border-slate-200"/><h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.4em] font-industrial font-bold uppercase font-bold font-mono uppercase font-bold font-industrial uppercase font-bold uppercase font-bold uppercase font-bold font-inter">Digital Archive Logs</h3><hr className="flex-1 border-slate-200"/></div>
-                
-                <div className="grid grid-cols-1 gap-12 font-mono uppercase font-bold font-mono uppercase font-bold font-mono uppercase font-bold uppercase font-bold uppercase font-bold font-mono uppercase font-bold uppercase font-bold">
-                    <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden font-mono uppercase font-bold font-mono font-bold uppercase font-bold uppercase font-bold font-mono font-bold font-mono font-bold font-mono font-bold uppercase font-bold">
-                        <div className="p-4 bg-slate-800 text-white flex justify-between font-industrial text-[10px] tracking-widest uppercase font-bold font-industrial uppercase font-bold font-bold uppercase font-bold font-bold font-bold uppercase font-bold font-industrial font-bold font-inter uppercase font-bold font-bold font-inter font-bold font-inter"><span>Finalized Audit Trail: 7-Point Timeline Logs</span><i className="fa-solid fa-file-shield text-slate-400 font-bold font-bold"></i></div>
-                        <div className="overflow-x-auto uppercase font-bold uppercase font-bold font-inter uppercase font-bold font-inter uppercase font-bold"><table className="w-full text-left text-[9px] divide-y divide-slate-100 uppercase font-mono font-bold font-bold font-bold uppercase font-bold font-inter font-bold font-inter font-bold font-mono font-bold font-inter">
-                            <thead className="bg-slate-50 text-[8px] font-black text-slate-400 font-industrial tracking-widest uppercase font-bold font-bold font-bold uppercase font-bold font-bold uppercase font-bold font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter uppercase font-bold"><tr><th className="p-4">Material Details & Technical Spec</th><th className="p-4 text-center">Settled Qty</th><th className="p-4">Receiver & Lender Info</th><th className="p-4">7-Point Audit Life-Cycle Log</th><th className="p-4 text-center">Status</th></tr></thead>
-                            <tbody className="divide-y text-slate-600 font-bold uppercase font-bold font-bold uppercase font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold uppercase">
-                                {[...givenHistory, ...takenHistory].sort((a,b)=>Number(b.timestamp)-Number(a.timestamp)).map(h => (
-                                    <tr key={h.id} className="hover:bg-slate-50 transition border-b uppercase font-bold font-mono font-bold uppercase font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold uppercase">
-                                        <td className="p-4 leading-tight uppercase font-bold font-bold font-bold font-bold uppercase font-bold font-bold uppercase font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter uppercase font-bold"><p className="font-bold text-slate-800 tracking-tighter uppercase font-bold uppercase font-bold uppercase font-bold font-bold font-bold font-bold uppercase font-bold font-bold uppercase font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter uppercase font-bold">{h.item_name}</p><p className="text-[8px] text-slate-400 mt-1 font-bold uppercase font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold uppercase font-bold uppercase font-bold font-bold uppercase font-bold font-bold font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter uppercase font-bold">SPEC: {h.item_spec}</p></td>
-                                        <td className="p-4 text-center font-black text-slate-600 whitespace-nowrap uppercase font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter uppercase font-bold">{h.req_qty} {h.item_unit}</td>
-                                        <td className="p-4 leading-tight uppercase font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold uppercase uppercase font-bold font-bold font-inter uppercase font-bold font-bold font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter uppercase font-bold"><p className="text-blue-500 font-bold uppercase font-bold uppercase font-bold font-bold font-bold font-bold uppercase font-bold font-bold uppercase font-bold font-bold font-bold uppercase font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter uppercase font-bold">BORR: {h.from_name}</p><p className="text-red-500 font-bold uppercase font-bold uppercase font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold uppercase font-bold font-bold uppercase font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter uppercase font-bold">LEND: {h.to_name}</p></td>
-                                        <td className="p-4 leading-none space-y-1 font-bold tracking-tighter uppercase text-[8px] font-bold font-mono font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter uppercase font-bold">
-                                            <p><span className="opacity-50 font-bold font-mono">1. REQUEST BY:</span> {h.from_name} ({h.from_unit}) @ {formatTS(h.timestamp)}</p>
-                                            <p><span className="opacity-50 font-bold font-mono">2. APPROVED BY:</span> {h.to_name} (Settled Qty: {h.req_qty}) @ {formatTS(h.timestamp)}</p>
-                                            <p><span className="opacity-50 font-bold font-mono">3. RETURN BY:</span> {h.from_name} @ {formatTS(h.timestamp)}</p>
-                                            <p><span className="opacity-50 font-black text-green-600 font-bold font-bold font-mono uppercase">4. FINAL VERIFY:</span> {h.to_name} @ {formatTS(h.timestamp)} (LOGGED)</p>
-                                        </td>
-                                        <td className="p-4 text-center uppercase font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold uppercase font-bold font-bold uppercase font-bold font-bold uppercase font-bold uppercase font-bold uppercase font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter uppercase font-bold"><span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold uppercase font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter uppercase font-bold ${h.status==='returned' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{h.status}</span></td>
-                                    </tr>
-                                ))}
-                            </tbody></table></div>
-                    </div>
-                </div>
-            </div>
-
-            {/* UNIVERSAL COMPACT ACTION MODAL (WITH BLUR BACKDROP & NO AUTO-UPDATE) */}
+            {/* ACTION MODAL */}
             {actionModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-                    <div className="bg-white w-full max-w-[320px] rounded-2xl shadow-2xl p-5 animate-scale-in border-t-4 border-slate-900 font-industrial uppercase font-bold font-bold font-bold uppercase uppercase font-bold font-inter uppercase font-bold font-bold font-inter uppercase font-bold font-inter uppercase font-bold">
-                        <div className="flex justify-between items-center mb-4 border-b pb-2 tracking-widest font-industrial uppercase font-bold font-bold font-bold uppercase font-bold font-bold uppercase font-bold font-bold uppercase font-inter uppercase font-bold font-bold font-inter uppercase font-bold font-inter uppercase font-bold uppercase font-bold uppercase font-bold"><h3 className="text-[11px] font-black text-slate-800 uppercase font-bold font-bold uppercase font-bold font-bold uppercase font-bold uppercase font-bold uppercase font-bold font-inter uppercase font-bold font-bold font-inter uppercase font-bold font-inter uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold">{actionModal.type.replace('_', ' ')} Portal</h3><button onClick={()=>setActionModal(null)} className="text-slate-400 hover:text-red-500 uppercase font-bold font-bold font-bold font-bold uppercase font-bold font-bold uppercase font-bold font-bold uppercase font-inter uppercase font-bold font-bold font-inter uppercase font-bold font-inter uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold">✕</button></div>
-                        <div className="text-[11px] font-black text-indigo-600 mb-1 leading-tight uppercase truncate font-bold font-bold font-bold font-bold uppercase font-bold font-bold uppercase font-bold font-bold font-bold uppercase font-bold uppercase font-bold font-bold font-bold font-inter uppercase font-bold font-bold font-inter uppercase font-bold font-inter uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold">{actionModal.data.item_name}</div>
-                        <div className="text-[9px] text-slate-400 mb-5 font-mono truncate uppercase font-bold font-bold font-bold font-bold uppercase font-bold font-bold uppercase font-bold font-bold font-bold uppercase font-bold uppercase font-bold font-bold font-bold font-inter uppercase font-bold font-bold font-inter uppercase font-bold font-inter uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold">{actionModal.data.item_spec}</div>
-                        
-                        <div className="space-y-4 uppercase font-bold font-bold font-bold font-bold uppercase font-bold font-bold uppercase font-bold font-bold font-bold uppercase font-bold uppercase font-bold font-bold font-bold font-inter uppercase font-bold font-bold font-inter uppercase font-bold font-inter uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md font-inter font-bold uppercase">
+                    <div className="bg-white w-full max-w-[320px] rounded-2xl shadow-2xl p-5 animate-scale-in border-t-4 border-slate-900 font-industrial">
+                        <div className="flex justify-between items-center mb-4 border-b pb-2 tracking-widest"><h3 className="text-[11px] font-black text-slate-800 uppercase">{actionModal.type.replace('_', ' ')} Portal</h3><button onClick={()=>setActionModal(null)} className="text-slate-400 hover:text-red-500">✕</button></div>
+                        <div className="text-[11px] font-black text-indigo-600 mb-1 leading-tight uppercase truncate">{actionModal.data.item_name}</div>
+                        <div className="text-[9px] text-slate-400 mb-5 font-mono truncate">{actionModal.data.item_spec}</div>
+                        <div className="space-y-4">
                             {(actionModal.type === 'approve' || actionModal.type === 'return' || actionModal.type === 'verify') && (
-                                <div className="bg-slate-50 p-3 rounded-xl text-center shadow-inner font-industrial uppercase font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold uppercase font-bold uppercase font-bold font-bold uppercase font-bold font-bold font-inter uppercase font-bold font-bold font-inter uppercase font-bold font-inter uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold">
-                                    <label className="text-[9px] font-black text-slate-500 uppercase block mb-1 tracking-widest font-industrial uppercase font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold uppercase font-bold uppercase font-bold font-bold uppercase font-bold font-bold font-inter uppercase font-bold font-bold font-inter uppercase font-bold font-inter uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold uppercase font-bold">Set Verify Quantity</label>
-                                    <input type="number" defaultValue={actionModal.data.req_qty} className="w-full bg-white p-2 border-2 rounded-lg text-center text-lg font-black outline-none focus:border-slate-800 shadow-sm font-mono h-[38px] font-bold font-bold uppercase font-bold uppercase font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold font-bold" onChange={e=>setForm({...form, qty: e.target.value})} />
-                                    <p className="text-[8px] text-slate-400 mt-1 uppercase font-bold tracking-widest font-industrial uppercase font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold font-bold">Max Limit: {actionModal.data.req_qty} {actionModal.data.item_unit}</p>
+                                <div className="bg-slate-50 p-3 rounded-xl text-center shadow-inner">
+                                    <label className="text-[9px] font-black text-slate-500 uppercase block mb-1 tracking-widest">Set Verify Quantity</label>
+                                    <input type="number" defaultValue={actionModal.data.req_qty} className="w-full bg-white p-2 border-2 rounded-lg text-center text-lg font-black outline-none focus:border-slate-800 shadow-sm font-mono h-[38px]" onChange={e=>setForm({...form, qty: e.target.value})} />
+                                    <p className="text-[8px] text-slate-400 mt-1">Max Limit: {actionModal.data.req_qty} {actionModal.data.item_unit}</p>
                                 </div>
                             )}
-                            <div><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1 font-industrial uppercase font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold uppercase font-bold font-bold uppercase font-bold font-bold uppercase font-bold font-bold font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold uppercase font-bold font-inter">Audit Log Comment</label><textarea className="w-full p-2 border-2 rounded-lg text-xs h-16 outline-none focus:border-slate-800 mt-1 font-mono leading-tight shadow-inner uppercase font-bold uppercase font-bold font-bold font-bold uppercase font-bold font-bold uppercase font-bold font-bold font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold uppercase font-bold" placeholder="Reason/Ref..." onChange={e=>setForm({...form, comment: e.target.value})}></textarea></div>
-                            <div className="flex flex-col gap-2 pt-1 font-industrial uppercase font-bold font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold uppercase font-bold font-bold uppercase font-bold font-bold font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold font-inter font-bold uppercase font-bold">
-                                <button onClick={handleProcess} className={`w-full py-2.5 font-black rounded-xl uppercase text-[10px] shadow-lg text-white ${actionModal.type.includes('reject') ? 'bg-red-600' : 'bg-slate-900'} hover:opacity-90 transition-all font-bold font-bold font-bold uppercase font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold font-bold font-bold`}>Confirm System Logic</button>
-                                <button onClick={()=>setActionModal(null)} className="w-full py-1 text-slate-400 text-[9px] font-bold uppercase tracking-widest font-industrial uppercase font-bold font-bold font-bold font-bold uppercase font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold font-bold font-bold uppercase font-bold font-bold font-bold font-bold font-bold font-bold font-bold font-bold uppercase">Cancel</button>
+                            <div><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1 font-industrial">Audit Log Comment</label><textarea className="w-full p-2 border-2 rounded-lg text-xs h-16 outline-none focus:border-slate-800 mt-1 font-mono leading-tight shadow-inner uppercase font-bold" placeholder="Reason/Ref..." onChange={e=>setForm({...form, comment: e.target.value})}></textarea></div>
+                            <div className="flex flex-col gap-2 pt-1 font-industrial">
+                                <button onClick={handleProcess} className={`w-full py-2.5 font-black rounded-xl uppercase text-[10px] shadow-lg text-white ${actionModal.type.includes('reject') ? 'bg-red-600' : 'bg-slate-900'} hover:opacity-90 transition-all`}>Confirm System Logic</button>
+                                <button onClick={()=>setActionModal(null)} className="w-full py-1 text-slate-400 text-[9px] font-bold uppercase tracking-widest font-industrial">Cancel</button>
                             </div>
                         </div>
                     </div>
