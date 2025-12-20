@@ -116,6 +116,7 @@ export default function SpareSetuApp() {
   );
 }
 
+// --- AUTH VIEW ---
 function AuthView() {
   const [view, setView] = useState<"login" | "register" | "otp" | "forgot">("login");
   const [form, setForm] = useState({ email: "", pass: "", name: "", unit: "", enteredOtp: "", generatedOtp: "" });
@@ -159,7 +160,7 @@ function AuthView() {
               </div>
             </div>
             <h1 className="font-industrial text-2xl font-bold text-white uppercase tracking-wider leading-tight">Gujarat Refinery</h1>
-            <p className="font-hindi text-blue-400 text-sm font-bold mt-1 tracking-wide">जहाँ प्रगति ही जीवन सार है</p>
+            <p className="font-hindi text-blue-400 text-sm font-bold mt-1 tracking-wide">जहाँ प्रगति ही जीवन सार hai</p>
             <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-4">Spare Setu Portal</p>
         </div>
 
@@ -196,11 +197,6 @@ function AuthView() {
                 {view==='login' ? "Create Account" : "Back to Login"}
               </button>
             </p>
-          </div>
-          
-          <div className="mt-8 pt-6 border-t border-white/10 text-center">
-            <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider mb-1">Developed By Engineers</p>
-            <p className="text-[11px] text-slate-300 font-bold font-hindi">अशोक सैनी • दीपक चौहान • दिव्यांक सिंह राजपूत</p>
           </div>
         </div>
       </div>
@@ -313,24 +309,6 @@ function GlobalSearchView({ profile }: any) {
         </div>
       )}
 
-      {showSummary && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-scale-in max-h-[80vh] flex flex-col">
-                <div className="bg-indigo-50 px-6 py-4 border-b flex justify-between items-center"><h3 className="text-lg font-bold text-indigo-900 uppercase">Stock Summary</h3><button onClick={()=>setShowSummary(false)}>✕</button></div>
-                <div className="overflow-y-auto p-4 space-y-4">
-                    {[...new Set(items.map(i=>i.cat))].sort().map(cat => (
-                        <div key={cat} className="border rounded-xl mb-4 overflow-hidden shadow-sm bg-white">
-                            <div className="bg-slate-100 p-2 text-[10px] font-black text-slate-600 uppercase tracking-widest border-b">{cat}</div>
-                            <table className="w-full text-sm"><tbody className="divide-y">
-                                {[...new Set(items.filter(i=>i.cat===cat).map(i=>i.sub))].sort().map(sub => (<tr key={sub}><td className="p-3 pl-6 text-slate-600 font-bold">{sub}</td><td className="p-3 text-right pr-6 font-black text-indigo-600">{items.filter(i=>i.cat===cat && i.sub===sub).reduce((sum, item)=>sum+item.qty, 0)} Nos</td></tr>))}
-                            </tbody></table>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-      )}
-
       {breakdown && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-2xl rounded-2xl p-6 relative shadow-2xl animate-scale-in">
@@ -361,18 +339,6 @@ function MyStoreView({ profile, fetchProfile }: any) {
   useEffect(() => { if (profile) fetch(); }, [profile]);
   const fetch = async () => { const { data } = await supabase.from("inventory").select("*").eq("holder_uid", profile.id).order("id", { ascending: false }); if (data) setMyItems(data); };
   const filtered = myItems.filter(i => (i.item.toLowerCase().includes(search.toLowerCase()) || i.spec.toLowerCase().includes(search.toLowerCase())) && (selCat === 'all' ? true : i.cat === selCat));
-  const outOfStockCount = myItems.filter(i => Number(i.qty) === 0).length;
-
-  const categories = [...new Set(masterCatalog.map(i => i.cat))].sort();
-  const subs = [...new Set(masterCatalog.filter(i => i.cat === form.cat).map(i => i.sub))].sort();
-  const makes = [...new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub).map(i => i.make))].sort();
-  const models = [...new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make).map(i => i.model))].sort();
-  const specs = [...new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make && i.model === form.model).map(i => i.spec))].sort();
-
-  useEffect(() => { if (form.cat && subs.length === 1 && !form.sub) setForm(f => ({...f, sub: subs[0]})); }, [form.cat, subs]);
-  useEffect(() => { if (form.sub && makes.length === 1 && !form.make) setForm(f => ({...f, make: makes[0]})); }, [form.sub, makes]);
-  useEffect(() => { if (form.make && models.length === 1 && !form.model) setForm(f => ({...f, model: models[0]})); }, [form.make, models]);
-  useEffect(() => { if (form.model && specs.length === 1 && !form.spec) setForm(f => ({...f, spec: specs[0]})); }, [form.model, specs]);
 
   const handleSave = async () => {
     if (!form.spec || !form.qty) return alert("Sari vigato bharo!");
@@ -383,19 +349,18 @@ function MyStoreView({ profile, fetchProfile }: any) {
 
   return (
     <div className="animate-fade-in space-y-6 pb-10">
-      {outOfStockCount > 0 && (<div className="bg-red-50 border border-red-200 p-4 rounded-xl flex items-start gap-3 animate-fade-in shadow-sm border-l-8 border-l-red-500"><i className="fa-solid fa-triangle-exclamation text-red-500 text-xl mt-1"></i><div><h3 className="font-bold text-red-800 text-sm uppercase">Action Needed: Restock Required</h3><p className="text-xs text-red-600 font-bold">{outOfStockCount} items are out of stock in your zone.</p></div></div>)}
       <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl border shadow-sm">
         <div><h2 className="text-xl font-bold text-slate-800 font-industrial uppercase">My Local Store</h2><p className="text-xs font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-1 uppercase tracking-tighter inline-block">ZONE: {profile?.unit}</p></div>
-        <button onClick={() => setShowAddModal(true)} className="iocl-btn text-white px-6 py-2.5 rounded-xl font-bold shadow-md hover:scale-105 transition flex items-center gap-2"><i className="fa-solid fa-plus"></i> Add New Stock</button>
+        <button onClick={() => setShowAddModal(true)} className="iocl-btn text-white px-6 py-2.5 rounded-xl font-bold shadow-md flex items-center gap-2"><i className="fa-solid fa-plus"></i> Add New Stock</button>
       </div>
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b bg-slate-50/80 flex flex-wrap items-center gap-2"><div className="relative flex-grow md:w-64"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Search My Store..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none shadow-inner" onChange={e=>setSearch(e.target.value)} /></div><select className="border rounded-md text-[11px] font-bold p-2 bg-white" onChange={e=>setSelCat(e.target.value)}><option value="all">Category: All</option>{[...new Set(myItems.map(i => i.cat))].sort().map(c => <option key={c} value={c}>{c}</option>)}</select></div>
         <div className="overflow-x-auto"><table className="w-full text-left"><thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b uppercase"><tr><th className="p-5 pl-8">Category</th><th className="p-5">Item Name</th><th className="p-5">Spec</th><th className="p-5 text-center">Qty</th><th className="p-5 text-center">Manage</th></tr></thead>
-          <tbody className="divide-y text-sm">{filtered.map(i => (<tr key={i.id} className={`${Number(i.qty) === 0 ? 'bg-red-50/30' : 'hover:bg-slate-50'} transition border-b border-slate-50`}><td className="p-5 pl-8 text-[10px] font-bold text-slate-400 uppercase">{i.cat}</td><td className="p-5 font-bold text-slate-800 leading-tight">{i.item}</td><td className="p-5"><span className="bg-white border px-2 py-1 rounded text-[11px] font-medium text-slate-600 shadow-sm">{i.spec}</span></td><td className="p-5 font-bold text-center">{Number(i.qty) === 0 ? <span className="text-red-600 font-black text-[10px] uppercase bg-red-100 px-2 py-1 rounded border border-red-200">Out of Stock</span> : <span className="text-emerald-600 text-lg font-black">{i.qty} Nos</span>}</td><td className="p-5 flex gap-3 justify-center items-center"><button onClick={()=>setConsumeItem(i)} disabled={Number(i.qty) === 0} className="text-indigo-600 hover:scale-125 transition disabled:opacity-30"><i className="fa-solid fa-box-open text-xl"></i></button><button onClick={()=>setEditItem(i)} className="text-slate-400 hover:text-blue-500 hover:scale-125 transition"><i className="fa-solid fa-pen-to-square text-xl"></i></button></td></tr>))}</tbody></table></div>
+          <tbody className="divide-y text-sm">{filtered.map(i => (<tr key={i.id} className="hover:bg-slate-50 transition border-b border-slate-50"><td className="p-5 pl-8 text-[10px] font-bold text-slate-400 uppercase">{i.cat}</td><td className="p-5 font-bold text-slate-800 leading-tight">{i.item}</td><td className="p-5"><span className="bg-white border px-2 py-1 rounded text-[11px] font-medium text-slate-600 shadow-sm">{i.spec}</span></td><td className="p-5 font-bold text-center">{Number(i.qty) === 0 ? <span className="text-red-600 font-black text-[10px] uppercase bg-red-100 px-2 py-1 rounded border border-red-200">Out of Stock</span> : <span className="text-emerald-600 text-lg font-black">{i.qty} Nos</span>}</td><td className="p-5 flex gap-3 justify-center items-center"><button onClick={()=>setConsumeItem(i)} disabled={Number(i.qty) === 0} className="text-indigo-600 hover:scale-125 transition disabled:opacity-30"><i className="fa-solid fa-box-open text-xl"></i></button><button onClick={()=>setEditItem(i)} className="text-slate-400 hover:text-blue-500 hover:scale-125 transition"><i className="fa-solid fa-pen-to-square text-xl"></i></button></td></tr>))}</tbody></table></div>
       </div>
-      {consumeItem && <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"><div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-scale-in text-center p-6"><h3 className="text-lg font-bold text-slate-800 uppercase mb-4 border-b pb-2">Consume Stock</h3><div className="text-sm font-bold text-slate-700 mb-4">{consumeItem.item}</div><div className="bg-slate-50 p-4 rounded-xl border border-dashed mb-4"><p className="text-[10px] font-black text-slate-400 uppercase">Available</p><p className="text-3xl font-black text-emerald-600">{consumeItem.qty} Nos</p></div><input type="number" id="cQty" placeholder="Qty used" className="w-full p-4 border-2 border-slate-200 rounded-xl text-2xl font-black text-center focus:border-indigo-500 outline-none mb-4" /><button onClick={async ()=>{ const qU = parseInt((document.getElementById('cQty') as HTMLInputElement).value); if(!qU || qU > consumeItem.qty) return alert("Invalid Qty!"); const {error}=await supabase.from('inventory').update({qty: consumeItem.qty - qU}).eq('id', consumeItem.id); if(!error){ await supabase.from('usage_logs').insert([{ item_name: consumeItem.item, category: consumeItem.cat, spec: consumeItem.spec, qty_consumed: qU, consumer_uid: profile.id, consumer_name: profile.name, consumer_unit: profile.unit }]); alert("Recorded!"); fetch(); setConsumeItem(null); } }} className="w-full py-4 bg-indigo-600 text-white font-black rounded-xl shadow-lg uppercase tracking-widest hover:bg-indigo-700">Confirm Job Done</button></div></div>}
-      {editItem && <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"><div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-scale-in p-6 text-center"><div className="flex justify-between items-center mb-6 border-b pb-2 uppercase text-blue-800 font-bold"><h3 className="text-lg">Correct Qty</h3><button onClick={()=>setEditItem(null)}>✕</button></div><p className="text-[10px] font-black text-slate-400 uppercase mb-4">{editItem.item}</p><input type="number" id="eQty" defaultValue={editItem.qty} className="w-full p-4 border-2 rounded-xl text-center text-4xl font-black mb-6 focus:border-blue-500 outline-none shadow-inner" /><button onClick={async ()=>{ const nQ = parseInt((document.getElementById('eQty') as HTMLInputElement).value); const {error}=await supabase.from('inventory').update({qty: nQ}).eq('id', editItem.id); if(!error){ alert("Updated!"); fetch(); setEditItem(null); } }} className="w-full py-4 bg-blue-600 text-white font-black rounded-xl uppercase tracking-widest hover:bg-blue-700 shadow-md">Apply Update</button></div></div>}
-      {showAddModal && <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md overflow-y-auto"><div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-8 relative animate-scale-in my-auto"><button onClick={() => setShowAddModal(false)} className="absolute top-4 right-4 text-slate-400 font-bold text-xl">✕</button><h3 className="text-lg font-bold text-slate-800 mb-6 border-b pb-2 uppercase tracking-wide text-center font-industrial">Add New Stock</h3><div className="space-y-4">{!form.isManual ? (<><div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Category</label><select className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm bg-slate-50 focus:border-orange-500 outline-none" value={form.cat} onChange={e=>setForm({...form, cat: e.target.value, sub:"", make:"", model:"", spec:""})}><option value="">-- Select --</option>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select></div><div className="grid grid-cols-2 gap-3"><div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Sub Category</label><select className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm bg-white disabled:bg-slate-50 outline-none" disabled={!form.cat} value={form.sub} onChange={e=>setForm({...form, sub: e.target.value, make:"", model:"", spec:""})}><option value="">-- Select --</option>{subs.map(s => <option key={s} value={s}>{s}</option>)}</select></div><div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Make</label><select className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm bg-white disabled:bg-slate-50 outline-none" disabled={!form.sub} value={form.make} onChange={e=>setForm({...form, make: e.target.value, model:"", spec:""})}><option value="">-- Select --</option>{makes.map(m => <option key={m} value={m}>{m}</option>)}</select></div></div><div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Model</label><select className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm bg-white disabled:bg-slate-50 outline-none" disabled={!form.make} value={form.model} onChange={e=>setForm({...form, model: e.target.value, spec:""})}><option value="">-- Select --</option>{models.map(m => <option key={m} value={m}>{m}</option>)}</select></div><div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Specification</label><select className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm bg-white disabled:bg-slate-50 outline-none" disabled={!form.model} value={form.spec} onChange={e=>setForm({...form, spec: e.target.value})}><option value="">-- Select --</option>{specs.map(s => <option key={s} value={s}>{s}</option>)}</select></div></>) : (<div className="space-y-4"><div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Item Name</label><input type="text" placeholder="Material Name" className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm" onChange={e=>setForm({...form, model: e.target.value})} /></div><div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Technical Spec</label><input type="text" placeholder="Details..." className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm" onChange={e=>setForm({...form, spec: e.target.value})} /></div></div>)}<div className="grid grid-cols-2 gap-3 border-t pt-4"><div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1 block text-center">Qty</label><input type="number" placeholder="0" className="w-full p-3 border-2 border-slate-100 rounded-lg text-2xl font-black text-center" onChange={e=>setForm({...form, qty: e.target.value})} /></div><div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1 block text-center">Unit</label><select className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm bg-slate-50 h-full"><option>Nos</option><option>Mtrs</option><option>Set</option></select></div></div><button onClick={handleSave} className="w-full py-4 bg-slate-900 text-white font-black rounded-xl shadow-lg mt-2 uppercase tracking-widest">Save Stock</button></div></div></div>}
+      {consumeItem && <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"><div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-scale-in text-center p-6"><h3 className="text-lg font-bold text-slate-800 uppercase mb-4 border-b pb-2">Consume Stock</h3><div className="text-sm font-bold text-slate-700 mb-4">{consumeItem.item}</div><input type="number" id="cQty" placeholder="Qty used" className="w-full p-4 border-2 rounded-xl text-2xl font-black text-center outline-none mb-4" /><button onClick={async ()=>{ const qU = parseInt((document.getElementById('cQty') as HTMLInputElement).value); if(!qU || qU > consumeItem.qty) return alert("Invalid Qty!"); const {error}=await supabase.from('inventory').update({qty: consumeItem.qty - qU}).eq('id', consumeItem.id); if(!error){ await supabase.from('usage_logs').insert([{ item_name: consumeItem.item, category: consumeItem.cat, spec: consumeItem.spec, qty_consumed: qU, consumer_uid: profile.id, consumer_name: profile.name, consumer_unit: profile.unit }]); alert("Recorded!"); fetch(); setConsumeItem(null); } }} className="w-full py-4 bg-indigo-600 text-white font-black rounded-xl shadow-lg uppercase">Confirm Job Done</button></div></div>}
+      {editItem && <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"><div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-scale-in p-6 text-center"><div className="flex justify-between items-center mb-6 border-b pb-2 uppercase text-blue-800 font-bold"><h3 className="text-lg">Correct Qty</h3><button onClick={()=>setEditItem(null)}>✕</button></div><input type="number" id="eQty" defaultValue={editItem.qty} className="w-full p-4 border-2 rounded-xl text-center text-4xl font-black mb-6 outline-none shadow-inner" /><button onClick={async ()=>{ const nQ = parseInt((document.getElementById('eQty') as HTMLInputElement).value); const {error}=await supabase.from('inventory').update({qty: nQ}).eq('id', editItem.id); if(!error){ alert("Updated!"); fetch(); setEditItem(null); } }} className="w-full py-4 bg-blue-600 text-white font-black rounded-xl uppercase">Apply Update</button></div></div>}
+      {showAddModal && <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md overflow-y-auto"><div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-8 relative animate-scale-in my-auto"><button onClick={() => setShowAddModal(false)} className="absolute top-4 right-4 text-slate-400 font-bold text-xl">✕</button><h3 className="text-lg font-bold text-slate-800 mb-6 border-b pb-2 uppercase tracking-wide text-center font-industrial">Add New Stock</h3><div className="space-y-4"><div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Category</label><select className="w-full p-3 border-2 border-slate-100 rounded-lg text-sm bg-slate-50 focus:border-orange-500 outline-none" value={form.cat} onChange={e=>setForm({...form, cat: e.target.value})}><option value="">-- Select --</option>{[...new Set(masterCatalog.map(i => i.cat))].sort().map(c => <option key={c} value={c}>{c}</option>)}</select></div><div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1 block text-center">Qty</label><input type="number" placeholder="0" className="w-full p-3 border-2 border-slate-100 rounded-lg text-2xl font-black text-center" onChange={e=>setForm({...form, qty: e.target.value})} /></div><button onClick={handleSave} className="w-full py-4 bg-slate-900 text-white font-black rounded-xl shadow-lg mt-2 uppercase tracking-widest">Save Stock</button></div></div></div>}
     </div>
   );
 }
@@ -412,93 +377,172 @@ function MonthlyAnalysisView({ profile }: any) {
   return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6">{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-widest">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner"><i className="fa-solid fa-chart-line"></i></div><div className="text-3xl font-black text-slate-800">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase">{a.count} Trans</div></div>))}{analysis.length===0 && <div className="p-20 text-center italic text-slate-400 bg-white rounded-xl border w-full col-span-3">No monthly data.</div>}</div>);
 }
 
+// --- NEW LEDGER VIEW (RETURNS & UDHAARI) ---
 function ReturnsLedgerView({ profile, onAction }: any) { 
-    const [received, setReceived] = useState<any[]>([]);
-    const [myRequests, setMyRequests] = useState<any[]>([]);
+    const [pending, setPending] = useState<any[]>([]);
+    const [given, setGiven] = useState<any[]>([]);
+    const [taken, setTaken] = useState<any[]>([]);
+    const [approveModal, setApproveModal] = useState<any>(null);
+    const [approveComment, setApproveComment] = useState("");
 
     const fetchAll = async () => {
-        const { data: rec } = await supabase.from("requests").select("*").eq("to_uid", profile.id).order("id", { ascending: false });
-        const { data: sent } = await supabase.from("requests").select("*").eq("from_uid", profile.id).order("id", { ascending: false });
-        if (rec) setReceived(rec);
-        if (sent) setMyRequests(sent);
+        // 1. Pending: Jisme 'to_uid' main hoon aur status 'pending' hai
+        const { data: p } = await supabase.from("requests").select("*").eq("to_uid", profile.id).eq("status", "pending").order("id", { ascending: false });
+        // 2. Given: Jisme 'to_uid' main hoon aur status 'approved' hai
+        const { data: g } = await supabase.from("requests").select("*").eq("to_uid", profile.id).eq("status", "approved").order("id", { ascending: false });
+        // 3. Taken: Jisme 'from_uid' main hoon aur status 'approved' hai
+        const { data: t } = await supabase.from("requests").select("*").eq("from_uid", profile.id).eq("status", "approved").order("id", { ascending: false });
+        
+        if (p) setPending(p);
+        if (g) setGiven(g);
+        if (t) setTaken(t);
     };
 
     useEffect(() => { if (profile) fetchAll(); }, [profile]);
 
-    const handleAction = async (req: any, newStatus: string) => {
-        const { error } = await supabase.from("requests").update({ status: newStatus }).eq("id", req.id);
+    const handleApprove = async () => {
+        if (!approveModal) return;
+        const { error } = await supabase.from("requests").update({ 
+            status: 'approved', 
+            approve_comment: approveComment 
+        }).eq("id", approveModal.id);
         
-        if (!error && newStatus === 'approved') {
-            const { data: inv } = await supabase.from("inventory").select("qty").eq("id", req.item_id).single();
+        if (!error) {
+            const { data: inv } = await supabase.from("inventory").select("qty").eq("id", approveModal.item_id).single();
             if (inv) {
-                await supabase.from("inventory").update({ qty: inv.qty - req.req_qty }).eq("id", req.item_id);
-                alert("Request Approved & Stock Updated!");
+                await supabase.from("inventory").update({ qty: inv.qty - approveModal.req_qty }).eq("id", approveModal.item_id);
+                alert("Material Issued Successfully!");
             }
-        } else if (!error) {
-            alert(`Request ${newStatus}!`);
         }
+        setApproveModal(null);
+        setApproveComment("");
+        fetchAll();
+        onAction();
+    };
+
+    const handleReject = async (id: any) => {
+        await supabase.from("requests").update({ status: 'rejected' }).eq("id", id);
         fetchAll();
         onAction();
     };
 
     return (
         <div className="space-y-8 animate-fade-in pb-20">
-            <section className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                <div className="p-5 border-b bg-orange-50/50 flex items-center gap-3">
-                    <i className="fa-solid fa-inbox text-orange-600"></i>
-                    <h2 className="text-lg font-bold text-slate-800 uppercase font-industrial">Received Requests</h2>
+            <h2 className="text-2xl font-bold text-slate-800 font-industrial uppercase">Returns & Udhaari (Ledger)</h2>
+
+            {/* PENDING REQUESTS CARD */}
+            <section className="bg-white rounded-xl border border-orange-200 overflow-hidden shadow-sm">
+                <div className="p-4 bg-orange-50/50 flex justify-between items-center border-b border-orange-100">
+                    <div className="flex items-center gap-2 text-orange-800 font-bold">
+                        <i className="fa-solid fa-bell"></i>
+                        <span>Pending Requests</span>
+                    </div>
+                    <span className="bg-white px-3 py-1 rounded text-orange-600 font-black text-sm border border-orange-200">{pending.length}</span>
                 </div>
                 <div className="overflow-x-auto"><table className="w-full text-left">
-                    <thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b uppercase"><tr><th className="p-5 pl-8">From Engineer</th><th className="p-5">Material Detail</th><th className="p-5 text-center">Req Qty</th><th className="p-5 text-center">Action</th></tr></thead>
+                    <thead className="bg-slate-50 text-slate-400 text-[10px] font-bold border-b uppercase"><tr><th className="p-4 pl-6">Item</th><th className="p-4">Requester</th><th className="p-4 text-center">Qty</th><th className="p-4 text-center">Action</th></tr></thead>
                     <tbody className="divide-y text-sm">
-                        {received.map(r => (
-                            <tr key={r.id} className="hover:bg-slate-50 transition border-b border-slate-50">
-                                <td className="p-5 pl-8 font-bold text-slate-700">{r.from_name}<div className="text-[10px] text-slate-400 font-bold">{r.from_unit}</div></td>
-                                <td className="p-5 font-bold text-slate-800 leading-tight">{r.item_name}<div className="text-[10px] text-slate-400 font-medium uppercase mt-0.5">{r.item_spec}</div><div className="text-[10px] italic text-orange-600 mt-1">"{r.req_comment}"</div></td>
-                                <td className="p-5 text-center font-black text-indigo-600">{r.req_qty} Nos</td>
-                                <td className="p-5 text-center">
-                                    {r.status === 'pending' ? (
-                                        <div className="flex gap-2 justify-center">
-                                            <button onClick={()=>handleAction(r, 'approved')} className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-[11px] font-bold shadow-sm"><i className="fa-solid fa-check"></i> Approve</button>
-                                            <button onClick={()=>handleAction(r, 'rejected')} className="bg-red-500 text-white px-3 py-1.5 rounded-lg text-[11px] font-bold shadow-sm"><i className="fa-solid fa-xmark"></i> Reject</button>
-                                        </div>
-                                    ) : (
-                                        <span className={`text-[10px] font-black uppercase px-2 py-1 rounded ${r.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>{r.status}</span>
-                                    )}
+                        {pending.map(r => (
+                            <tr key={r.id} className="hover:bg-orange-50/30 transition">
+                                <td className="p-4 pl-6 font-bold text-slate-800">{r.item_name}<div className="text-[10px] text-slate-400 font-normal">{r.item_spec}</div></td>
+                                <td className="p-4 font-bold text-slate-700">{r.from_name}<div className="text-[10px] text-slate-400 font-normal">{r.from_unit}</div></td>
+                                <td className="p-4 text-center font-black text-orange-600">{r.req_qty} Nos</td>
+                                <td className="p-4 flex gap-2 justify-center">
+                                    <button onClick={()=>setApproveModal(r)} className="bg-green-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:scale-105 transition shadow-sm">Approve</button>
+                                    <button onClick={()=>handleReject(r.id)} className="bg-slate-100 text-slate-500 px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-red-50 hover:text-red-500 transition">Reject</button>
                                 </td>
                             </tr>
                         ))}
-                        {received.length === 0 && <tr><td colSpan={4} className="p-10 text-center italic text-slate-400">No incoming requests.</td></tr>}
+                        {pending.length === 0 && <tr><td colSpan={4} className="p-10 text-center italic text-slate-400">No new requests pending.</td></tr>}
                     </tbody>
                 </table></div>
             </section>
 
-            <section className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                <div className="p-5 border-b bg-indigo-50/50 flex items-center gap-3">
-                    <i className="fa-solid fa-paper-plane text-indigo-600"></i>
-                    <h2 className="text-lg font-bold text-slate-800 uppercase font-industrial">My Sent Requests</h2>
-                </div>
-                <div className="overflow-x-auto"><table className="w-full text-left">
-                    <thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b uppercase"><tr><th className="p-5 pl-8">To Zone/Engineer</th><th className="p-5">Material Detail</th><th className="p-5 text-center">Req Qty</th><th className="p-5 text-center">Status</th></tr></thead>
-                    <tbody className="divide-y text-sm">
-                        {myRequests.map(r => (
-                            <tr key={r.id} className="hover:bg-slate-50 transition border-b border-slate-50">
-                                <td className="p-5 pl-8 font-bold text-slate-700">{r.to_unit}<div className="text-[10px] text-slate-400 font-bold">Engr: {r.to_name}</div></td>
-                                <td className="p-5 font-bold text-slate-800 leading-tight">{r.item_name}<div className="text-[10px] text-slate-400 font-medium uppercase mt-0.5">{r.item_spec}</div></td>
-                                <td className="p-5 text-center font-black text-slate-700">{r.req_qty} Nos</td>
-                                <td className="p-5 text-center">
-                                    <span className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-full border ${
-                                        r.status === 'approved' ? 'bg-green-50 text-green-700 border-green-200' : 
-                                        r.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200 animate-pulse' : 
-                                        'bg-red-50 text-red-700 border-red-200'
-                                    }`}>{r.status}</span>
-                                </td>
-                            </tr>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* UDHAARI DIYA (ITEMS GIVEN) */}
+                <section className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-md">
+                    <div className="p-5 border-b bg-slate-50 flex items-center gap-3">
+                        <i className="fa-solid fa-arrow-up text-blue-600"></i>
+                        <h2 className="text-blue-800 font-bold uppercase tracking-tight">Udhaari Diya (Items Given)</h2>
+                    </div>
+                    <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
+                        {given.map(r => (
+                            <div key={r.id} className="p-4 border rounded-xl bg-blue-50/30 border-blue-100 relative">
+                                <div className="text-xs font-black text-blue-700 uppercase mb-1">{r.item_name}</div>
+                                <div className="text-[10px] text-slate-500 mb-3">{r.item_spec}</div>
+                                <div className="flex justify-between items-end">
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase">To Engineer</p>
+                                        <p className="text-xs font-black text-slate-700">{r.from_name} ({r.from_unit})</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase">Qty & Date</p>
+                                        <p className="text-xs font-black text-slate-700">{r.req_qty} Nos • {new Date(Number(r.timestamp)).toLocaleDateString()}</p>
+                                    </div>
+                                </div>
+                                <div className="mt-3 pt-3 border-t border-blue-100 space-y-1">
+                                    <p className="text-[10px] italic text-slate-500"><span className="font-bold text-slate-600">Req Note:</span> "{r.req_comment || 'No comment'}"</p>
+                                    <p className="text-[10px] italic text-blue-600"><span className="font-bold">Appr Note:</span> "{r.approve_comment || 'No comment'}"</p>
+                                </div>
+                            </div>
                         ))}
-                        {myRequests.length === 0 && <tr><td colSpan={4} className="p-10 text-center italic text-slate-400">No sent requests.</td></tr>}
-                    </tbody>
-                </table></div>
-            </section>
+                        {given.length === 0 && <p className="text-center py-10 text-slate-400 italic text-sm">No records found.</p>}
+                    </div>
+                </section>
+
+                {/* UDHAARI LIYA (ITEMS TAKEN) */}
+                <section className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-md">
+                    <div className="p-5 border-b bg-slate-50 flex items-center gap-3">
+                        <i className="fa-solid fa-arrow-down text-red-600"></i>
+                        <h2 className="text-red-800 font-bold uppercase tracking-tight">Udhaari Liya (Items Taken)</h2>
+                    </div>
+                    <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
+                        {taken.map(r => (
+                            <div key={r.id} className="p-4 border rounded-xl bg-red-50/30 border-red-100">
+                                <div className="text-xs font-black text-red-700 uppercase mb-1">{r.item_name}</div>
+                                <div className="text-[10px] text-slate-500 mb-3">{r.item_spec}</div>
+                                <div className="flex justify-between items-end">
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase">From Engineer</p>
+                                        <p className="text-xs font-black text-slate-700">{r.to_name} ({r.to_unit})</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase">Qty & Date</p>
+                                        <p className="text-xs font-black text-slate-700">{r.req_qty} Nos • {new Date(Number(r.timestamp)).toLocaleDateString()}</p>
+                                    </div>
+                                </div>
+                                <div className="mt-3 pt-3 border-t border-red-100 space-y-1">
+                                    <p className="text-[10px] italic text-slate-500"><span className="font-bold text-slate-600">Your Note:</span> "{r.req_comment || 'No comment'}"</p>
+                                    <p className="text-[10px] italic text-red-600"><span className="font-bold">Appr Note:</span> "{r.approve_comment || 'No comment'}"</p>
+                                </div>
+                            </div>
+                        ))}
+                        {taken.length === 0 && <p className="text-center py-10 text-slate-400 italic text-sm">No records found.</p>}
+                    </div>
+                </section>
+            </div>
+
+            {/* APPROVAL MODAL WITH COMMENT */}
+            {approveModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+                    <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 animate-scale-in">
+                        <h3 className="text-lg font-bold text-slate-800 uppercase mb-4 border-b pb-2">Final Approval</h3>
+                        <p className="text-xs text-slate-500 mb-4">Issuing <span className="font-bold text-slate-800">{approveModal.req_qty} Nos</span> of <span className="font-bold text-indigo-600">{approveModal.item_name}</span> to <span className="font-bold">{approveModal.from_name}</span>.</p>
+                        
+                        <label className="text-[10px] font-black text-slate-400 uppercase">Your Approval Comment (Udhaari Note)</label>
+                        <textarea 
+                            className="w-full p-3 border-2 rounded-xl text-sm h-24 outline-none focus:border-green-500 mt-1 mb-6" 
+                            placeholder="e.g. Please return by Friday, used for maintenance job..."
+                            onChange={e=>setApproveComment(e.target.value)}
+                        ></textarea>
+
+                        <div className="flex gap-2">
+                            <button onClick={()=>setApproveModal(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl uppercase text-xs">Cancel</button>
+                            <button onClick={handleApprove} className="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl uppercase text-xs shadow-lg">Confirm & Issue</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     ); 
 }
