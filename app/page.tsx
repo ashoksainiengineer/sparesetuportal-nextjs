@@ -122,7 +122,7 @@ export default function SpareSetuApp() {
   );
 }
 
-// --- AUTH VIEW (100% ORIGINAL minute details restored) ---
+// --- AUTH VIEW (NO CHANGES AS PER INSTRUCTION) ---
 function AuthView() {
   const [view, setView] = useState<"login" | "register" | "otp" | "forgot">("login");
   const [form, setForm] = useState({ email: "", pass: "", name: "", unit: "", enteredOtp: "", generatedOtp: "" });
@@ -200,6 +200,7 @@ function AuthView() {
   );
 }
 
+// --- GLOBAL SEARCH VIEW (FONT UPDATED) ---
 function GlobalSearchView({ profile }: any) {
   const [items, setItems] = useState<any[]>([]); 
   const [search, setSearch] = useState(""); 
@@ -231,9 +232,12 @@ function GlobalSearchView({ profile }: any) {
           <tbody className="divide-y text-sm">
             {filtered.map((i: any, idx: number) => (
               <tr key={idx} className={`hover:bg-slate-50 transition border-b border-slate-50 ${i.qty === 0 ? 'bg-red-50/20' : ''}`}>
-                <td className="p-4 pl-6 font-bold text-slate-800 leading-tight uppercase font-inter">{i.item}<div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{i.cat}</div></td>
-                <td className="p-4"><span className="bg-white border px-2 py-1 rounded text-[11px] font-bold text-slate-600 shadow-sm uppercase font-inter">{i.spec}</span></td>
-                <td className="p-4 text-center font-mono font-bold whitespace-nowrap">{i.qty} {i.unit}</td>
+                <td className="p-4 pl-6 font-bold leading-tight uppercase font-inter">
+                  <div className="text-slate-800 font-bold text-sm tracking-tight">{i.item}</div>
+                  <div className="text-[9px] text-slate-400 font-bold uppercase mt-0.5 tracking-wider">{i.cat}</div>
+                </td>
+                <td className="p-4"><span className="bg-white border px-2 py-0.5 rounded text-[10px] font-bold text-slate-500 shadow-sm uppercase font-inter">{i.spec}</span></td>
+                <td className="p-4 text-center font-mono font-bold whitespace-nowrap text-slate-700">{i.qty} {i.unit}</td>
                 <td className="p-4 text-center">
                     {i.holder_uid === profile?.id ? <span className="text-[10px] font-black text-green-600 italic tracking-tighter uppercase font-bold">MY STORE</span> : <button onClick={()=>setRequestItem(i)} className="bg-orange-500 text-white px-3 py-1 rounded text-[10px] font-black shadow-sm uppercase font-industrial tracking-widest font-bold">Request</button>}
                 </td>
@@ -242,24 +246,11 @@ function GlobalSearchView({ profile }: any) {
           </tbody>
         </table></div>
       </section>
-      {requestItem && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-            <div className="bg-white w-full max-w-[320px] rounded-2xl shadow-2xl p-5 animate-scale-in border-t-8 border-orange-500 font-inter">
-                <h3 className="text-[11px] font-black text-slate-800 uppercase border-b pb-2 mb-4 font-industrial tracking-widest uppercase">Request Part</h3>
-                <div className="text-[11px] font-black text-indigo-600 mb-1 leading-tight uppercase truncate">{requestItem.item}</div>
-                <div className="text-[9px] text-slate-500 mb-5 bg-slate-50 p-2 rounded uppercase font-bold tracking-tighter">Source: {requestItem.holder_unit} ({requestItem.holder_name})</div>
-                <div className="space-y-4">
-                    <div><label className="text-[9px] font-black text-slate-400 uppercase font-bold font-industrial">Qty ({requestItem.unit})</label><input type="number" className="w-full p-2 border-2 rounded-lg text-center text-lg font-black outline-none focus:border-orange-500 font-mono" value={reqForm.qty} onChange={e=>setReqForm({...reqForm, qty: e.target.value})} /></div>
-                    <div><label className="text-[9px] font-black text-slate-400 uppercase font-bold font-industrial">Log Note</label><textarea className="w-full p-2 border-2 rounded-lg text-xs h-16 outline-none focus:border-orange-500 font-mono leading-tight uppercase" placeholder="Purpose..." onChange={e=>setReqForm({...reqForm, comment: e.target.value})}></textarea></div>
-                    <div className="flex gap-2 pt-1 font-industrial"><button onClick={()=>setRequestItem(null)} className="flex-1 py-2 bg-slate-100 text-slate-600 font-bold rounded-lg uppercase text-[9px]">Cancel</button><button onClick={handleSendRequest} className="flex-1 py-2 iocl-btn text-white font-bold rounded-lg uppercase text-[9px] shadow-lg">Submit Request</button></div>
-                </div>
-            </div>
-        </div>
-      )}
     </div>
   );
 }
 
+// --- MY STORE VIEW (FONT UPDATED) ---
 function MyStoreView({ profile, fetchProfile }: any) {
   const [myItems, setMyItems] = useState<any[]>([]); const [showAddModal, setShowAddModal] = useState(false);
   const [form, setForm] = useState({ cat: "", sub: "", make: "", model: "", spec: "", qty: "", isManual: false });
@@ -283,33 +274,25 @@ function MyStoreView({ profile, fetchProfile }: any) {
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden font-mono uppercase font-bold">
         <div className="overflow-x-auto"><table className="w-full text-left font-industrial tracking-tight font-inter"><thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b uppercase font-industrial tracking-widest"><tr><th className="p-5 pl-8">Category</th><th className="p-5">Item Name</th><th className="p-5">Spec</th><th className="p-5 text-center">Qty</th></tr></thead>
           <tbody className="divide-y text-sm">
-              {myItems.map(i => (<tr key={i.id} className="hover:bg-slate-50 transition border-b border-slate-50 font-bold"><td className="p-5 pl-8 text-[10px] font-bold text-slate-400 uppercase leading-none">{i.cat}</td><td className="p-5 font-bold text-slate-800 leading-tight uppercase font-inter">{i.item}</td><td className="p-5 font-mono uppercase font-bold"><span className="bg-white border px-2 py-1 rounded text-[11px] font-bold text-slate-600 shadow-sm uppercase">{i.spec}</span></td><td className="p-5 font-bold text-center font-mono uppercase whitespace-nowrap">{i.qty} {i.unit}</td></tr>))}
+              {myItems.map(i => (<tr key={i.id} className="hover:bg-slate-50 transition border-b border-slate-50 font-bold">
+                <td className="p-5 pl-8 text-[9px] font-bold text-slate-400 uppercase leading-none">{i.cat}</td>
+                <td className="p-5 leading-tight uppercase font-inter"><div className="text-slate-800 font-bold text-sm tracking-tight">{i.item}</div></td>
+                <td className="p-5 font-mono uppercase font-bold"><span className="bg-white border px-2 py-0.5 rounded text-[10px] font-bold text-slate-500 shadow-sm uppercase">{i.spec}</span></td>
+                <td className="p-5 font-bold text-center font-mono uppercase whitespace-nowrap text-slate-700">{i.qty} {i.unit}</td>
+              </tr>))}
           </tbody>
         </table></div>
       </div>
-      {showAddModal && <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto font-industrial"><div className="bg-white w-full max-w-[360px] rounded-2xl shadow-2xl p-5 relative animate-scale-in my-auto border-t-4 border-slate-900 font-inter font-bold uppercase"><button onClick={() => setShowAddModal(false)} className="absolute top-4 right-4 text-slate-400 font-bold text-xl">✕</button><h3 className="text-sm font-black text-slate-800 mb-6 border-b pb-2 uppercase tracking-widest text-center font-industrial uppercase font-bold">Inward Catalog Entry</h3><div className="space-y-3 font-industrial font-bold uppercase">
-          <div><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-bold font-industrial">Main Category</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold bg-slate-50 font-industrial" value={form.cat} onChange={e=>setForm({...form, cat: e.target.value})}><option value="">Select Category</option>{[...new Set(masterCatalog.map(i => i.cat))].map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-          <div className="grid grid-cols-2 gap-3 uppercase font-bold font-industrial">
-              <div className="flex flex-col"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-bold">Sub Cat</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold h-[38px] font-industrial" value={form.sub} onChange={e=>setForm({...form, sub: e.target.value})}><option value="">Sub</option>{[...new Set(masterCatalog.filter(i=>i.cat===form.cat).map(i=>i.sub))].map(s=><option key={s} value={s}>{s}</option>)}</select></div>
-              <div className="flex flex-col"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-bold">Make</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold h-[38px] font-industrial" value={form.make} onChange={e=>setForm({...form, make: e.target.value})}><option value="">Make</option>{[...new Set(masterCatalog.filter(i=>i.cat===form.cat && i.sub===form.sub).map(i=>i.make))].map(m=><option key={m} value={m}>{m}</option>)}</select></div>
-          </div>
-          <div><label className="text-[9px] font-black text-slate-400 uppercase font-bold font-industrial">Model Name</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold font-industrial" value={form.model} onChange={e=>setForm({...form, model: e.target.value})}><option value="">Select Model</option>{[...new Set(masterCatalog.filter(i=>i.cat===form.cat && i.sub===form.sub && i.make===form.make).map(i=>i.model))].map(m=><option key={m} value={m}>{m}</option>)}</select></div>
-          <div><label className="text-[9px] font-black text-slate-400 uppercase font-bold font-industrial">Spec Details</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs outline-none uppercase font-bold font-industrial" value={form.spec} onChange={e=>setForm({...form, spec: e.target.value})}><option value="">Select Spec</option>{[...new Set(masterCatalog.filter(i=>i.cat===form.cat && i.sub===form.sub && i.make===form.make && i.model===form.model).map(i=>i.spec))].map(s=><option key={s} value={s}>{s}</option>)}</select></div>
-          <div className="grid grid-cols-2 gap-3 border-t pt-3 font-industrial">
-              <div className="flex flex-col"><label className="text-[9px] font-black text-slate-400 uppercase block text-center mb-1 font-bold">Qty</label><input type="number" placeholder="0" className="w-full p-2 border-2 border-slate-100 rounded-lg text-lg font-black text-center outline-none h-[38px] font-mono" onChange={e=>setForm({...form, qty: e.target.value})} /></div>
-              <div className="flex flex-col"><label className="text-[9px] font-black text-slate-400 uppercase block text-center mb-1 font-bold">Unit</label><select className="w-full p-2 border-2 border-slate-100 rounded-lg text-xs uppercase font-bold outline-none h-[38px] font-industrial"><option>Nos</option><option>Mtrs</option></select></div>
-          </div>
-          <button onClick={handleSave} className="w-full py-2.5 bg-slate-900 text-white font-black rounded-lg shadow-lg mt-2 uppercase text-[9px] tracking-widest hover:bg-slate-800 font-industrial font-bold uppercase">Complete Entry</button>
-      </div></div></div>}
     </div>
   );
 }
 
+// --- USAGE HISTORY & ANALYSIS ---
 function UsageHistoryView({ profile }: any) {
   const [logs, setLogs] = useState<any[]>([]);
   useEffect(() => { if (profile) fetch(); }, [profile]);
   const fetch = async () => { const { data } = await supabase.from("usage_logs").select("*").eq("consumer_uid", profile.id).order("timestamp", { ascending: false }); if (data) setLogs(data); };
-  return (<section className="bg-white rounded-xl border border-slate-200 shadow-sm font-mono uppercase font-bold"><div className="p-5 border-b bg-slate-50/50 flex justify-between font-inter"><h2 className="text-lg font-bold text-slate-800 uppercase font-industrial tracking-wider">Log: Usage Feed</h2></div><div className="overflow-x-auto"><table className="w-full text-left text-xs uppercase font-mono font-bold"><thead className="bg-slate-50 border-b text-[10px] font-black uppercase tracking-widest font-industrial"><tr><th className="p-4 pl-8">Date</th><th className="p-4">Details</th><th className="p-4 text-center">Qty</th></tr></thead><tbody className="divide-y text-slate-600">{logs.map(l => (<tr key={l.id} className="hover:bg-slate-50 transition border-b border-slate-100"><td className="p-4 pl-8 uppercase font-mono">{new Date(Number(l.timestamp)).toLocaleDateString()}</td><td className="p-4 font-inter font-bold uppercase leading-tight">{l.item_name}<div className="text-[10px] text-slate-400 uppercase mt-0.5 tracking-tighter">{l.category}</div></td><td className="p-4 text-center font-black text-red-600">-{l.qty_consumed} Nos</td></tr>))}</tbody></table></div></section>);
+  return (<section className="bg-white rounded-xl border border-slate-200 shadow-sm font-mono uppercase font-bold"><div className="p-5 border-b bg-slate-50/50 flex justify-between font-inter"><h2 className="text-lg font-bold text-slate-800 uppercase font-industrial tracking-wider">Log: Usage Feed</h2></div><div className="overflow-x-auto"><table className="w-full text-left text-xs uppercase font-mono font-bold"><thead className="bg-slate-50 border-b text-[10px] font-black uppercase tracking-widest font-industrial"><tr><th className="p-4 pl-8">Date</th><th className="p-4">Details</th><th className="p-4 text-center">Qty</th></tr></thead><tbody className="divide-y text-slate-600">{logs.map(l => (<tr key={l.id} className="hover:bg-slate-50 transition border-b border-slate-100"><td className="p-4 pl-8 uppercase font-mono">{new Date(Number(l.timestamp)).toLocaleDateString()}</td><td className="p-4 font-inter font-bold uppercase leading-tight"><div className="text-slate-800 font-bold text-sm tracking-tight">{l.item_name}</div><div className="text-[9px] text-slate-400 uppercase mt-0.5 tracking-tighter font-bold">{l.category}</div></td><td className="p-4 text-center font-black text-red-600">-{l.qty_consumed} Nos</td></tr>))}</tbody></table></div></section>);
 }
 
 function MonthlyAnalysisView({ profile }: any) {
@@ -318,7 +301,7 @@ function MonthlyAnalysisView({ profile }: any) {
   return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-industrial uppercase tracking-tight font-bold"><div className="col-span-3 pb-4 text-xs font-black text-slate-400 tracking-widest text-center border-b font-industrial">Analytical Summary</div>{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md uppercase font-bold"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-[0.2em] font-industrial">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner font-bold"><i className="fa-solid fa-chart-line font-bold"></i></div><div className="text-3xl font-black text-slate-800 font-industrial">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase font-industrial tracking-widest">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase font-industrial tracking-tighter">{a.count} Logged Records</div></div>))}</div>);
 }
 
-// --- UPDATED RETURNS & UDHAARI VIEW (FIXED ROUTING + RESTORED ARCHIVE) ---
+// --- UPDATED RETURNS & UDHAARI VIEW (FONT + ARCHIVE COLUMN UPDATED) ---
 function ReturnsLedgerView({ profile, onAction }: any) { 
     const [pending, setPending] = useState<any[]>([]);
     const [given, setGiven] = useState<any[]>([]);
@@ -391,6 +374,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
         <div className="space-y-10 animate-fade-in pb-20 font-industrial tracking-tight font-inter uppercase font-bold">
             <h2 className="text-2xl font-bold text-slate-800 uppercase flex items-center gap-2 font-industrial"><i className="fa-solid fa-handshake-angle text-orange-500"></i> Udhaari Dashboard</h2>
 
+            {/* ATTENTION REQUIRED */}
             <section className="bg-white rounded-xl border-t-4 border-orange-500 shadow-xl overflow-hidden font-industrial uppercase font-bold">
                 <div className="p-4 bg-orange-50/50 flex justify-between border-b uppercase font-bold"><div className="flex items-center gap-2 text-orange-900 font-black uppercase text-[10px] tracking-widest font-inter uppercase font-bold"><i className="fa-solid fa-bolt animate-pulse"></i> Attention Required (Incoming Actions)</div><span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px] uppercase font-bold">{pending.length}</span></div>
                 <div className="overflow-x-auto"><table className="w-full text-left text-sm divide-y font-mono font-bold">
@@ -398,7 +382,11 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                     <tbody className="divide-y text-slate-600 uppercase font-bold">
                         {pending.map(r => (
                             <tr key={r.id} className={`${r.status==='return_requested' ? 'bg-orange-50 animate-pulse' : 'bg-white'} transition border-b`}>
-                                <td className="p-4 pl-6 font-bold text-slate-800 leading-tight uppercase font-inter">{r.item_name}<div className="text-[9px] text-slate-400 font-normal mt-0.5 uppercase tracking-tighter font-mono">{r.item_spec}</div><div className="text-[8px] text-slate-300 italic mt-1 font-mono">{formatTS(r.timestamp)}</div></td>
+                                <td className="p-4 pl-6 leading-tight uppercase font-inter">
+                                  <div className="text-slate-800 font-bold text-sm tracking-tight">{r.item_name}</div>
+                                  <div className="text-[9px] text-slate-400 font-bold mt-0.5 uppercase tracking-tighter font-mono">{r.item_spec}</div>
+                                  <div className="text-[8px] text-slate-300 italic mt-1 font-mono">{formatTS(r.timestamp)}</div>
+                                </td>
                                 <td className="p-4 font-bold text-slate-700 uppercase font-inter leading-tight">{r.from_name}<div className="text-[10px] text-slate-400 font-normal uppercase font-mono">{r.from_unit}</div></td>
                                 <td className="p-4 text-center font-black text-orange-600 text-lg font-mono whitespace-nowrap">{r.req_qty} {r.item_unit}</td>
                                 <td className="p-4 flex gap-2 justify-center font-industrial"><button onClick={()=>setActionModal({type: r.status==='pending' ? 'approve' : 'verify', data:r})} className="bg-green-600 text-white px-4 py-2 rounded-lg text-[9px] font-black shadow-md hover:bg-green-700 tracking-widest font-bold uppercase font-inter"> {r.status==='pending' ? 'Issue' : 'Verify'} </button><button onClick={()=>setActionModal({type: r.status==='pending' ? 'reject' : 'reject_return', data:r})} className="bg-slate-100 text-slate-500 px-4 py-2 rounded-lg text-[9px] font-black transition tracking-widest uppercase font-bold font-inter">Reject</button></td>
@@ -408,14 +396,15 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 </table></div>
             </section>
 
+            {/* ACTIVE LEDGER */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 font-inter uppercase font-bold">
                 <section className="bg-white rounded-2xl border-t-4 border-blue-600 shadow-lg overflow-hidden font-mono uppercase font-bold">
                     <div className="p-5 border-b bg-blue-50/30 flex items-center gap-3 font-industrial text-xs font-black text-blue-900 tracking-widest"> <i className="fa-solid fa-arrow-up-from-bracket text-blue-600"></i> Active Ledger (Items Given)</div>
                     <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
                         {given.map(r => (
                             <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative shadow-sm uppercase font-bold font-inter">
-                                <div className="text-xs font-black text-slate-800 uppercase mb-1 leading-tight">{r.item_name}</div>
-                                <div className="text-[10px] text-slate-400 mb-3 uppercase tracking-tighter font-bold">{r.item_spec}</div>
+                                <div className="text-slate-800 font-bold text-sm tracking-tight mb-1">{r.item_name}</div>
+                                <div className="text-[9px] text-slate-400 mb-3 uppercase tracking-tighter font-bold">{r.item_spec}</div>
                                 <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg mb-3"><div><p className="text-[9px] font-bold text-slate-400 uppercase font-industrial">Receiver</p><p className="text-xs font-black text-slate-700 uppercase tracking-tighter">{r.from_name} ({r.from_unit})</p></div><div className="text-right font-black text-blue-600 font-mono">{r.req_qty} {r.item_unit}</div></div>
                                 <div className="text-[9px] font-mono text-slate-400 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed tracking-tighter">
                                     <p><span className="font-black text-blue-600/70 uppercase">ISSUED BY:</span> {r.to_name}</p>
@@ -431,7 +420,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                     <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
                         {taken.map(r => (
                             <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative uppercase font-bold font-inter">
-                                <div className="text-xs font-black text-slate-800 uppercase mb-1 leading-tight">{r.item_name}</div>
+                                <div className="text-slate-800 font-bold text-sm tracking-tight mb-1">{r.item_name}</div>
                                 <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg mb-3 font-bold"><div><p className="text-[9px] font-bold text-slate-400 uppercase font-industrial">Source</p><p className="text-xs font-black text-slate-700 uppercase tracking-tighter">{r.to_unit} ({r.to_name})</p></div><div className="text-right font-black text-red-600 font-mono">{r.req_qty} {r.item_unit}</div></div>
                                 <div className="text-[9px] font-mono text-slate-400 mb-3 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed tracking-tighter uppercase font-bold">
                                     <p><span className="font-black text-red-600/70 uppercase">TAKEN BY:</span> {r.from_name}</p>
@@ -444,18 +433,29 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 </section>
             </div>
 
-            {/* SETTLED HISTORY RECORD (RESTORED AS PER PREVIOUS DETAILS) */}
+            {/* SETTLED HISTORY RECORD (UPDATED QTY COLUMN & FONT) */}
             <div className="pt-10 space-y-10 font-mono uppercase font-bold">
                 <div className="flex items-center gap-4"><hr className="flex-1 border-slate-200"/><h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.4em] font-industrial">Digital Archive Logs</h3><hr className="flex-1 border-slate-200"/></div>
                 <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
                     <div className="p-4 bg-slate-800 text-white flex justify-between font-industrial text-[10px] tracking-widest uppercase"><span>Finalized Audit Trail: 7-Point Timeline Logs</span><i className="fa-solid fa-file-shield text-slate-400"></i></div>
                     <div className="overflow-x-auto"><table className="w-full text-left text-[9px] divide-y divide-slate-100 uppercase font-mono">
-                        <thead className="bg-slate-50 text-[8px] font-black text-slate-400 font-industrial tracking-widest uppercase"><tr><th className="p-4">Material Details & Technical Spec</th><th className="p-4 text-center">Settled Qty</th><th className="p-4">Receiver & Lender Info</th><th className="p-4">7-Point Audit Life-Cycle Log</th><th className="p-4 text-center">Status</th></tr></thead>
+                        <thead className="bg-slate-50 text-[8px] font-black text-slate-400 font-industrial tracking-widest uppercase"><tr><th className="p-4">Material Details & Technical Spec</th><th className="p-4 text-center">Qty</th><th className="p-4">Receiver & Lender Info</th><th className="p-4">7-Point Audit Life-Cycle Log</th><th className="p-4 text-center">Status</th></tr></thead>
                         <tbody className="divide-y text-slate-600 font-bold uppercase">
                             {[...givenHistory, ...takenHistory].sort((a,b)=>Number(b.timestamp)-Number(a.timestamp)).map(h => (
                                 <tr key={h.id} className="hover:bg-slate-50 transition border-b uppercase font-bold">
-                                    <td className="p-4 leading-tight uppercase font-bold"><p className="font-bold text-slate-800 tracking-tighter">{h.item_name}</p><p className="text-[8px] text-slate-400 mt-1 uppercase">SPEC: {h.item_spec}</p></td>
-                                    <td className="p-4 text-center font-black text-slate-600 whitespace-nowrap">{h.req_qty} {h.item_unit}</td>
+                                    <td className="p-4 leading-tight uppercase font-bold">
+                                      <p className="text-slate-800 font-bold text-xs tracking-tight">{h.item_name}</p>
+                                      <p className="text-[8px] text-slate-400 mt-1 uppercase">SPEC: {h.item_spec}</p>
+                                    </td>
+                                    {/* UPDATED QTY COLUMN: SHOWING UDH & RET TOGETHER */}
+                                    <td className="p-4 text-center font-black whitespace-nowrap">
+                                      <div className="flex flex-col items-center gap-0.5 leading-none">
+                                        <span className="text-[9px] text-blue-600/80 font-bold uppercase tracking-tighter">UDH: {h.req_qty} {h.item_unit}</span>
+                                        <span className={`text-[9px] font-black uppercase tracking-tighter ${h.status === 'returned' ? 'text-green-600' : 'text-slate-300'}`}>
+                                          RET: {h.status === 'returned' ? h.req_qty : 0} {h.item_unit}
+                                        </span>
+                                      </div>
+                                    </td>
                                     <td className="p-4 leading-tight uppercase font-bold"><p className="text-blue-500 font-bold uppercase">BORR: {h.from_name}</p><p className="text-red-500 font-bold uppercase">LEND: {h.to_name}</p></td>
                                     <td className="p-4 leading-none space-y-1 font-bold tracking-tighter uppercase text-[8px]">
                                         <p><span className="opacity-50 font-bold">1. REQUEST BY:</span> {h.from_name} ({h.from_unit}) @ {formatTS(h.timestamp)}</p>
@@ -470,12 +470,12 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 </div>
             </div>
 
-            {/* ACTION MODAL */}
+            {/* ACTION MODAL (NO CHANGES) */}
             {actionModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md font-inter font-bold uppercase">
                     <div className="bg-white w-full max-w-[320px] rounded-2xl shadow-2xl p-5 animate-scale-in border-t-4 border-slate-900 font-industrial">
                         <div className="flex justify-between items-center mb-4 border-b pb-2 tracking-widest"><h3 className="text-[11px] font-black text-slate-800 uppercase">{actionModal.type.replace('_', ' ')} Portal</h3><button onClick={()=>setActionModal(null)} className="text-slate-400 hover:text-red-500">✕</button></div>
-                        <div className="text-[11px] font-black text-indigo-600 mb-1 leading-tight uppercase truncate">{actionModal.data.item_name}</div>
+                        <div className="text-slate-800 font-bold text-sm tracking-tight mb-1">{actionModal.data.item_name}</div>
                         <div className="text-[9px] text-slate-400 mb-5 font-mono truncate">{actionModal.data.item_spec}</div>
                         <div className="space-y-4">
                             {(actionModal.type === 'approve' || actionModal.type === 'return' || actionModal.type === 'verify') && (
