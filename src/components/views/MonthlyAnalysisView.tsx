@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 
-export default function MonthlyAnalysisView() {
+// Point: Accepting 'profile' prop to fix TypeScript Build Error
+export default function MonthlyAnalysisView({ profile }: any) {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [reportData, setReportData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -31,7 +32,7 @@ export default function MonthlyAnalysisView() {
 
       if (error) throw error;
 
-      // --- LOGIC: AGGREGATION (Category > Sub-category) ---
+      // --- LOGIC: AGGREGATION (Category > Raw Sub-category) ---
       const report: any = {};
       logs?.forEach((log) => {
         const cat = log.cat || 'Others';
@@ -42,14 +43,12 @@ export default function MonthlyAnalysisView() {
         report[cat][sub] = (report[cat][sub] || 0) + Number(log.qty_consumed || 0);
       });
 
-      // Transform into displayable format
       const finalArray = Object.keys(report).sort().map(cat => {
         const subItems = Object.keys(report[cat]).map(sub => ({
           name: sub,
           qty: report[cat][sub]
         })).sort((a, b) => b.qty - a.qty);
 
-        // Calculate Max Qty for scaling bars
         const maxQty = Math.max(...subItems.map(i => i.qty));
         const total = subItems.reduce((acc, curr) => acc + curr.qty, 0);
 
@@ -65,7 +64,7 @@ export default function MonthlyAnalysisView() {
   };
 
   return (
-    <div className="animate-fade-in space-y-8 pb-20 font-roboto font-bold uppercase">
+    <div className="animate-fade-in space-y-8 pb-20 font-roboto font-bold uppercase tracking-tight">
       {/* Header Panel */}
       <div className="bg-white p-6 rounded-2xl border shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
@@ -86,7 +85,7 @@ export default function MonthlyAnalysisView() {
       {/* Analysis Grid */}
       {loading ? (
         <div className="p-40 text-center animate-pulse">
-            <p className="text-[10px] text-slate-300 font-black tracking-[0.5em]">Syncing Global Logs...</p>
+            <p className="text-[10px] text-slate-300 font-black tracking-[0.5em]">Aggregating Global Logs...</p>
         </div>
       ) : reportData.length > 0 ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -103,7 +102,7 @@ export default function MonthlyAnalysisView() {
                 </div>
               </div>
 
-              {/* CUSTOM TAILWIND BARS */}
+              {/* CUSTOM BARS (Zero Dependencies) */}
               <div className="space-y-5">
                 {data.items.map((item: any, i: number) => (
                   <div key={i} className="space-y-1.5">
@@ -128,7 +127,7 @@ export default function MonthlyAnalysisView() {
         </div>
       ) : (
         <div className="bg-white border-2 border-dashed border-slate-100 rounded-3xl p-32 text-center">
-            <p className="text-slate-300 font-black tracking-widest text-xs">No analytics available for this month</p>
+            <p className="text-slate-300 font-black tracking-widest text-xs">No global logs found for this period</p>
         </div>
       )}
     </div>
