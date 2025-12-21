@@ -114,10 +114,12 @@ export default function MonthlyAnalysisView({ profile }: any) {
 
   return (
     <div className="animate-fade-in space-y-8 pb-20 font-roboto font-bold uppercase tracking-tight">
+      
+      {/* Updated Black Box Header with your Heading & Tagline */}
       <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl flex flex-col md:flex-row justify-between items-center gap-6 border-b-4 border-orange-500">
         <div>
-          <h2 className="text-xl font-black uppercase tracking-widest leading-none">Refinery Resource Analysis</h2>
-          <p className="text-[10px] text-slate-400 mt-2 tracking-[0.2em]">Global Consumption & Itemized Breakdown</p>
+          <h2 className="text-xl font-black uppercase tracking-widest leading-none">Monthly Consumption Data</h2>
+          <p className="text-[10px] text-slate-400 mt-2 tracking-[0.2em] lowercase">category & sub-category wise breakdown</p>
         </div>
         <div className="flex items-center gap-4 bg-slate-800 p-3 rounded-xl border border-slate-700">
           <span className="text-[9px] font-black text-orange-400 uppercase">Analysis Month</span>
@@ -164,7 +166,6 @@ export default function MonthlyAnalysisView({ profile }: any) {
                         titleColor: '#fb923c',
                         padding: 15,
                         titleFont: { size: 13, weight: 'bold' },
-                        // FIXED: Changed '500' string to 'normal' to satisfy TypeScript
                         bodyFont: { size: 11, weight: 'normal' },
                         displayColors: false,
                         callbacks: {
