@@ -59,7 +59,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
     }
   }, [form.cat, form.sub, form.make, form.model, form.isManual]);
 
-  // --- AGGREGATION & FILTERING ---
+  // --- ENGINE: AGGREGATION & FILTERING ---
   const groupedItems = myItems.reduce((acc: any, item: any) => {
     const key = `${item.item || 'N/A'}-${item.spec || 'N/A'}`;
     if (!acc[key]) acc[key] = { ...item, totalQty: 0, records: [] };
@@ -186,7 +186,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
             <input type="text" placeholder="Search master material name or specification..." className="w-full pl-10 pr-4 py-3 border-2 border-slate-100 rounded-xl text-xs outline-none focus:border-orange-400 font-bold uppercase shadow-inner transition-all" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <div className="flex gap-2 w-full lg:w-auto">
-            <button onClick={exportCSV} className="bg-emerald-600 text-white px-4 py-3 rounded-xl text-[10px] font-black shadow-md flex items-center justify-center gap-2 flex-1 lg:flex-none uppercase tracking-widest hover:bg-emerald-700 transition-all"><i className="fa-solid fa-file-csv"></i> Export</button>
+            <button onClick={exportCSV} className="bg-emerald-600 text-white px-4 py-3 rounded-xl text-[10px] font-black shadow-md flex items-center justify-center gap-2 flex-1 lg:flex-none uppercase tracking-widest hover:bg-emerald-700 transition-all"><i className="fa-solid fa-file-csv"></i> Export Sheet</button>
             <button onClick={() => setShowSummary(true)} className="bg-indigo-600 text-white px-4 py-3 rounded-xl text-[10px] font-black shadow-md flex items-center justify-center gap-2 flex-1 lg:flex-none uppercase tracking-widest hover:bg-indigo-700 transition-all"><i className="fa-solid fa-chart-bar"></i> Stock Summary</button>
             <button onClick={() => { resetForm(); setShowAddModal(true); }} className="iocl-btn text-white px-5 py-3 rounded-xl text-[10px] font-black shadow-md flex items-center justify-center gap-2 flex-1 lg:flex-none uppercase tracking-widest"><i className="fa-solid fa-plus"></i> Add Stock</button>
         </div>
@@ -233,7 +233,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
         </div>
       </div>
 
-      {/* BIFURCATION MODAL */}
+      {/* BIFURCATION MODAL (Updated logic for 0 qty records) */}
       {bifurcationItem && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-scale-in uppercase font-bold">
@@ -245,7 +245,8 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
                 <table className="w-full text-left text-xs uppercase">
                     <thead className="bg-slate-50 border-b text-[10px] text-slate-400 tracking-widest font-black uppercase"><tr><th className="p-4 pl-6">Added By</th><th className="p-4">Date & Time</th><th className="p-4 text-center">Qty</th><th className="p-4 text-center">Action</th></tr></thead>
                     <tbody className="divide-y">
-                        {bifurcationItem.records.map((r: any) => (
+                        {/* FEATURE UPDATE: Filtering out zero quantity lines */}
+                        {bifurcationItem.records.filter((r:any) => r.qty > 0).map((r: any) => (
                             <tr key={r.id} className="hover:bg-slate-50 transition-colors">
                                 <td className="p-4 pl-6 leading-tight">
                                     <span className={`px-2 py-1 rounded text-[10px] font-black block w-fit mb-1 ${r.holder_uid === profile?.id ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-slate-100 text-slate-600'}`}>{r.holder_uid === profile?.id ? "YOU" : r.holder_name}</span>
@@ -261,13 +262,17 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
                         ))}
                     </tbody>
                 </table>
+                {/* Visual feedback if everything in split is zero */}
+                {bifurcationItem.records.filter((r:any) => r.qty > 0).length === 0 && (
+                    <div className="p-10 text-center text-red-500 text-[10px] font-black tracking-widest uppercase">All components of this item are out of stock</div>
+                )}
             </div>
             <div className="p-4 bg-slate-50 text-center"><button onClick={() => setBifurcationItem(null)} className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-600">Close</button></div>
           </div>
         </div>
       )}
 
-      {/* ADD STOCK MODAL (Complete Fields) */}
+      {/* ADD STOCK MODAL */}
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-scale-in uppercase font-bold">
@@ -305,14 +310,14 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3 pt-2">
-                  <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest font-black">Quantity</label><input type="number" className="w-full p-3 border-2 border-slate-100 rounded-xl text-lg font-black text-indigo-600 focus:border-indigo-400 outline-none" value={form.qty} onChange={e => setForm({ ...form, qty: e.target.value })} /></div>
+                  <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest font-black">Quantity</label><input type="number" className="w-full p-3 border-2 border-slate-100 rounded-xl text-lg font-black text-indigo-600 focus:border-indigo-400 outline-none shadow-sm" value={form.qty} onChange={e => setForm({ ...form, qty: e.target.value })} /></div>
                   <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest font-black">Unit</label><select className="w-full p-3 border-2 border-slate-100 rounded-xl text-xs uppercase font-black" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })}><option value="Nos">Nos</option><option value="Sets">Sets</option><option value="Mtrs">Mtrs</option></select></div>
                 </div>
                 <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest font-black">Note (Optional)</label><textarea placeholder="Reason/Ref No..." className="w-full p-3 border-2 border-slate-100 rounded-xl text-[10px] h-16 font-bold uppercase focus:border-orange-300 outline-none" value={form.note} onChange={e => setForm({ ...form, note: e.target.value })}></textarea></div>
               </div>
               <div className="flex gap-2 pt-2">
-                {editItem && <button onClick={()=>handleDeleteItem(editItem.id)} className="flex-1 py-4 bg-red-50 text-red-600 rounded-2xl shadow-sm hover:bg-red-100 uppercase tracking-widest font-black text-[10px] border border-red-100"><i className="fa-solid fa-trash mr-2"></i>Delete</button>}
-                <button onClick={handleSaveItem} className="flex-[3] py-4 iocl-btn text-white rounded-2xl shadow-lg font-black uppercase tracking-[0.2em] text-sm hover:opacity-90">Confirm Stock</button>
+                {editItem && <button onClick={()=>handleDeleteItem(editItem.id)} className="flex-1 py-4 bg-red-50 text-red-600 rounded-2xl shadow-sm hover:bg-red-100 uppercase tracking-widest font-black text-[10px] border border-red-100 transition-all"><i className="fa-solid fa-trash mr-2"></i>Delete</button>}
+                <button onClick={handleSaveItem} className="flex-[3] py-4 iocl-btn text-white rounded-2xl shadow-lg font-black uppercase tracking-[0.2em] text-sm hover:opacity-90 transition-all shadow-md">Confirm Stock</button>
               </div>
             </div>
           </div>
@@ -333,7 +338,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
             <div className="space-y-4">
               <div><label className="text-[10px] text-slate-500 font-black uppercase mb-1 tracking-widest">Qty used</label><input type="number" className="w-full p-4 border-2 border-slate-100 rounded-2xl font-black text-xl text-center focus:border-orange-500 outline-none shadow-sm" value={consumeForm.qty} onChange={e => setConsumeForm({ ...consumeForm, qty: e.target.value })} /></div>
               <div><label className="text-[10px] text-slate-500 font-black uppercase mb-1 tracking-widest">Purpose / Note</label><textarea placeholder="Description..." className="w-full p-4 border-2 border-slate-100 rounded-2xl font-bold h-24 focus:border-orange-500 outline-none text-xs shadow-sm" value={consumeForm.note} onChange={e => setConsumeForm({ ...consumeForm, note: e.target.value })}></textarea></div>
-              <button onClick={handleConsume} className="w-full py-4 bg-slate-900 text-white rounded-2xl shadow-xl font-black tracking-widest uppercase hover:bg-black">Confirm</button>
+              <button onClick={handleConsume} className="w-full py-4 bg-slate-900 text-white rounded-2xl shadow-xl font-black tracking-widest uppercase hover:bg-black transition-all">Confirm</button>
             </div>
           </div>
         </div>
@@ -352,7 +357,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
                 ))}</tbody>
               </table>
             </div>
-            <div className="p-4 bg-slate-50 text-center"><button onClick={() => setShowSummary(false)} className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-600 transition-all">Close</button></div>
+            <div className="p-4 bg-slate-50 text-center"><button onClick={() => setShowSummary(false)} className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-600 transition-all">Close Summary</button></div>
           </div>
         </div>
       )}
