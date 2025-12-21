@@ -13,7 +13,6 @@ import {
 import { Bar } from "react-chartjs-2";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 
-// Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ChartDataLabels);
 
 export default function MonthlyAnalysisView({ profile }: any) {
@@ -63,11 +62,14 @@ export default function MonthlyAnalysisView({ profile }: any) {
 
         if (!report[cat]) report[cat] = {};
         if (!report[cat][sub]) {
-          report[cat][sub] = { total: 0, items: {} };
+          report[cat][sub] = { total: 0, items: {}, units: {} };
         }
 
         report[cat][sub].total += qty;
         
+        // Track units for datalabels
+        report[cat][sub].units[unit] = (report[cat][sub].units[unit] || 0) + qty;
+
         const itemKey = `${fullDesc}||${unit}`;
         if (!report[cat][sub].items[itemKey]) {
             report[cat][sub].items[itemKey] = 0;
@@ -79,17 +81,22 @@ export default function MonthlyAnalysisView({ profile }: any) {
         const subDataMap = report[catName];
         const labels = Object.keys(subDataMap).sort();
         const values = labels.map(l => subDataMap[l].total);
+        
+        // Logic: Get the primary unit for each bar
+        const barUnits = labels.map(l => {
+            const units = subDataMap[l].units;
+            return Object.entries(units).sort((a:any, b:any) => b[1] - a[1])[0][0];
+        });
 
         const breakdownInfo = labels.map(l => {
             const itemsObj = subDataMap[l].items;
-            return Object.entries(itemsObj)
-                .sort((a: any, b: any) => b[1] - a[1])
-                .slice(0, 8);
+            return Object.entries(itemsObj).sort((a: any, b: any) => b[1] - a[1]).slice(0, 8);
         });
 
         return {
           category: catName,
           total: values.reduce((a, b) => a + b, 0),
+          primaryUnit: barUnits[0] || 'Units', // Representative unit for header
           data: {
             labels,
             datasets: [{
@@ -98,7 +105,8 @@ export default function MonthlyAnalysisView({ profile }: any) {
               backgroundColor: labels.map((_, i) => `hsl(${210 + (i * 20)}, 75%, 50%)`),
               borderRadius: 6,
               barPercentage: 0.6,
-              itemBreakdown: breakdownInfo 
+              itemBreakdown: breakdownInfo,
+              units: barUnits // Passing units to datalabels
             }]
           }
         };
@@ -114,8 +122,6 @@ export default function MonthlyAnalysisView({ profile }: any) {
 
   return (
     <div className="animate-fade-in space-y-8 pb-20 font-roboto font-bold uppercase tracking-tight">
-      
-      {/* Updated Black Box Header with your Heading & Tagline */}
       <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl flex flex-col md:flex-row justify-between items-center gap-6 border-b-4 border-orange-500">
         <div>
           <h2 className="text-xl font-black uppercase tracking-widest leading-none">Monthly Consumption Data</h2>
@@ -141,7 +147,8 @@ export default function MonthlyAnalysisView({ profile }: any) {
                     <p className="text-[8px] text-slate-400 mt-1 font-bold tracking-widest uppercase">Usage Summary</p>
                 </div>
                 <div className="text-right">
-                    <p className="text-[14px] font-black text-indigo-600 leading-none">{cfg.total} <span className="text-[9px] text-slate-400">Total</span></p>
+                    {/* Header Total with Unit */}
+                    <p className="text-[14px] font-black text-indigo-600 leading-none">{cfg.total} <span className="text-[9px] text-slate-400 uppercase">{cfg.primaryUnit}</span></p>
                 </div>
               </div>
               <div className="h-[300px]">
@@ -153,13 +160,17 @@ export default function MonthlyAnalysisView({ profile }: any) {
                     layout: { padding: { top: 35 } },
                     plugins: {
                       legend: { display: false },
+                      // FIXED: Datalabels now show value + unit
                       datalabels: {
                         color: '#1e293b',
                         font: { weight: 'bold', size: 10 },
                         anchor: 'end',
                         align: 'top',
                         offset: 4,
-                        formatter: (v) => v
+                        formatter: (value, context) => {
+                          const unit = (context.dataset as any).units[context.dataIndex];
+                          return `${value} ${unit}`;
+                        }
                       },
                       tooltip: {
                         backgroundColor: '#0f172a',
@@ -187,16 +198,8 @@ export default function MonthlyAnalysisView({ profile }: any) {
                       }
                     },
                     scales: {
-                      y: { 
-                        beginAtZero: true, 
-                        grace: '20%', 
-                        grid: { color: '#f8fafc' }, 
-                        ticks: { font: { size: 9, weight: 'bold' } } 
-                      },
-                      x: { 
-                        grid: { display: false }, 
-                        ticks: { font: { size: 9, weight: 'bold' }, color: '#64748b' } 
-                      }
+                      y: { beginAtZero: true, grace: '20%', grid: { color: '#f8fafc' }, ticks: { font: { size: 9, weight: 'bold' } } },
+                      x: { grid: { display: false }, ticks: { font: { size: 9, weight: 'bold' }, color: '#64748b' } }
                     }
                   }} 
                 />
