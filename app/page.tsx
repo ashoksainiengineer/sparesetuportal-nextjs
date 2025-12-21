@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { masterCatalog } from "@/lib/masterdata";
 
 export default function SpareSetuApp() {
   const [user, setUser] = useState<any>(null);
@@ -333,7 +332,7 @@ function MonthlyAnalysisView({ profile }: any) {
   return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-roboto uppercase tracking-tight font-bold font-roboto"><div className="col-span-3 pb-4 text-xs font-black text-slate-400 tracking-widest text-center border-b uppercase font-roboto">Analytical Summary</div>{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md uppercase font-bold font-roboto font-bold"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-[0.2em] font-roboto font-bold">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner font-bold font-roboto font-bold"><i className="fa-solid fa-chart-line font-bold font-bold"></i></div><div className="text-3xl font-black text-slate-800 font-bold font-roboto font-bold">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase tracking-widest uppercase font-roboto font-bold">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase tracking-tighter uppercase font-bold font-roboto font-bold">{a.count} Logged Records</div></div>))}</div>);
 }
 
-// --- RETURNS LEDGER (PARTIAL RETURN SUPPORTED) ---
+// --- RETURNS LEDGER (PARTIAL RETURN SUPPORTED WITH UNIQUE TXN ID) ---
 function ReturnsLedgerView({ profile, onAction }: any) { 
     const [pending, setPending] = useState<any[]>([]);
     const [given, setGiven] = useState<any[]>([]);
@@ -369,7 +368,11 @@ function ReturnsLedgerView({ profile, onAction }: any) {
         if (actionQty <= 0 || actionQty > data.req_qty) { alert(`Invalid Quantity! Range: 1 to ${data.req_qty}`); return; }
 
         if (type === 'approve') {
-            const { error } = await supabase.from("requests").update({ status: 'approved', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name, req_qty: actionQty, viewed_by_requester: false }).eq("id", data.id);
+            // GENERATE UNIQUE TXN ID ON APPROVAL
+            const txnId = `#TXN-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 99)}`;
+            const combinedComment = `${form.comment} ||| ${txnId}`; // Store combined data
+
+            const { error } = await supabase.from("requests").update({ status: 'approved', approve_comment: combinedComment, to_uid: profile.id, to_name: profile.name, req_qty: actionQty, viewed_by_requester: false }).eq("id", data.id);
             if (!error) {
                 const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
                 if (inv) await supabase.from("inventory").update({ qty: inv.qty - actionQty }).eq("id", data.item_id);
@@ -379,9 +382,14 @@ function ReturnsLedgerView({ profile, onAction }: any) {
             await supabase.from("requests").update({ status: 'rejected', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
         }
         else if (type === 'return') {
-            // Partial/Full Return initiation
+            // Partial/Full Return initiation - CARRY FORWARD TXN ID
+            // Extract existing Txn ID from parent's comment
+            const existingTxnIdMatch = data.approve_comment?.match(/\|\|\| (#TXN-\d+-\d+)/);
+            const txnIdTag = existingTxnIdMatch ? existingTxnIdMatch[1] : '(No ID)';
+
             const { error } = await supabase.from("requests").insert([{ 
-                item_id: data.item_id, item_name: data.item_name, item_spec: data.item_spec, item_unit: data.item_unit, req_qty: actionQty, status: 'return_requested', return_comment: form.comment, from_uid: profile.id, from_name: profile.name, from_unit: profile.unit, to_uid: data.to_uid, to_name: data.to_name, to_unit: data.to_unit, viewed_by_requester: false, approve_comment: `VERIFY_LINK_ID:${data.id}` 
+                item_id: data.item_id, item_name: data.item_name, item_spec: data.item_spec, item_unit: data.item_unit, req_qty: actionQty, status: 'return_requested', return_comment: form.comment, from_uid: profile.id, from_name: profile.name, from_unit: profile.unit, to_uid: data.to_uid, to_name: data.to_name, to_unit: data.to_unit, viewed_by_requester: false, 
+                approve_comment: `VERIFY_LINK_ID:${data.id} ||| ${txnIdTag}` // Pass Txn ID along
             }]);
             if (!error) alert("Return Request Sent to Lender!");
         }
@@ -504,7 +512,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
               </div>
             )}
 
-            {/* DIGITAL ARCHIVE LOGS (BLACK BOX DESIGN) */}
+            {/* DIGITAL ARCHIVE LOGS (BLACK BOX DESIGN) WITH TXN ID COLUMN */}
             <div className="pt-10 space-y-10 font-roboto font-bold uppercase">
                 <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden font-roboto font-bold uppercase">
                     <div className="p-6 bg-slate-800 text-white flex flex-col items-center justify-center font-roboto">
@@ -512,10 +520,14 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                       <span className="text-[10px] opacity-80 font-black tracking-[0.2em] uppercase mt-1 font-roboto">(UDH: UDHAARI • RET: RETURNED)</span>
                     </div>
                     <div className="overflow-x-auto font-roboto font-bold uppercase"><table className="w-full text-left text-[9px] divide-y divide-slate-100 font-mono font-bold uppercase font-roboto">
-                        <thead className="bg-slate-50 text-[8.5px] font-black text-slate-400 tracking-widest font-roboto"><tr><th className="p-4 font-roboto">Material Details & Technical Spec</th><th className="p-4 text-center font-roboto">Qty</th><th className="p-4 font-roboto">Receiver & Lender Info</th><th className="p-4 font-roboto">7-Point Audit Life-Cycle Log</th><th className="p-4 text-center font-roboto">Status</th></tr></thead>
+                        <thead className="bg-slate-50 text-[8.5px] font-black text-slate-400 tracking-widest font-roboto"><tr><th className="p-4 font-roboto">Txn ID</th><th className="p-4 font-roboto">Material Details & Technical Spec</th><th className="p-4 text-center font-roboto">Qty</th><th className="p-4 font-roboto">Receiver & Lender Info</th><th className="p-4 font-roboto">7-Point Audit Life-Cycle Log</th><th className="p-4 text-center font-roboto">Status</th></tr></thead>
                         <tbody className="divide-y text-slate-600 font-roboto">
                             {[...givenHistory, ...takenHistory].sort((a,b)=>Number(b.timestamp)-Number(a.timestamp)).map(h => (
                                 <tr key={h.id} className="hover:bg-slate-50 transition border-b uppercase font-roboto">
+                                    {/* New Txn ID Column */}
+                                    <td className="p-4 font-roboto font-bold uppercase text-slate-400 whitespace-nowrap tracking-tighter">
+                                        {h.approve_comment?.match(/\|\|\| (#TXN-\d+-\d+)/)?.[1] || '--'}
+                                    </td>
                                     <td className="p-4 leading-tight uppercase font-roboto">
                                       <p className="text-slate-800 font-bold text-[12.5px] tracking-tight font-roboto uppercase">{h.item_name}</p>
                                       <p className="text-[8.5px] text-slate-400 mt-1.5 font-roboto uppercase font-bold uppercase">SPEC: {h.item_spec}</p>
