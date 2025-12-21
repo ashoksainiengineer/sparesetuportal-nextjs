@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
+import { masterCatalog } from "@/lib/masterdata"; // Ensure this path is correct
 
 export default function SpareSetuApp() {
   const [user, setUser] = useState<any>(null);
@@ -271,7 +272,7 @@ function GlobalSearchView({ profile }: any) {
         </table></div>
       </section>
 
-      {/* REQUEST MODAL - FULL FIX FOR HEADER BLUR */}
+      {/* REQUEST MODAL */}
       {requestItem && (
         <div className="fixed top-0 left-0 w-full h-full bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
@@ -298,22 +299,50 @@ function GlobalSearchView({ profile }: any) {
   );
 }
 
-// --- MY STORE VIEW ---
+// --- MY STORE VIEW (INTEGRATED CATALOG) ---
 function MyStoreView({ profile, fetchProfile }: any) {
   const [myItems, setMyItems] = useState<any[]>([]); 
   const [showAddModal, setShowAddModal] = useState(false);
-  const [form, setForm] = useState({ cat: "", sub: "", make: "", model: "", spec: "", qty: "", isManual: false });
+  const [saving, setSaving] = useState(false);
+  
+  // Modal states
+  const [isManual, setIsManual] = useState(false);
+  const [form, setForm] = useState({ cat: "", sub: "", make: "", model: "", spec: "", qty: "" });
 
   useEffect(() => { if (profile) fetch(); }, [profile]);
   const fetch = async () => { try { const { data } = await supabase.from("inventory").select("*").eq("holder_uid", profile.id).order("id", { ascending: false }); if (data) setMyItems(data); } catch(e){} };
 
+  // Catalog Derived Lists
+  const catList = useMemo(() => [...new Set(masterCatalog.map(x => x.cat))].sort(), []);
+  const subList = useMemo(() => [...new Set(masterCatalog.filter(x => x.cat === form.cat).map(x => x.sub))].sort(), [form.cat]);
+  const makeList = useMemo(() => [...new Set(masterCatalog.filter(x => x.cat === form.cat && x.sub === form.sub).map(x => x.make))].sort(), [form.cat, form.sub]);
+  const modelList = useMemo(() => [...new Set(masterCatalog.filter(x => x.cat === form.cat && x.sub === form.sub && x.make === form.make).map(x => x.model))].sort(), [form.cat, form.sub, form.make]);
+  const specList = useMemo(() => [...new Set(masterCatalog.filter(x => x.cat === form.cat && x.sub === form.sub && x.make === form.make && x.model === form.model).map(x => x.spec))].sort(), [form.cat, form.sub, form.make, form.model]);
+
   const handleSave = async () => {
-    if (!form.spec || !form.qty) return alert("Sari details bhariye!");
-    const itemName = `${form.make} ${form.sub} ${form.model}`.trim();
+    const { cat, sub, make, model, spec, qty } = form;
+    if (!cat || !spec || !qty) return alert("Please fill mandatory details!");
+    
+    setSaving(true);
+    const itemName = isManual ? `${make} ${sub} ${model}`.trim() : `${make} ${sub} ${model}`.trim();
+
     try {
-        const { error } = await supabase.from("inventory").insert([{ item: itemName, cat: form.cat, sub: form.sub, make: form.make, model: form.model, spec: form.spec, qty: parseInt(form.qty), unit: 'Nos', holder_unit: profile.unit, holder_uid: profile.id, holder_name: profile.name }]);
-        if (!error) { alert("Stock Inward Success!"); fetch(); setShowAddModal(false); setForm({ cat: "", sub: "", make: "", model: "", spec: "", qty: "", isManual: false }); await supabase.from("profiles").update({ item_count: (profile.item_count || 0) + 1 }).eq('id', profile.id); fetchProfile(); } else alert(error.message);
-    } catch(e){ alert("Database connection error"); }
+        const { error } = await supabase.from("inventory").insert([{ 
+          item: itemName, cat, sub, make, model, spec, 
+          qty: parseInt(qty), unit: 'Nos', 
+          holder_unit: profile.unit, holder_uid: profile.id, holder_name: profile.name 
+        }]);
+
+        if (!error) {
+            alert("Stock Added Successfully!");
+            fetch();
+            setShowAddModal(false);
+            setForm({ cat: "", sub: "", make: "", model: "", spec: "", qty: "" });
+            await supabase.from("profiles").update({ item_count: (profile.item_count || 0) + 1 }).eq('id', profile.id);
+            fetchProfile();
+        } else alert(error.message);
+    } catch(e){ alert("Connection Error"); }
+    setSaving(false);
   };
 
   return (
@@ -322,6 +351,7 @@ function MyStoreView({ profile, fetchProfile }: any) {
         <div><h2 className="text-xl font-bold text-slate-800 uppercase tracking-widest leading-none font-black uppercase font-roboto">My Local Store</h2><p className="text-[10px] font-black bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-2 uppercase font-bold tracking-tighter font-roboto">ZONE: {profile?.unit}</p></div>
         <button onClick={() => setShowAddModal(true)} className="iocl-btn text-white px-6 py-2.5 rounded-xl font-bold shadow-md flex items-center gap-2 font-roboto font-bold uppercase"><i className="fa-solid fa-plus"></i> Add New Stock</button>
       </div>
+
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden font-bold font-roboto uppercase">
         <div className="overflow-x-auto"><table className="w-full text-left tracking-tight font-roboto"><thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b uppercase tracking-widest font-roboto"><tr><th className="p-5 pl-8 font-bold">Category</th><th className="p-5 font-bold">Item Name</th><th className="p-5 font-bold">Spec</th><th className="p-5 text-center font-bold">Qty</th></tr></thead>
           <tbody className="divide-y text-sm">
@@ -334,6 +364,107 @@ function MyStoreView({ profile, fetchProfile }: any) {
           </tbody>
         </table></div>
       </div>
+
+      {/* ADD STOCK MODAL */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-[9999] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-scale-in border-t-8 border-orange-500">
+            <div className="p-6 border-b flex justify-between items-center bg-slate-50">
+              <div>
+                <h3 className="text-xl font-black text-slate-800 tracking-tight uppercase">Inward New Stock</h3>
+                <p className="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-widest">Update your local unit inventory</p>
+              </div>
+              <button onClick={() => setShowAddModal(false)} className="w-10 h-10 rounded-full hover:bg-slate-200 flex items-center justify-center transition-colors"><i className="fa-solid fa-xmark text-slate-400 text-lg"></i></button>
+            </div>
+
+            <div className="p-8 space-y-6">
+              {/* TOGGLE SWITCH */}
+              <div className="flex items-center justify-between bg-slate-100 p-4 rounded-2xl border border-slate-200">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isManual ? 'bg-indigo-100 text-indigo-600' : 'bg-orange-100 text-orange-600'}`}>
+                    <i className={`fa-solid ${isManual ? 'fa-keyboard' : 'fa-list-check'}`}></i>
+                  </div>
+                  <div>
+                    <p className="text-xs font-black text-slate-800 uppercase tracking-tight">{isManual ? 'Manual Entry Mode' : 'Smart Catalog Mode'}</p>
+                    <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">Switch mode if item not found</p>
+                  </div>
+                </div>
+                <button onClick={() => { setIsManual(!isManual); setForm({ cat: "", sub: "", make: "", model: "", spec: "", qty: "" }); }} className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${isManual ? 'bg-indigo-600' : 'bg-orange-500'}`}>
+                   <div className={`absolute top-1 left-1 bg-white w-5 h-5 rounded-full shadow-md transition-transform duration-300 ${isManual ? 'translate-x-7' : ''}`}></div>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* DYNAMIC FORM */}
+                {isManual ? (
+                  <>
+                    <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Category</label><input type="text" placeholder="e.g. Switchgear" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl outline-none focus:border-indigo-500 font-bold text-slate-700 transition-all" onChange={e=>setForm({...form, cat: e.target.value})} /></div>
+                    <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Sub Category</label><input type="text" placeholder="e.g. Contactor" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl outline-none focus:border-indigo-500 font-bold text-slate-700 transition-all" onChange={e=>setForm({...form, sub: e.target.value})} /></div>
+                    <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Brand / Make</label><input type="text" placeholder="e.g. L&T" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl outline-none focus:border-indigo-500 font-bold text-slate-700 transition-all" onChange={e=>setForm({...form, make: e.target.value})} /></div>
+                    <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Model / Series</label><input type="text" placeholder="e.g. MNX Series" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl outline-none focus:border-indigo-500 font-bold text-slate-700 transition-all" onChange={e=>setForm({...form, model: e.target.value})} /></div>
+                    <div className="md:col-span-2 space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Technical Specification</label><input type="text" placeholder="e.g. MNX-25 (25A) 240V AC" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl outline-none focus:border-indigo-500 font-bold text-slate-700 transition-all" onChange={e=>setForm({...form, spec: e.target.value})} /></div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Select Category</label>
+                      <select className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl outline-none focus:border-orange-500 font-bold text-slate-700 transition-all appearance-none" value={form.cat} onChange={e=>setForm({ ...form, cat: e.target.value, sub: "", make: "", model: "", spec: "" })}>
+                        <option value="">- SELECT CATEGORY -</option>
+                        {catList.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Select Sub Category</label>
+                      <select disabled={!form.cat} className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl outline-none focus:border-orange-500 font-bold text-slate-700 transition-all appearance-none disabled:opacity-50" value={form.sub} onChange={e=>setForm({ ...form, sub: e.target.value, make: "", model: "", spec: "" })}>
+                        <option value="">- SELECT SUB-CAT -</option>
+                        {subList.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Select Make</label>
+                      <select disabled={!form.sub} className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl outline-none focus:border-orange-500 font-bold text-slate-700 transition-all appearance-none disabled:opacity-50" value={form.make} onChange={e=>setForm({ ...form, make: e.target.value, model: "", spec: "" })}>
+                        <option value="">- SELECT MAKE -</option>
+                        {makeList.map(m => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Select Model</label>
+                      <select disabled={!form.make} className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl outline-none focus:border-orange-500 font-bold text-slate-700 transition-all appearance-none disabled:opacity-50" value={form.model} onChange={e=>setForm({ ...form, model: e.target.value, spec: "" })}>
+                        <option value="">- SELECT MODEL -</option>
+                        {modelList.map(m => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                    </div>
+                    <div className="md:col-span-2 space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Technical Specification (Select Exact Part)</label>
+                      <select disabled={!form.model} className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl outline-none focus:border-orange-500 font-bold text-slate-700 transition-all appearance-none disabled:opacity-50" value={form.spec} onChange={e=>setForm({ ...form, spec: e.target.value })}>
+                        <option value="">- SELECT SPECIFICATION -</option>
+                        {specList.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  </>
+                )}
+                
+                {/* QUANTITY - Common for both */}
+                <div className="md:col-span-2 bg-orange-50 p-6 rounded-2xl border-2 border-dashed border-orange-200 mt-2">
+                   <div className="flex flex-col md:flex-row items-center gap-6">
+                      <div className="flex-1 space-y-2">
+                        <label className="text-[11px] font-black text-orange-600 uppercase tracking-widest flex items-center gap-2"><i className="fa-solid fa-boxes-stacked"></i> Physical Stock Quantity</label>
+                        <input type="number" placeholder="Enter Qty (e.g. 5)" className="w-full p-4 bg-white border-2 border-orange-100 rounded-xl outline-none focus:border-orange-500 font-black text-xl text-orange-700 transition-all placeholder:text-orange-200" onChange={e=>setForm({...form, qty: e.target.value})} />
+                      </div>
+                      <div className="w-full md:w-1/3">
+                         <p className="text-[9px] text-orange-400 font-bold uppercase leading-tight">By clicking save, you certify that this material is physically available in {profile?.unit} store.</p>
+                      </div>
+                   </div>
+                </div>
+              </div>
+
+              <button onClick={handleSave} disabled={saving} className={`w-full py-5 rounded-2xl text-white font-black text-lg shadow-xl uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 ${saving ? 'opacity-70 bg-slate-500 cursor-not-allowed' : (isManual ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-orange-500 hover:bg-orange-600')}`}>
+                {saving ? ( <><i className="fa-solid fa-spinner animate-spin"></i> Processing...</> ) : ( <><i className="fa-solid fa-cloud-arrow-up"></i> Confirm Inward Stock</> )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -490,7 +621,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 </section>
             </div>
 
-            {/* ACTION MODAL - MAXIMUM Z-INDEX (z-[9999]) FOR FULL HEADER BLUR */}
+            {/* ACTION MODAL */}
             {actionModal && (
               <div className="fixed top-0 left-0 w-full h-full bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 font-roboto font-bold uppercase">
                 <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
@@ -527,7 +658,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
             <div className="pt-10 space-y-10 font-roboto font-bold uppercase">
                 <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden font-roboto font-bold uppercase">
                     <div className="p-6 bg-slate-800 text-white flex flex-col items-center justify-center font-roboto">
-                      <span className="text-[20px] font-bold tracking-widest uppercase font-roboto">Digital Archive Logs</span>
+                      <span className="text-[20px] font-bold tracking-widest uppercase font-roboto">Finalized Audit Trail: 7-Point Timeline Logs</span>
                       <span className="text-[10px] opacity-80 font-black tracking-[0.2em] uppercase mt-1 font-roboto">(UDH: UDHAARI • RET: RETURNED)</span>
                     </div>
                     <div className="overflow-x-auto font-roboto font-bold uppercase"><table className="w-full text-left text-[9px] divide-y divide-slate-100 font-mono font-bold uppercase font-roboto">
