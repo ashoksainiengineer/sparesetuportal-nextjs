@@ -12,6 +12,10 @@ export default function GlobalSearchView({ profile }: any) {
   const [selCat, setSelCat] = useState("all");
   const [selSubCat, setSelSubCat] = useState("all");
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
+
   // Modals State
   const [requestItem, setRequestItem] = useState<any>(null);
   const [showSummary, setShowSummary] = useState(false);
@@ -22,6 +26,11 @@ export default function GlobalSearchView({ profile }: any) {
     fetchAll(); 
     lead(); 
   }, []);
+
+  // Reset to page 1 on filter change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selZone, selCat, selSubCat]);
   
   const fetchAll = async () => { 
     try { 
@@ -40,12 +49,10 @@ export default function GlobalSearchView({ profile }: any) {
             zoneMap[p.unit] = (zoneMap[p.unit] || 0) + (p.item_count || 0);
           }
         });
-        
         const sortedZones = Object.keys(zoneMap)
           .map(unit => ({ unit, total: zoneMap[unit] }))
           .sort((a, b) => b.total - a.total)
           .slice(0, 4);
-
         setContributors(sortedZones);
       } 
     } catch(e){} 
@@ -92,6 +99,7 @@ export default function GlobalSearchView({ profile }: any) {
     setSubmitting(false);
   };
 
+  // --- FILTERING & PAGINATION ENGINE ---
   const filtered = items.filter((i: any) => {
     const matchesSearch = (i.item.toLowerCase().includes(search.toLowerCase()) || i.spec.toLowerCase().includes(search.toLowerCase()));
     const matchesZone = (selZone === "all" || i.holder_unit === selZone);
@@ -105,35 +113,43 @@ export default function GlobalSearchView({ profile }: any) {
     return 0;
   });
 
+  const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
+  const currentItems = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  // Helper for rendering page numbers
+  const getPageNumbers = () => {
+    const pages = [];
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (currentPage <= 3) pages.push(1, 2, 3, '...', totalPages);
+      else if (currentPage >= totalPages - 2) pages.push(1, '...', totalPages - 2, totalPages - 1, totalPages);
+      else pages.push(1, '...', currentPage, '...', totalPages);
+    }
+    return pages;
+  };
+
   return (
     <div className="space-y-6 animate-fade-in font-roboto font-bold uppercase tracking-tight">
       
-      {/* 1. Optimized Zone Leaderboard Banner (Compact Height) */}
+      {/* 1. Zone Leaderboard Banner */}
       <section className="bg-slate-900 py-4 px-6 rounded-2xl border-b-4 border-orange-500 shadow-2xl overflow-hidden relative group">
         <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
            <i className="fa-solid fa-ranking-star text-7xl text-white"></i>
         </div>
-        
         <div className="relative z-10 flex flex-col lg:flex-row items-center gap-6">
           <div className="shrink-0">
-            <h2 className="text-white text-lg font-black flex items-center gap-3 tracking-widest leading-none">
-              <i className="fa-solid fa-trophy text-orange-400"></i> ZONE LEADERBOARD
-            </h2>
+            <h2 className="text-white text-lg font-black flex items-center gap-3 tracking-widest leading-none"><i className="fa-solid fa-trophy text-orange-400"></i> ZONE LEADERBOARD</h2>
           </div>
-
           <div className="flex gap-3 overflow-x-auto no-scrollbar w-full py-1">
             {contributors.map((c, idx) => {
               const rank = getRankStyle(idx);
               return (
                 <div key={idx} className={`min-w-[180px] flex-1 bg-white/5 border ${rank.border} rounded-xl p-3 flex items-center gap-3 hover:bg-white/10 transition-all cursor-default`}>
-                   <div className={`w-8 h-8 shrink-0 rounded-lg ${rank.bg} ${rank.color} flex items-center justify-center text-sm shadow-lg`}>
-                      <i className={`fa-solid ${rank.icon}`}></i>
-                   </div>
+                   <div className={`w-8 h-8 shrink-0 rounded-lg ${rank.bg} ${rank.color} flex items-center justify-center text-sm shadow-lg`}><i className={`fa-solid ${rank.icon}`}></i></div>
                    <div className="flex-1 truncate">
                       <p className="text-white text-[12px] font-black truncate">{c.unit}</p>
-                      <div className="flex items-center justify-between mt-0.5">
-                        <span className="text-green-400 text-[10px] font-black">{c.total} Items</span>
-                      </div>
+                      <div className="flex items-center justify-between mt-0.5"><span className="text-green-400 text-[10px] font-black">{c.total} Items</span></div>
                       <div className="w-full bg-slate-700 h-1 mt-1.5 rounded-full overflow-hidden">
                         <div className="bg-orange-400 h-full transition-all duration-1000" style={{ width: `${contributors[0].total > 0 ? (c.total / contributors[0].total) * 100 : 0}%` }}></div>
                       </div>
@@ -150,25 +166,21 @@ export default function GlobalSearchView({ profile }: any) {
         <div className="p-4 border-b bg-slate-50/80 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="relative flex-grow md:w-80"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Search Material Name / Spec..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none focus:ring-1 font-bold uppercase" onChange={e=>setSearch(e.target.value)} /></div>
-            
             <div className="flex gap-2">
                <button onClick={exportToCSV} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md flex items-center gap-2 hover:opacity-90 transition-opacity"><i className="fa-solid fa-file-excel"></i> Export Sheet</button>
                <button onClick={() => setShowSummary(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md flex items-center gap-2 hover:opacity-90 transition-opacity"><i className="fa-solid fa-chart-bar"></i> Stock Summary</button>
             </div>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <select className="border rounded-md text-[10px] font-bold p-2 bg-white uppercase outline-none cursor-pointer" onChange={e=>setSelZone(e.target.value)} value={selZone}>
                 <option value="all">Filter: All Zones</option>
                 {[...new Set(items.map(i => i.holder_unit))].sort().map(z => <option key={z} value={z}>{z}</option>)}
             </select>
-
             <select className="border rounded-md text-[10px] font-bold p-2 bg-white uppercase outline-none cursor-pointer" onChange={e=>setSelCat(e.target.value)} value={selCat}>
                 <option value="all">Category: All</option>
                 <option value="OUT_OF_STOCK" className="text-red-600 font-black">!!! OUT OF STOCK !!!</option>
                 {[...new Set(items.map(i => i.cat))].sort().map(c => <option key={c} value={c}>{c}</option>)}
             </select>
-
             <select className="border rounded-md text-[10px] font-bold p-2 bg-white uppercase outline-none cursor-pointer" onChange={e=>setSelSubCat(e.target.value)} value={selSubCat}>
                 <option value="all">Sub-Category: All</option>
                 {[...new Set(items.map(i => i.sub).filter(s => s))].sort().map(s => <option key={s} value={s}>{s}</option>)}
@@ -183,15 +195,13 @@ export default function GlobalSearchView({ profile }: any) {
               <tr><th className="p-4 pl-6">Material Detail</th><th className="p-4">Spec</th><th className="p-4">Zone</th><th className="p-4 text-center">Qty</th><th className="p-4 text-center">Action</th></tr>
             </thead>
             <tbody className="divide-y text-sm">
-              {filtered.map((i: any, idx: number) => (
+              {currentItems.map((i: any, idx: number) => (
                 <tr key={idx} className={`hover:bg-slate-50 transition border-b ${i.qty === 0 ? 'bg-red-50/40 opacity-70' : 'bg-white'}`}>
                   <td className="p-4 pl-6 leading-tight">
                     <div className="text-slate-800 font-bold text-[13px] tracking-tight">{i.item}</div>
                     <div className="text-[9px] text-slate-400 mt-1 uppercase">{i.cat} | {i.sub || '--'}</div>
                   </td>
-                  <td className="p-4">
-                    <span className="bg-white border px-2 py-1 rounded-[4px] text-[10px] text-slate-500 shadow-sm">{i.spec}</span>
-                  </td>
+                  <td className="p-4"><span className="bg-white border px-2 py-1 rounded-[4px] text-[10px] text-slate-500 shadow-sm">{i.spec}</span></td>
                   <td className="p-4 text-[10px] text-slate-600 font-black">{i.holder_unit}</td>
                   <td className="p-4 text-center font-black whitespace-nowrap text-[14px]">
                     {i.qty === 0 ? <span className="text-red-600 animate-pulse">ZERO STOCK</span> : <span>{i.qty} {i.unit}</span>}
@@ -204,9 +214,42 @@ export default function GlobalSearchView({ profile }: any) {
             </tbody>
           </table>
         </div>
+
+        {/* PAGINATION TOOLBAR */}
+        <div className="p-4 bg-slate-50 border-t flex flex-col md:flex-row justify-between items-center gap-4">
+          <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Showing {currentItems.length} of {filtered.length} Spares</p>
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+              disabled={currentPage === 1}
+              className="w-8 h-8 flex items-center justify-center rounded border bg-white disabled:opacity-30 hover:bg-slate-50"
+            >
+              <i className="fa-solid fa-chevron-left text-[10px]"></i>
+            </button>
+            
+            {getPageNumbers().map((p, idx) => (
+              <button
+                key={idx}
+                onClick={() => typeof p === 'number' && setCurrentPage(p)}
+                disabled={p === '...'}
+                className={`w-8 h-8 text-[10px] font-black rounded border transition-all ${p === currentPage ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+              >
+                {p}
+              </button>
+            ))}
+
+            <button 
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+              disabled={currentPage === totalPages}
+              className="w-8 h-8 flex items-center justify-center rounded border bg-white disabled:opacity-30 hover:bg-slate-50"
+            >
+              <i className="fa-solid fa-chevron-right text-[10px]"></i>
+            </button>
+          </div>
+        </div>
       </section>
 
-      {/* STOCK SUMMARY MODAL */}
+      {/* MODALS REMAIN UNCHANGED */}
       {showSummary && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
@@ -234,7 +277,6 @@ export default function GlobalSearchView({ profile }: any) {
         </div>
       )}
 
-      {/* REQUEST MODAL */}
       {requestItem && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
