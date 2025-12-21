@@ -352,7 +352,7 @@ function MonthlyAnalysisView({ profile }: any) {
   return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-roboto uppercase tracking-tight font-bold font-roboto"><div className="col-span-3 pb-4 text-xs font-black text-slate-400 tracking-widest text-center border-b uppercase font-roboto">Analytical Summary</div>{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md uppercase font-bold font-roboto font-bold"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-[0.2em] font-roboto font-bold">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner font-bold font-roboto font-bold"><i className="fa-solid fa-chart-line font-bold font-bold"></i></div><div className="text-3xl font-black text-slate-800 font-bold font-roboto font-bold">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase tracking-widest uppercase font-roboto font-bold">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase tracking-tighter uppercase font-bold font-roboto font-bold">{a.count} Logged Records</div></div>))}</div>);
 }
 
-// --- RETURNS LEDGER (COLUMN SUPPORTED TXN ID) ---
+// --- RETURNS LEDGER (COLUMN SUPPORTED TXN ID & TIME) ---
 function ReturnsLedgerView({ profile, onAction }: any) { 
     const [pending, setPending] = useState<any[]>([]);
     const [given, setGiven] = useState<any[]>([]);
@@ -380,7 +380,8 @@ function ReturnsLedgerView({ profile, onAction }: any) {
         return () => { supabase.removeChannel(channel); };
     }, [profile]);
 
-    const formatTS = (ts: any) => new Date(Number(ts)).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    // UPDATED HELPER TO SHOW DATE + TIME (AM/PM)
+    const formatTS = (ts: any) => new Date(Number(ts)).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
 
     const handleProcess = async () => {
         const { type, data } = actionModal;
@@ -391,7 +392,6 @@ function ReturnsLedgerView({ profile, onAction }: any) {
 
         try {
             if (type === 'approve') {
-                // GENERATE NEW TXN ID
                 const newTxnId = `#TXN-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 99)}`;
                 const { error } = await supabase.from("requests").update({ status: 'approved', approve_comment: form.comment, txn_id: newTxnId, to_uid: profile.id, to_name: profile.name, req_qty: actionQty, viewed_by_requester: false }).eq("id", data.id);
                 if (!error) {
@@ -403,11 +403,10 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 await supabase.from("requests").update({ status: 'rejected', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
             }
             else if (type === 'return') {
-                // CARRY FORWARD TXN ID FROM DATABASE
                 const { error } = await supabase.from("requests").insert([{ 
                     item_id: data.item_id, item_name: data.item_name, item_spec: data.item_spec, item_unit: data.item_unit, req_qty: actionQty, status: 'return_requested', return_comment: form.comment, from_uid: profile.id, from_name: profile.name, from_unit: profile.unit, to_uid: data.to_uid, to_name: data.to_name, to_unit: data.to_unit, viewed_by_requester: false, 
                     approve_comment: `VERIFY_LINK_ID:${data.id}`,
-                    txn_id: data.txn_id // Use existing ID
+                    txn_id: data.txn_id 
                 }]);
                 if (!error) alert("Return Request Sent!");
             }
@@ -425,7 +424,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
                 if (inv) await supabase.from("inventory").update({ qty: inv.qty + data.req_qty }).eq("id", data.item_id);
             }
-        } catch(e){ alert("Action failed - database sync error."); }
+        } catch(e){ alert("Action failed."); }
         setActionModal(null); setForm({comment:"", qty:""});
     };
 
@@ -433,7 +432,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
         <div className="space-y-10 animate-fade-in pb-20 font-roboto uppercase font-bold tracking-tight">
             <h2 className="text-2xl font-bold text-slate-800 uppercase flex items-center gap-2"><i className="fa-solid fa-handshake-angle text-orange-500 font-bold uppercase"></i> Udhaari Dashboard</h2>
 
-            {/* ATTENTION REQUIRED (INCOMING ACTIONS) */}
+            {/* ATTENTION REQUIRED */}
             <section className="bg-white rounded-xl border-t-4 border-orange-500 shadow-xl overflow-hidden">
                 <div className="p-4 bg-orange-50/50 flex justify-between border-b uppercase font-bold font-roboto"><div className="flex items-center gap-2 text-orange-900 font-black uppercase text-[10px] tracking-widest"><i className="fa-solid fa-bolt animate-pulse font-bold uppercase"></i> Attention Required</div><span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px] uppercase font-bold">{pending.length}</span></div>
                 <div className="overflow-x-auto"><table className="w-full text-left text-sm divide-y font-mono font-bold uppercase font-roboto font-bold"><thead className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-roboto"><tr><th className="p-4 pl-6 font-roboto">Material Detail</th><th className="p-4 font-roboto">Counterparty</th><th className="p-4 text-center font-roboto">Qty</th><th className="p-4 text-center font-roboto font-bold">Action</th></tr></thead>
@@ -443,7 +442,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                                 <td className="p-4 pl-6 leading-tight uppercase font-bold">
                                   <div className="text-slate-800 font-bold text-[14px] tracking-tight uppercase font-roboto">{r.item_name}</div>
                                   <div className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter font-mono font-roboto font-bold">{r.item_spec}</div>
-                                  <div className="text-[8.5px] text-slate-300 italic mt-1 font-mono font-roboto font-bold">{formatTS(r.timestamp)}</div>
+                                  <div className="text-[8.5px] text-orange-600 font-black mt-1 font-mono font-roboto font-bold uppercase tracking-widest">{formatTS(r.timestamp)}</div>
                                 </td>
                                 <td className="p-4 font-bold text-slate-700 uppercase font-roboto leading-tight font-bold">{r.from_name}<div className="text-[10px] text-slate-400 font-normal uppercase font-mono font-roboto font-bold">{r.from_unit}</div></td>
                                 <td className="p-4 text-center font-black text-orange-600 text-[14px] font-mono whitespace-nowrap font-roboto font-bold">{r.req_qty} {r.item_unit}</td>
@@ -465,8 +464,9 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                                 <div className="text-[10px] text-slate-400 mb-3 uppercase tracking-tighter font-roboto font-bold">{r.item_spec}</div>
                                 <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg mb-3 font-roboto font-bold"><div><p className="text-[9px] font-bold text-slate-400 uppercase font-roboto font-bold uppercase">Receiver</p><p className="text-[12.5px] font-black text-slate-700 uppercase tracking-tighter font-roboto font-bold">{r.from_name} ({r.from_unit})</p></div><div className="text-right font-black text-blue-600 font-mono text-[14px] font-roboto font-bold uppercase">{r.req_qty} {r.item_unit}</div></div>
                                 <div className="text-[9px] font-mono text-slate-400 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed tracking-tighter font-roboto font-bold uppercase">
-                                    <p><span className="font-black text-blue-600/70 uppercase font-roboto font-bold uppercase">TXN:</span> {r.txn_id || '--'}</p>
-                                    <p><span className="font-black text-blue-600/70 uppercase font-roboto font-bold uppercase">ISSUED BY:</span> {r.to_name}</p>
+                                    <p><span className="font-black text-blue-600/70 uppercase">TXN:</span> {r.txn_id || '--'}</p>
+                                    <p><span className="font-black text-blue-600/70 uppercase">ISSUED BY:</span> {r.to_name}</p>
+                                    <p><span className="font-black text-blue-600/70 uppercase">ISSUED ON:</span> {formatTS(r.timestamp)}</p>
                                 </div>
                             </div>
                         ))}
@@ -482,8 +482,9 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                                 <div className="text-[10px] text-slate-400 mb-3 uppercase tracking-tighter font-roboto font-bold font-bold">{r.item_spec}</div>
                                 <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg mb-3 font-bold font-roboto font-bold font-bold"><div><p className="text-[9px] font-bold text-slate-400 uppercase font-roboto font-bold font-bold uppercase">Source</p><p className="text-[12.5px] font-black text-slate-700 uppercase tracking-tighter font-roboto font-bold font-bold">{r.to_unit} ({r.to_name})</p></div><div className="text-right font-black text-red-600 font-mono text-[14px] font-roboto font-bold font-bold">{r.req_qty} {r.item_unit}</div></div>
                                 <div className="text-[9px] font-mono text-slate-400 mb-3 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed tracking-tighter font-roboto font-bold font-bold">
-                                    <p><span className="font-black text-red-600/70 uppercase font-roboto font-bold font-bold">TXN:</span> {r.txn_id || '--'}</p>
-                                    <p><span className="font-black text-red-600/70 uppercase font-roboto font-bold font-bold">TAKEN BY:</span> {r.from_name}</p>
+                                    <p><span className="font-black text-red-600/70 uppercase">TXN:</span> {r.txn_id || '--'}</p>
+                                    <p><span className="font-black text-red-600/70 uppercase">TAKEN BY:</span> {r.from_name}</p>
+                                    <p><span className="font-black text-red-600/70 uppercase">TAKEN ON:</span> {formatTS(r.timestamp)}</p>
                                 </div>
                                 <button onClick={()=>setActionModal({type:'return', data:r})} className="w-full py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow-md font-roboto font-bold font-bold hover:bg-slate-800 transition">Initiate Return</button>
                             </div>
@@ -526,7 +527,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
               </div>
             )}
 
-            {/* DIGITAL ARCHIVE LOGS (DATABASE COLUMN BASED) */}
+            {/* DIGITAL ARCHIVE LOGS (BLACK BOX DESIGN) */}
             <div className="pt-10 space-y-10 font-roboto font-bold uppercase">
                 <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden font-roboto font-bold uppercase">
                     <div className="p-6 bg-slate-800 text-white flex flex-col items-center justify-center font-roboto">
@@ -534,7 +535,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                       <span className="text-[10px] opacity-80 font-black tracking-[0.2em] uppercase mt-1 font-roboto">(UDH: UDHAARI • RET: RETURNED)</span>
                     </div>
                     <div className="overflow-x-auto font-roboto font-bold uppercase"><table className="w-full text-left text-[9px] divide-y divide-slate-100 font-mono font-bold uppercase font-roboto">
-                        <thead className="bg-slate-50 text-[8.5px] font-black text-slate-400 tracking-widest font-roboto"><tr><th className="p-4 font-roboto">Txn ID</th><th className="p-4 font-roboto">Material Details</th><th className="p-4 text-center font-roboto">Qty</th><th className="p-4 font-roboto">Info</th><th className="p-4 font-roboto">Audit Log</th><th className="p-4 text-center font-roboto">Status</th></tr></thead>
+                        <thead className="bg-slate-50 text-[8.5px] font-black text-slate-400 tracking-widest font-roboto"><tr><th className="p-4 font-roboto">Txn ID</th><th className="p-4 font-roboto">Material Details</th><th className="p-4 text-center font-roboto">Qty</th><th className="p-4 font-roboto">Info</th><th className="p-4 font-roboto">Audit Log (7-Point Timeline)</th><th className="p-4 text-center font-roboto">Status</th></tr></thead>
                         <tbody className="divide-y text-slate-600 font-roboto">
                             {[...givenHistory, ...takenHistory].sort((a,b)=>Number(b.timestamp)-Number(a.timestamp)).map(h => (
                                 <tr key={h.id} className="hover:bg-slate-50 transition border-b uppercase font-roboto">
@@ -552,7 +553,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                                       </div>
                                     </td>
                                     <td className="p-4 leading-tight font-roboto uppercase font-bold"><p className="text-blue-500 font-bold uppercase">BORR: {h.from_name}</p><p className="text-red-500 font-bold mt-1 uppercase">LEND: {h.to_name}</p></td>
-                                    <td className="p-4 leading-none space-y-1.5 font-bold tracking-tighter text-[8.5px] font-roboto uppercase">
+                                    <td className="p-4 leading-none space-y-1.5 font-bold tracking-tighter text-[8px] font-roboto uppercase">
                                         <p><span className="opacity-50">1. REQUEST BY:</span> {h.from_name} ({h.from_unit}) on {formatTS(h.timestamp)}</p>
                                         <p><span className="opacity-50">2. APPROVED BY:</span> {h.to_name} on {formatTS(h.timestamp)}</p>
                                         <p><span className="opacity-50">3. RETURN BY:</span> {h.from_name} on {formatTS(h.timestamp)}</p>
