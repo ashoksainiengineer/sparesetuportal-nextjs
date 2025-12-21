@@ -18,14 +18,44 @@ export default function GlobalSearchView({ profile }: any) {
   const [reqForm, setReqForm] = useState({ qty: "", comment: "" });
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => { fetchAll(); lead(); }, []);
+  useEffect(() => { 
+    fetchAll(); 
+    lead(); 
+  }, []);
   
   const fetchAll = async () => { 
-    try { const { data } = await supabase.from("inventory").select("*"); if (data) setItems(data); } catch(e){} 
+    try { 
+      const { data } = await supabase.from("inventory").select("*"); 
+      if (data) setItems(data); 
+    } catch(e){} 
   };
   
+  // --- NEW LOGIC: ZONE-WISE AGGREGATION ---
   const lead = async () => { 
-    try { const { data } = await supabase.from("profiles").select("name, unit, item_count").order("item_count", { ascending: false }).limit(3); if (data) setContributors(data); } catch(e){} 
+    try { 
+      const { data } = await supabase.from("profiles").select("unit, item_count"); 
+      if (data) {
+        const zoneMap: any = {};
+        data.forEach(p => {
+          if (p.unit) {
+            zoneMap[p.unit] = (zoneMap[p.unit] || 0) + (p.item_count || 0);
+          }
+        });
+        
+        const sortedZones = Object.keys(zoneMap)
+          .map(unit => ({ unit, total: zoneMap[unit] }))
+          .sort((a, b) => b.total - a.total)
+          .slice(0, 4); // Show Top 4 Zones
+
+        setContributors(sortedZones);
+      } 
+    } catch(e){} 
+  };
+
+  const getRankStyle = (idx: number) => {
+    if (idx === 0) return { label: "Refinery Legend", color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-400", icon: "fa-crown" };
+    if (idx === 1) return { label: "Elite Zone", color: "text-slate-500", bg: "bg-slate-50", border: "border-slate-300", icon: "fa-medal" };
+    return { label: "Active Zone", color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100", icon: "fa-shield-halved" };
   };
 
   // --- FEATURE 2: EXPORT TO SHEET (CSV) ---
@@ -65,7 +95,7 @@ export default function GlobalSearchView({ profile }: any) {
     setSubmitting(false);
   };
 
-  // --- FEATURE 1 & 4: FILTERING & SORTING ---
+  // --- FILTERING & SORTING ---
   const filtered = items.filter((i: any) => {
     const matchesSearch = (i.item.toLowerCase().includes(search.toLowerCase()) || i.spec.toLowerCase().includes(search.toLowerCase()));
     const matchesZone = (selZone === "all" || i.holder_unit === selZone);
@@ -82,18 +112,45 @@ export default function GlobalSearchView({ profile }: any) {
   });
 
   return (
-    <div className="space-y-6 animate-fade-in font-roboto font-bold uppercase">
-      {/* Top Contributors Banner */}
-      <section className="bg-white p-4 rounded-xl border flex flex-wrap items-center gap-4 shadow-sm">
-         <h2 className="text-sm font-bold uppercase text-slate-700 tracking-tight"><i className="fa-solid fa-trophy text-yellow-500 mr-2"></i> Top Contributors</h2>
-         <div className="flex gap-3 overflow-x-auto flex-1 pb-1">
-           {contributors.map((c, idx) => (
-             <div key={idx} className="bg-slate-50 p-2 rounded-lg border flex items-center gap-3 min-w-[180px] shadow-sm">
-               <div className="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs border-2 border-orange-400">{c.name.charAt(0)}</div>
-               <div><p className="text-xs font-bold text-slate-800 truncate">{c.name}</p><p className="text-[9px] text-slate-400 uppercase">{c.unit}</p><p className="text-[9px] font-bold text-green-600">{c.item_count || 0} Items</p></div>
-             </div>
-           ))}
-         </div>
+    <div className="space-y-6 animate-fade-in font-roboto font-bold uppercase tracking-tight">
+      
+      {/* 1. Zone Leaderboard Banner */}
+      <section className="bg-slate-900 p-5 rounded-2xl border-b-4 border-orange-500 shadow-2xl overflow-hidden relative group">
+        <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+           <i className="fa-solid fa-ranking-star text-9xl text-white"></i>
+        </div>
+        
+        <div className="relative z-10 flex flex-col lg:flex-row items-center gap-8">
+          <div className="text-center lg:text-left space-y-2">
+            <h2 className="text-white text-xl font-black flex items-center gap-3 justify-center lg:justify-start tracking-widest leading-none">
+              <i className="fa-solid fa-trophy text-orange-400 animate-pulse"></i> ZONE LEADERBOARD
+            </h2>
+            <p className="text-slate-400 text-[10px] font-bold tracking-[0.2em]">Refinery-Wide Spares Contribution Ranking</p>
+          </div>
+
+          <div className="flex gap-4 overflow-x-auto no-scrollbar w-full pb-2">
+            {contributors.map((c, idx) => {
+              const rank = getRankStyle(idx);
+              return (
+                <div key={idx} className={`min-w-[200px] flex-1 bg-white/5 border-2 ${rank.border} rounded-2xl p-4 flex items-center gap-4 hover:bg-white/10 transition-all cursor-default`}>
+                   <div className={`w-10 h-10 rounded-xl ${rank.bg} ${rank.color} flex items-center justify-center text-xl shadow-lg`}>
+                      <i className={`fa-solid ${rank.icon}`}></i>
+                   </div>
+                   <div className="flex-1 truncate">
+                      <p className="text-white text-sm font-black truncate">{c.unit}</p>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-[9px] text-slate-400 font-bold uppercase">Contribution</span>
+                        <span className="text-green-400 text-[12px] font-black">{c.total} Items</span>
+                      </div>
+                      <div className="w-full bg-slate-700 h-1 mt-2 rounded-full overflow-hidden">
+                        <div className="bg-orange-400 h-full transition-all duration-1000" style={{ width: `${contributors[0].total > 0 ? (c.total / contributors[0].total) * 100 : 0}%` }}></div>
+                      </div>
+                   </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </section>
 
       {/* SEARCH, FILTERS & ACTIONS */}
@@ -103,24 +160,24 @@ export default function GlobalSearchView({ profile }: any) {
             <div className="relative flex-grow md:w-80"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Search Material Name / Spec..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none focus:ring-1 font-bold uppercase" onChange={e=>setSearch(e.target.value)} /></div>
             
             <div className="flex gap-2">
-               <button onClick={exportToCSV} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md flex items-center gap-2"><i className="fa-solid fa-file-excel"></i> Export Sheet</button>
-               <button onClick={() => setShowSummary(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md flex items-center gap-2"><i className="fa-solid fa-chart-bar"></i> Stock Summary</button>
+               <button onClick={exportToCSV} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md flex items-center gap-2 hover:opacity-90 transition-opacity"><i className="fa-solid fa-file-excel"></i> Export Sheet</button>
+               <button onClick={() => setShowSummary(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md flex items-center gap-2 hover:opacity-90 transition-opacity"><i className="fa-solid fa-chart-bar"></i> Stock Summary</button>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-            <select className="border rounded-md text-[10px] font-bold p-2 bg-white uppercase" onChange={e=>setSelZone(e.target.value)} value={selZone}>
+            <select className="border rounded-md text-[10px] font-bold p-2 bg-white uppercase outline-none cursor-pointer" onChange={e=>setSelZone(e.target.value)} value={selZone}>
                 <option value="all">Filter: All Zones</option>
                 {[...new Set(items.map(i => i.holder_unit))].sort().map(z => <option key={z} value={z}>{z}</option>)}
             </select>
 
-            <select className="border rounded-md text-[10px] font-bold p-2 bg-white uppercase" onChange={e=>setSelCat(e.target.value)} value={selCat}>
+            <select className="border rounded-md text-[10px] font-bold p-2 bg-white uppercase outline-none cursor-pointer" onChange={e=>setSelCat(e.target.value)} value={selCat}>
                 <option value="all">Category: All</option>
                 <option value="OUT_OF_STOCK" className="text-red-600 font-black">!!! OUT OF STOCK !!!</option>
                 {[...new Set(items.map(i => i.cat))].sort().map(c => <option key={c} value={c}>{c}</option>)}
             </select>
 
-            <select className="border rounded-md text-[10px] font-bold p-2 bg-white uppercase" onChange={e=>setSelSubCat(e.target.value)} value={selSubCat}>
+            <select className="border rounded-md text-[10px] font-bold p-2 bg-white uppercase outline-none cursor-pointer" onChange={e=>setSelSubCat(e.target.value)} value={selSubCat}>
                 <option value="all">Sub-Category: All</option>
                 {[...new Set(items.map(i => i.sub).filter(s => s))].sort().map(s => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -148,7 +205,7 @@ export default function GlobalSearchView({ profile }: any) {
                     {i.qty === 0 ? <span className="text-red-600 animate-pulse">ZERO STOCK</span> : <span>{i.qty} {i.unit}</span>}
                   </td>
                   <td className="p-4 text-center uppercase">
-                      {i.holder_uid === profile?.id ? <span className="text-[10px] font-black text-green-600 italic">MY STORE</span> : i.qty === 0 ? <span className="text-[9px] text-slate-400">N/A</span> : <button onClick={()=>setRequestItem(i)} className="bg-[#ff6b00] text-white px-4 py-1.5 rounded-[4px] text-[10px] font-black shadow-sm tracking-widest">Request</button>}
+                      {i.holder_uid === profile?.id ? <span className="text-[10px] font-black text-green-600 italic">MY STORE</span> : i.qty === 0 ? <span className="text-[9px] text-slate-400">N/A</span> : <button onClick={()=>setRequestItem(i)} className="bg-[#ff6b00] text-white px-4 py-1.5 rounded-[4px] text-[10px] font-black shadow-sm tracking-widest hover:bg-orange-600 transition-colors">Request</button>}
                   </td>
                 </tr>
               ))}
@@ -168,12 +225,11 @@ export default function GlobalSearchView({ profile }: any) {
                 <div className="p-6 max-h-[60vh] overflow-y-auto">
                     <table className="w-full text-left text-xs font-bold uppercase">
                         <thead className="border-b text-slate-400 uppercase">
-                          {/* FIXED LINE BELOW: Used &gt; instead of > to avoid Vercel build error */}
                           <tr><th className="pb-2">Category &gt; Sub-Category</th><th className="pb-2 text-right">Total Available Stock</th></tr>
                         </thead>
                         <tbody className="divide-y">
                             {getSummaryData().map((s: any, idx) => (
-                                <tr key={idx} className="hover:bg-slate-50">
+                                <tr key={idx} className="hover:bg-slate-50 transition-colors">
                                     <td className="py-3 text-slate-700">{s.cat} <i className="fa-solid fa-chevron-right text-[8px] mx-1 opacity-50"></i> {s.sub}</td>
                                     <td className="py-3 text-right font-black text-indigo-600 text-sm">{s.total} Nos</td>
                                 </tr>
@@ -198,11 +254,11 @@ export default function GlobalSearchView({ profile }: any) {
               <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
                 <p className="text-[10px] text-orange-600 font-black uppercase mb-1 tracking-widest">Requesting Material</p>
                 <p className="text-sm font-bold text-slate-800">{requestItem.item}</p>
-                <p className="text-[10px] text-slate-400 mt-1 uppercase">{requestItem.spec}</p>
+                <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-tighter">{requestItem.spec}</p>
               </div>
-              <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quantity (Available: {requestItem.qty})</label><input type="number" placeholder="Enter Qty" className="w-full mt-1 p-3 border rounded-lg outline-none font-bold text-slate-800" onChange={e=>setReqForm({...reqForm, qty:e.target.value})} /></div>
-              <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purpose / Log Comment</label><textarea placeholder="Why do you need this?" className="w-full mt-1 p-3 border rounded-lg outline-none font-bold text-xs h-24 text-slate-800" onChange={e=>setReqForm({...reqForm, comment:e.target.value})}></textarea></div>
-              <button onClick={handleSendRequest} disabled={submitting} className="w-full py-3 bg-[#ff6b00] text-white font-black rounded-xl shadow-lg uppercase tracking-widest disabled:opacity-50">
+              <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quantity (Available: {requestItem.qty})</label><input type="number" placeholder="Enter Qty" className="w-full mt-1 p-3 border-2 rounded-lg outline-none font-bold text-slate-800 focus:border-orange-500 transition-all" onChange={e=>setReqForm({...reqForm, qty:e.target.value})} /></div>
+              <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purpose / Log Comment</label><textarea placeholder="Why do you need this?" className="w-full mt-1 p-3 border-2 rounded-lg outline-none font-bold text-xs h-24 text-slate-800 focus:border-orange-500 transition-all uppercase" onChange={e=>setReqForm({...reqForm, comment:e.target.value})}></textarea></div>
+              <button onClick={handleSendRequest} disabled={submitting} className="w-full py-3 bg-[#ff6b00] text-white font-black rounded-xl shadow-lg uppercase tracking-widest disabled:opacity-50 hover:opacity-90 transition-opacity">
                 {submitting ? "Submitting..." : "Submit Request"}
               </button>
             </div>
