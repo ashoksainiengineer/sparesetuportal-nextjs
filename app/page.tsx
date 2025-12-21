@@ -52,11 +52,10 @@ export default function SpareSetuApp() {
     } catch (err) { console.error("Profile Fetch Error:", err); }
   };
 
-  // Helper for Exporting CSV
   const exportToCSV = (data: any[], filename: string) => {
     if (data.length === 0) return alert("No data to export!");
     const headers = Object.keys(data[0]).join(",");
-    const rows = data.map(row => Object.values(row).map(val => `"${val}"`).join(","));
+    const rows = data.map(row => Object.values(row).map(val => `"${String(val).replace(/"/g, '""')}"`).join(","));
     const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n");
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csvContent));
@@ -172,45 +171,41 @@ function AuthView() {
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 login-bg">
-      <div className="w-full max-w-md login-card rounded-2xl shadow-2xl p-8 border-t-4 border-orange-500 text-center relative animate-fade-in font-roboto font-bold uppercase">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 login-bg font-bold uppercase">
+      <div className="w-full max-w-md login-card rounded-2xl shadow-2xl p-8 border-t-4 border-orange-500 text-center relative animate-fade-in font-roboto">
         <div className="mb-8">
-            <div className="flex justify-center mb-4 font-bold uppercase">
+            <div className="flex justify-center mb-4">
               <div className="iocl-logo-container" style={{ fontSize: '14px' }}>
                 <div className="iocl-circle"><div className="iocl-band"><span className="iocl-hindi-text">इंडियनऑयल</span></div></div>
                 <div className="iocl-english-text" style={{ color: 'white' }}>IndianOil</div>
                 <div className="font-script text-orange-400 text-[10px] mt-1 whitespace-nowrap">The Energy of India</div>
               </div>
             </div>
-            <h1 className="text-2xl font-bold text-white uppercase tracking-wider leading-tight">Gujarat Refinery</h1>
+            <h1 className="text-2xl font-bold text-white uppercase tracking-wider leading-tight font-roboto">Gujarat Refinery</h1>
             <p className="font-hindi text-blue-400 text-sm font-bold mt-1 tracking-wide">जहाँ प्रगति ही जीवन सार है</p>
             <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-4">Spare Setu Portal</p>
         </div>
         <div className="space-y-4">
           {(view === "register") && (
             <>
-              <div className="relative font-bold uppercase"><i className="fa-solid fa-user absolute left-4 top-3.5 text-slate-400"></i><input type="text" placeholder="Engineer Full Name" className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold font-roboto" onChange={e=>setForm({...form, name:e.target.value})} /></div>
-              <div className="relative font-bold uppercase"><i className="fa-solid fa-building absolute left-4 top-3.5 text-slate-400"></i><select className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm bg-slate-900 text-slate-300 font-bold font-roboto" onChange={e=>setForm({...form, unit:e.target.value})}><option value="">Select Your Zone</option>{["RUP - South Block", "RUP - North Block", "LAB", "MSQU", "AU-5", "BS-VI", "GR-II & NBA", "GR-I", "OM&S", "OLD SRU & CETP", "Electrical Planning", "Electrical Testing", "Electrical Workshop", "FCC", "GRE", "CGP-I", "CGP-II & TPS", "Water Block & Bitumen", "Township - Estate Office", "AC Section", "GHC", "DHUMAD"].map(z=><option key={z} value={z}>{z}</option>)}</select></div>
+              <div className="relative"><i className="fa-solid fa-user absolute left-4 top-3.5 text-slate-400"></i><input type="text" placeholder="Engineer Full Name" className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold font-roboto" onChange={e=>setForm({...form, name:e.target.value})} /></div>
+              <div className="relative"><i className="fa-solid fa-building absolute left-4 top-3.5 text-slate-400"></i><select className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm bg-slate-900 text-slate-300 font-bold font-roboto" onChange={e=>setForm({...form, unit:e.target.value})}><option value="">Select Your Zone</option>{["RUP - South Block", "RUP - North Block", "LAB", "MSQU", "AU-5", "BS-VI", "GR-II & NBA", "GR-I", "OM&S", "OLD SRU & CETP", "Electrical Planning", "Electrical Testing", "Electrical Workshop", "FCC", "GRE", "CGP-I", "CGP-II & TPS", "Water Block & Bitumen", "Township - Estate Office", "AC Section", "GHC", "DHUMAD"].map(z=><option key={z} value={z}>{z}</option>)}</select></div>
             </>
           )}
           {view === "otp" ? (
-             <div className="relative font-bold uppercase"><i className="fa-solid fa-key absolute left-4 top-3.5 text-slate-400"></i><input type="text" placeholder="######" maxLength={6} className="w-full p-3 rounded-lg login-input text-center text-2xl tracking-[0.5em] font-bold text-white outline-none font-mono" onChange={e=>setForm({...form, enteredOtp:e.target.value})} /></div>
+             <div className="relative"><i className="fa-solid fa-key absolute left-4 top-3.5 text-slate-400"></i><input type="text" placeholder="######" maxLength={6} className="w-full p-3 rounded-lg login-input text-center text-2xl tracking-[0.5em] font-bold text-white outline-none font-mono" onChange={e=>setForm({...form, enteredOtp:e.target.value})} /></div>
           ) : (
-             <div className="relative font-bold uppercase"><i className="fa-solid fa-envelope absolute left-4 top-3.5 text-slate-400"></i><input type="email" value={form.email} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold font-roboto" placeholder="Official Email ID" onChange={e=>setForm({...form, email:e.target.value})} /></div>
+             <div className="relative"><i className="fa-solid fa-envelope absolute left-4 top-3.5 text-slate-400"></i><input type="email" value={form.email} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold font-roboto" placeholder="Official Email ID" onChange={e=>setForm({...form, email:e.target.value})} /></div>
           )}
-          {(view === "login" || view === "register") && <div className="relative font-bold uppercase"><i className="fa-solid fa-lock absolute left-4 top-3.5 text-slate-400"></i><input type="password" placeholder="Password" className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold font-roboto" onChange={e=>setForm({...form, pass:e.target.value})} /></div>}
+          {(view === "login" || view === "register") && <div className="relative"><i className="fa-solid fa-lock absolute left-4 top-3.5 text-slate-400"></i><input type="password" placeholder="Password" className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold font-roboto" onChange={e=>setForm({...form, pass:e.target.value})} /></div>}
           {view === "login" && (
-            <div className="text-right font-roboto font-bold uppercase"><button onClick={()=>setView('forgot')} className="text-xs text-orange-500 hover:text-orange-400 font-bold transition font-roboto">Forgot Password?</button></div>
+            <div className="text-right"><button onClick={()=>setView('forgot')} className="text-xs text-orange-500 hover:text-orange-400 font-bold transition font-roboto">Forgot Password?</button></div>
           )}
           <button onClick={handleAuth} disabled={authLoading} className="w-full h-12 mt-4 iocl-btn text-white font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 uppercase tracking-widest text-sm font-roboto">
             {authLoading ? "Processing..." : view === 'login' ? "Secure Login →" : view === 'register' ? "Create Account" : view === 'otp' ? "Verify & Register" : "Send Reset Link"}
           </button>
-          <div className="mt-6 text-center border-t border-white/10 pt-4 font-roboto font-bold uppercase">
+          <div className="mt-6 text-center border-t border-white/10 pt-4">
             <p className="text-xs text-slate-400 font-roboto">{view==='login' ? "New User? " : "Already have an account? "}<button onClick={()=>setView(view==='login'?'register':'login')} className="text-white hover:text-orange-500 font-bold underline ml-1">{view==='login' ? "Create Account" : "Back to Login"}</button></p>
-          </div>
-          <div className="mt-8 pt-6 border-t border-white/10 text-center font-roboto font-bold uppercase">
-            <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider mb-1">Developed By Engineers</p>
-            <p className="text-[11px] text-slate-300 font-bold font-hindi">अशोक सैनी • दीपक चौहान • दिव्यांक सिंह राजपूत</p>
           </div>
         </div>
       </div>
@@ -254,12 +249,12 @@ function GlobalSearchView({ profile, onExport }: any) {
       </section>
 
       <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-4 border-b bg-slate-50/80 flex flex-wrap items-center justify-between gap-4">
+        <div className="p-4 border-b bg-slate-50 flex flex-wrap items-center justify-between gap-4">
              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative md:w-80 font-bold"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Search Spares..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none font-bold uppercase font-roboto" onChange={e=>setSearch(e.target.value)} /></div>
+                <div className="relative md:w-80 font-bold"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Search Global Spares..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none font-bold uppercase font-roboto" onChange={e=>setSearch(e.target.value)} /></div>
                 <select className="border rounded-md text-xs font-bold p-2 bg-white uppercase font-roboto" onChange={e=>setSelCat(e.target.value)}><option value="all">Category: All</option>{[...new Set(items.map(i => i.cat))].sort().map(c => <option key={c} value={c}>{c}</option>)}</select>
              </div>
-             <button onClick={() => onExport(filtered, "Global_Inventory")} className="text-[10px] bg-emerald-600 text-white px-4 py-2 rounded-lg font-black tracking-widest uppercase hover:bg-emerald-700"><i className="fa-solid fa-file-excel mr-2"></i> Export Sheet</button>
+             <button onClick={() => onExport(filtered, "Global_Inventory")} className="text-[10px] bg-emerald-600 text-white px-4 py-2 rounded-lg font-black tracking-widest hover:bg-emerald-700"><i className="fa-solid fa-file-excel mr-2"></i> Export Data</button>
         </div>
         <div className="overflow-x-auto"><table className="w-full text-left tracking-tight font-roboto font-bold uppercase"><thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold border-b tracking-widest"><tr><th className="p-4 pl-6 font-bold">Item Detail</th><th className="p-4 font-bold">Spec</th><th className="p-4 text-center font-bold">Qty</th><th className="p-4 text-center font-bold">Action</th></tr></thead>
           <tbody className="divide-y text-sm">
@@ -274,7 +269,7 @@ function GlobalSearchView({ profile, onExport }: any) {
                 </td>
                 <td className="p-4 text-center font-bold whitespace-nowrap text-slate-800 text-[14px] font-roboto">{i.qty} {i.unit}</td>
                 <td className="p-4 text-center font-roboto font-bold uppercase">
-                    {i.holder_uid === profile?.id ? <span className="text-[10px] font-black text-green-600 italic uppercase">MY STORE</span> : <button onClick={()=>setRequestItem(i)} className="bg-[#ff6b00] text-white px-4 py-1.5 rounded-[4px] text-[10.5px] font-black shadow-sm uppercase tracking-widest">Request</button>}
+                    {i.holder_uid === profile?.id ? <span className="text-[10px] font-black text-green-600 italic">MY STORE</span> : <button onClick={()=>setRequestItem(i)} className="bg-[#ff6b00] text-white px-4 py-1.5 rounded-[4px] text-[10.5px] font-black shadow-sm uppercase tracking-widest">Request</button>}
                 </td>
               </tr>
             ))}
@@ -282,22 +277,30 @@ function GlobalSearchView({ profile, onExport }: any) {
         </table></div>
       </section>
 
+      {/* GLOBAL SEARCH MODAL */}
       {requestItem && (
-        <div className="fixed top-0 left-0 w-full h-full bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
-            <div className="p-6 border-b bg-slate-50 flex justify-between items-center">
-              <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Raise Request</h3>
-              <button onClick={()=>setRequestItem(null)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark"></i></button>
+        <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-lg shadow-xl overflow-hidden animate-fade-in border border-slate-200">
+            <div className="p-4 bg-slate-50 border-b flex justify-between items-center">
+              <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider">Raise Material Request</h3>
+              <button onClick={()=>setRequestItem(null)} className="text-slate-400 hover:text-slate-600 transition-colors"><i className="fa-solid fa-xmark"></i></button>
             </div>
-            <div className="p-6 space-y-4 font-bold uppercase">
-              <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
-                <p className="text-sm font-bold text-slate-800">{requestItem.item}</p>
-                <p className="text-[10px] text-slate-400 mt-1 uppercase">{requestItem.spec}</p>
+            <div className="p-6 space-y-4">
+              <div className="bg-slate-50 p-4 rounded border border-slate-200">
+                <p className="text-[10px] text-slate-400 font-black mb-1">SELECTED ITEM</p>
+                <p className="text-sm font-bold text-slate-800 uppercase">{requestItem.item}</p>
+                <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-tight">{requestItem.spec}</p>
               </div>
-              <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quantity</label><input type="number" placeholder="Enter Qty" className="w-full mt-1 p-3 border rounded-lg outline-none font-bold text-slate-800" onChange={e=>setReqForm({...reqForm, qty:e.target.value})} /></div>
-              <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purpose</label><textarea placeholder="Purpose..." className="w-full mt-1 p-3 border rounded-lg outline-none font-bold text-xs h-24 text-slate-800" onChange={e=>setReqForm({...reqForm, comment:e.target.value})}></textarea></div>
-              <button onClick={handleSendRequest} disabled={submitting} className="w-full py-3 bg-[#ff6b00] text-white font-black rounded-xl shadow-lg uppercase tracking-widest disabled:opacity-50">
-                {submitting ? "Submitting..." : "Submit Request"}
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Quantity (Max: {requestItem.qty})</label>
+                <input type="number" placeholder="Enter needed quantity" className="w-full mt-1 p-3 border border-slate-300 rounded outline-none font-bold text-slate-800 focus:ring-1 focus:ring-orange-500" onChange={e=>setReqForm({...reqForm, qty:e.target.value})} />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Purpose / Reason</label>
+                <textarea placeholder="Briefly state why this is required..." className="w-full mt-1 p-3 border border-slate-300 rounded outline-none font-bold text-xs h-24 text-slate-800 focus:ring-1 focus:ring-orange-500" onChange={e=>setReqForm({...reqForm, comment:e.target.value})}></textarea>
+              </div>
+              <button onClick={handleSendRequest} disabled={submitting} className="w-full py-3 bg-slate-800 text-white font-bold rounded shadow hover:bg-slate-900 transition-colors uppercase tracking-widest text-xs">
+                {submitting ? "Processing..." : "Submit Global Request"}
               </button>
             </div>
           </div>
@@ -321,14 +324,12 @@ function MyStoreView({ profile, fetchProfile, onExport }: any) {
   useEffect(() => { if (profile) fetch(); }, [profile]);
   const fetch = async () => { try { const { data } = await supabase.from("inventory").select("*").eq("holder_uid", profile.id).order("id", { ascending: false }); if (data) setMyItems(data); } catch(e){} };
 
-  // Catalog Logic
   const catList = useMemo(() => [...new Set(masterCatalog.map(x => x.cat))].sort(), []);
   const subList = useMemo(() => [...new Set(masterCatalog.filter(x => x.cat === form.cat).map(x => x.sub))].sort(), [form.cat]);
   const makeList = useMemo(() => [...new Set(masterCatalog.filter(x => x.cat === form.cat && x.sub === form.sub).map(x => x.make))].sort(), [form.cat, form.sub]);
   const modelList = useMemo(() => [...new Set(masterCatalog.filter(x => x.cat === form.cat && x.sub === form.sub && x.make === form.make).map(x => x.model))].sort(), [form.cat, form.sub, form.make]);
   const specList = useMemo(() => [...new Set(masterCatalog.filter(x => x.cat === form.cat && x.sub === form.sub && x.make === form.make && x.model === form.model).map(x => x.spec))].sort(), [form.cat, form.sub, form.make, form.model]);
 
-  // Auto-Select logic
   useEffect(() => {
     if (!isManual) {
       if (subList.length === 1 && !form.sub) setForm(f => ({ ...f, sub: subList[0] }));
@@ -343,13 +344,12 @@ function MyStoreView({ profile, fetchProfile, onExport }: any) {
     if (!cat || !spec || !qty) return alert("Fill mandatory details!");
     setSaving(true);
     const itemName = `${make} ${sub} ${model}`.trim();
-    const isManualItem = isManual; // We can flag this in DB if needed
 
     try {
         const { error } = await supabase.from("inventory").insert([{ 
           item: itemName, cat, sub, make, model, spec, qty: parseInt(qty), unit: form.unit, 
           holder_unit: profile.unit, holder_uid: profile.id, holder_name: profile.name,
-          manual_add: isManualItem 
+          manual_add: isManual 
         }]);
         if (!error) {
             alert("Stock Added!");
@@ -365,19 +365,16 @@ function MyStoreView({ profile, fetchProfile, onExport }: any) {
   const handleConsume = async () => {
     if (!consumeForm.qty || !consumeForm.comment) return alert("Qty and Comment are mandatory!");
     if (Number(consumeForm.qty) > showConsumeModal.qty) return alert("Insufficient Stock!");
-
     setSaving(true);
     try {
         const remaining = showConsumeModal.qty - Number(consumeForm.qty);
-        // 1. Update Inventory
         await supabase.from("inventory").update({ qty: remaining }).eq("id", showConsumeModal.id);
-        // 2. Add to Usage Logs
         await supabase.from("usage_logs").insert([{
           inventory_id: showConsumeModal.id, item_name: showConsumeModal.item, category: showConsumeModal.cat,
           qty_consumed: Number(consumeForm.qty), consumer_name: profile.name, consumer_uid: profile.id,
           timestamp: Date.now().toString(), comment: consumeForm.comment
         }]);
-        alert("Stock Consumed Successfully!");
+        alert("Consumption Recorded!");
         fetch(); setShowConsumeModal(null); setConsumeForm({ qty: "", comment: "" });
     } catch(e){}
     setSaving(false);
@@ -391,7 +388,7 @@ function MyStoreView({ profile, fetchProfile, onExport }: any) {
             model: showEditModal.model, spec: showEditModal.spec, qty: Number(showEditModal.qty), unit: showEditModal.unit,
             item: `${showEditModal.make} ${showEditModal.sub} ${showEditModal.model}`.trim()
         }).eq("id", showEditModal.id);
-        if (!error) { alert("Updated!"); fetch(); setShowEditModal(null); }
+        if (!error) { alert("Stock Entry Updated!"); fetch(); setShowEditModal(null); }
     } catch(e){}
     setSaving(false);
   };
@@ -399,15 +396,15 @@ function MyStoreView({ profile, fetchProfile, onExport }: any) {
   return (
     <div className="animate-fade-in space-y-6 pb-10 uppercase font-roboto font-bold">
       <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl border shadow-sm">
-        <div><h2 className="text-xl font-bold text-slate-800 tracking-widest uppercase leading-none">My Local Store</h2><p className="text-[10px] font-black bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-2 uppercase tracking-tighter">ZONE: {profile?.unit}</p></div>
+        <div><h2 className="text-xl font-bold text-slate-800 tracking-widest uppercase leading-none">My Local Store</h2><p className="text-[10px] font-black bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-2 uppercase tracking-tighter font-roboto">ZONE: {profile?.unit}</p></div>
         <div className="flex gap-2">
-           <button onClick={() => onExport(myItems, "My_Unit_Stock")} className="bg-slate-800 text-white px-6 py-2.5 rounded-xl font-bold shadow-md text-xs tracking-widest"><i className="fa-solid fa-file-excel mr-2"></i> Export</button>
-           <button onClick={() => setShowAddModal(true)} className="iocl-btn text-white px-6 py-2.5 rounded-xl font-bold shadow-md flex items-center gap-2"><i className="fa-solid fa-plus"></i> Add New Stock</button>
+           <button onClick={() => onExport(myItems, "My_Unit_Stock")} className="bg-slate-800 text-white px-6 py-2.5 rounded-lg font-bold shadow-md text-[10px] tracking-widest hover:bg-slate-900 transition-colors"><i className="fa-solid fa-file-excel mr-2"></i> EXPORT STORE</button>
+           <button onClick={() => setShowAddModal(true)} className="iocl-btn text-white px-6 py-2.5 rounded-lg font-bold shadow-md flex items-center gap-2"><i className="fa-solid fa-plus"></i> ADD NEW STOCK</button>
         </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden uppercase font-roboto">
-        <div className="overflow-x-auto"><table className="w-full text-left tracking-tight"><thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b uppercase tracking-widest"><tr><th className="p-5 pl-8 font-bold">Category / Item</th><th className="p-5 font-bold">Spec</th><th className="p-5 text-center font-bold">Qty</th><th className="p-5 text-center font-bold">Actions</th></tr></thead>
+        <div className="overflow-x-auto"><table className="w-full text-left tracking-tight"><thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b uppercase tracking-widest"><tr><th className="p-5 pl-8">Category / Item Detail</th><th className="p-5">Technical Spec</th><th className="p-5 text-center">Available Qty</th><th className="p-5 text-center">Actions</th></tr></thead>
           <tbody className="divide-y text-sm">
               {myItems.map((i, idx) => (<tr key={i.id} className={`hover:bg-slate-50 transition border-b border-slate-50 ${idx === 0 ? 'bg-orange-50/20' : ''}`}>
                 <td className="p-5 pl-8 leading-tight">
@@ -417,96 +414,114 @@ function MyStoreView({ profile, fetchProfile, onExport }: any) {
                 <td className="p-5"><span className="bg-white border border-slate-200 px-2.5 py-1 rounded-[4px] text-[10.5px] font-bold text-slate-500 shadow-sm uppercase">{i.spec}</span></td>
                 <td className="p-5 font-bold text-center whitespace-nowrap text-slate-800 text-[14px]">{i.qty} {i.unit}</td>
                 <td className="p-5 text-center flex justify-center gap-2">
-                   <button onClick={() => setShowConsumeModal(i)} className="bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-[9px] font-black tracking-widest border border-red-100 uppercase">Consume</button>
-                   <button onClick={() => setShowEditModal(i)} className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-[9px] font-black tracking-widest border border-blue-100 uppercase">Edit</button>
+                   <button onClick={() => setShowConsumeModal(i)} className="bg-red-50 text-red-600 px-3 py-1.5 rounded text-[9px] font-black tracking-widest border border-red-100 uppercase hover:bg-red-100">Consume</button>
+                   <button onClick={() => setShowEditModal(i)} className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded text-[9px] font-black tracking-widest border border-blue-100 uppercase hover:bg-blue-100">Edit</button>
                 </td>
               </tr>))}
           </tbody>
         </table></div>
       </div>
 
-      {/* CONSUME MODAL */}
+      {/* CONSUME STOCK MODAL */}
       {showConsumeModal && (
-        <div className="fixed inset-0 z-[9999] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4">
-           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border-t-8 border-red-500">
-              <div className="p-6 bg-slate-50 border-b flex justify-between">
-                 <h3 className="font-black text-slate-800 uppercase">Consume Stock</h3>
-                 <button onClick={() => setShowConsumeModal(null)}><i className="fa-solid fa-xmark text-slate-400"></i></button>
+        <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 font-bold uppercase">
+           <div className="bg-white w-full max-w-md rounded-lg shadow-xl overflow-hidden border border-slate-200">
+              <div className="p-4 bg-slate-50 border-b flex justify-between items-center">
+                 <h3 className="font-bold text-slate-800 text-sm tracking-wider">Stock Consumption Log</h3>
+                 <button onClick={() => setShowConsumeModal(null)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark"></i></button>
               </div>
-              <div className="p-6 space-y-4 font-roboto uppercase">
-                 <div className="bg-slate-100 p-4 rounded-xl text-xs font-bold text-slate-600">{showConsumeModal.item} ({showConsumeModal.spec})</div>
-                 <div><label className="text-[10px] font-black text-slate-400 tracking-widest">Qty to Consume (Available: {showConsumeModal.qty})</label><input type="number" className="w-full p-3 border-2 rounded-xl mt-1 font-black" onChange={e=>setConsumeForm({...consumeForm, qty:e.target.value})} /></div>
-                 <div><label className="text-[10px] font-black text-slate-400 tracking-widest">MANDATORY COMMENT / LOG</label><textarea placeholder="Specify where used..." className="w-full p-3 border-2 rounded-xl mt-1 h-24 text-xs font-bold" onChange={e=>setConsumeForm({...consumeForm, comment:e.target.value})}></textarea></div>
-                 <button onClick={handleConsume} disabled={saving} className="w-full py-4 bg-red-600 text-white font-black rounded-2xl uppercase tracking-[0.2em]">{saving ? "Updating..." : "Confirm Consumption"}</button>
-              </div>
-           </div>
-        </div>
-      )}
-
-      {/* EDIT MODAL */}
-      {showEditModal && (
-        <div className="fixed inset-0 z-[9999] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4">
-           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden border-t-8 border-blue-500">
-              <div className="p-6 bg-slate-50 border-b flex justify-between">
-                 <h3 className="font-black text-slate-800 uppercase">Edit Stock Entry</h3>
-                 <button onClick={() => setShowEditModal(null)}><i className="fa-solid fa-xmark text-slate-400"></i></button>
-              </div>
-              <div className="p-6 space-y-4 font-roboto uppercase">
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400">Category</label><input disabled={!showEditModal.manual_add} type="text" value={showEditModal.cat} className="w-full p-3 bg-slate-100 border rounded-lg font-bold text-xs disabled:opacity-50" onChange={e=>setShowEditModal({...showEditModal, cat:e.target.value})} /></div>
-                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400">Sub Category</label><input disabled={!showEditModal.manual_add} type="text" value={showEditModal.sub} className="w-full p-3 bg-slate-100 border rounded-lg font-bold text-xs disabled:opacity-50" onChange={e=>setShowEditModal({...showEditModal, sub:e.target.value})} /></div>
-                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400">Make</label><input disabled={!showEditModal.manual_add} type="text" value={showEditModal.make} className="w-full p-3 bg-slate-100 border rounded-lg font-bold text-xs disabled:opacity-50" onChange={e=>setShowEditModal({...showEditModal, make:e.target.value})} /></div>
-                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400">Model</label><input disabled={!showEditModal.manual_add} type="text" value={showEditModal.model} className="w-full p-3 bg-slate-100 border rounded-lg font-bold text-xs disabled:opacity-50" onChange={e=>setShowEditModal({...showEditModal, model:e.target.value})} /></div>
-                    <div className="col-span-2 space-y-1"><label className="text-[9px] font-black text-slate-400">Specification</label><input disabled={!showEditModal.manual_add} type="text" value={showEditModal.spec} className="w-full p-3 bg-slate-100 border rounded-lg font-bold text-xs disabled:opacity-50" onChange={e=>setShowEditModal({...showEditModal, spec:e.target.value})} /></div>
-                    <div className="space-y-1"><label className="text-[9px] font-black text-orange-400">Quantity (Editable)</label><input type="number" value={showEditModal.qty} className="w-full p-3 bg-orange-50 border-2 border-orange-100 rounded-lg font-black text-lg" onChange={e=>setShowEditModal({...showEditModal, qty:e.target.value})} /></div>
-                    <div className="space-y-1"><label className="text-[9px] font-black text-orange-400">Unit (Editable)</label><input type="text" value={showEditModal.unit} className="w-full p-3 bg-orange-50 border-2 border-orange-100 rounded-lg font-black" onChange={e=>setShowEditModal({...showEditModal, unit:e.target.value})} /></div>
+              <div className="p-6 space-y-5">
+                 <div className="bg-slate-50 p-4 border rounded text-xs leading-relaxed">
+                    <span className="text-slate-400 text-[10px] block font-black mb-1 uppercase tracking-widest">CONSUMING MATERIAL</span>
+                    <span className="text-slate-700 block mb-1">{showConsumeModal.item}</span>
+                    <span className="text-slate-500 text-[10px]">{showConsumeModal.spec}</span>
                  </div>
-                 <button onClick={handleUpdate} disabled={saving} className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl uppercase tracking-[0.2em]">Update Changes</button>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Quantity (Max: {showConsumeModal.qty})</label>
+                      <input type="number" className="w-full p-3 border border-slate-300 rounded mt-1 font-bold text-lg text-slate-800 focus:ring-1 focus:ring-red-500" onChange={e=>setConsumeForm({...consumeForm, qty:e.target.value})} />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Consumption Purpose / Site Location</label>
+                      <textarea placeholder="Example: Used in AU-5 MCC Panel #4" className="w-full p-3 border border-slate-300 rounded mt-1 h-24 text-xs font-bold text-slate-800 focus:ring-1 focus:ring-red-500" onChange={e=>setConsumeForm({...consumeForm, comment:e.target.value})}></textarea>
+                    </div>
+                 </div>
+                 <button onClick={handleConsume} disabled={saving} className="w-full py-3.5 bg-red-600 text-white font-bold rounded shadow hover:bg-red-700 transition-colors uppercase tracking-widest text-xs">{saving ? "PROCESSING..." : "CONFIRM CONSUMPTION"}</button>
               </div>
            </div>
         </div>
       )}
 
-      {/* ADD STOCK MODAL (AS UPDATED PREVIOUSLY WITH AUTO-SELECT) */}
+      {/* EDIT STOCK MODAL */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 font-bold uppercase">
+           <div className="bg-white w-full max-w-lg rounded-lg shadow-xl overflow-hidden border border-slate-200">
+              <div className="p-4 bg-slate-50 border-b flex justify-between items-center">
+                 <h3 className="font-bold text-slate-800 text-sm tracking-wider">Update Stock Entry</h3>
+                 <button onClick={() => setShowEditModal(null)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark"></i></button>
+              </div>
+              <div className="p-6 space-y-5">
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1"><label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Category</label><input disabled={!showEditModal.manual_add} type="text" value={showEditModal.cat} className="w-full p-3 bg-slate-50 border border-slate-200 rounded font-bold text-xs disabled:bg-slate-100 disabled:text-slate-400" onChange={e=>setShowEditModal({...showEditModal, cat:e.target.value})} /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Sub Category</label><input disabled={!showEditModal.manual_add} type="text" value={showEditModal.sub} className="w-full p-3 bg-slate-50 border border-slate-200 rounded font-bold text-xs disabled:bg-slate-100 disabled:text-slate-400" onChange={e=>setShowEditModal({...showEditModal, sub:e.target.value})} /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Make / Brand</label><input disabled={!showEditModal.manual_add} type="text" value={showEditModal.make} className="w-full p-3 bg-slate-50 border border-slate-200 rounded font-bold text-xs disabled:bg-slate-100 disabled:text-slate-400" onChange={e=>setShowEditModal({...showEditModal, make:e.target.value})} /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Model / Series</label><input disabled={!showEditModal.manual_add} type="text" value={showEditModal.model} className="w-full p-3 bg-slate-50 border border-slate-200 rounded font-bold text-xs disabled:bg-slate-100 disabled:text-slate-400" onChange={e=>setShowEditModal({...showEditModal, model:e.target.value})} /></div>
+                    <div className="col-span-2 space-y-1"><label className="text-[9px] font-bold text-slate-500 uppercase ml-1">Technical Specification</label><input disabled={!showEditModal.manual_add} type="text" value={showEditModal.spec} className="w-full p-3 bg-slate-50 border border-slate-200 rounded font-bold text-xs disabled:bg-slate-100 disabled:text-slate-400" onChange={e=>setShowEditModal({...showEditModal, spec:e.target.value})} /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-orange-600 uppercase ml-1">Current Quantity</label><input type="number" value={showEditModal.qty} className="w-full p-3 border border-orange-200 rounded font-bold text-lg text-slate-800" onChange={e=>setShowEditModal({...showEditModal, qty:e.target.value})} /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-orange-600 uppercase ml-1">Measurement Unit</label><input type="text" value={showEditModal.unit} className="w-full p-3 border border-orange-200 rounded font-bold text-slate-800" onChange={e=>setShowEditModal({...showEditModal, unit:e.target.value})} /></div>
+                 </div>
+                 <button onClick={handleUpdate} disabled={saving} className="w-full py-3.5 bg-slate-800 text-white font-bold rounded shadow hover:bg-slate-900 transition-colors uppercase tracking-widest text-xs">{saving ? "SAVING..." : "CONFIRM UPDATE"}</button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* ADD NEW STOCK MODAL */}
       {showAddModal && (
-        <div className="fixed inset-0 z-[9999] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border-t-8 border-orange-500">
-            <div className="p-6 border-b flex justify-between bg-slate-50">
-               <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Inward New Stock</h3>
-               <button onClick={() => setShowAddModal(false)} className="w-10 h-10 rounded-full hover:bg-slate-200 flex items-center justify-center transition-colors"><i className="fa-solid fa-xmark text-slate-400 text-lg"></i></button>
+        <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 font-bold uppercase">
+          <div className="bg-white w-full max-w-2xl rounded-lg shadow-xl overflow-hidden border border-slate-200 border-t-4 border-orange-500">
+            <div className="p-4 border-b bg-slate-50 flex justify-between items-center">
+               <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Inward Local Stock Entry</h3>
+               <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark"></i></button>
             </div>
-            <div className="p-8 space-y-6 uppercase">
-              <div className="flex items-center justify-between bg-slate-100 p-4 rounded-2xl border border-slate-200">
+            <div className="p-6 space-y-6">
+              <div className="flex items-center justify-between bg-slate-50 p-3 rounded border border-slate-200">
                 <div className="flex items-center gap-3">
                   <i className={`fa-solid ${isManual ? 'fa-keyboard text-indigo-600' : 'fa-list-check text-orange-600'}`}></i>
-                  <div><p className="text-xs font-black text-slate-800 uppercase">{isManual ? 'Manual Mode' : 'Smart Catalog'}</p></div>
+                  <span className="text-[10px] font-black uppercase tracking-widest">{isManual ? 'Manual Technical Entry' : 'Smart Catalog Selection'}</span>
                 </div>
-                <button onClick={() => { setIsManual(!isManual); setForm({ cat: "", sub: "", make: "", model: "", spec: "", qty: "", unit: "Nos" }); }} className={`relative w-14 h-7 rounded-full ${isManual ? 'bg-indigo-600' : 'bg-orange-500'}`}><div className={`absolute top-1 left-1 bg-white w-5 h-5 rounded-full transition-transform ${isManual ? 'translate-x-7' : ''}`}></div></button>
+                <button onClick={() => { setIsManual(!isManual); setForm({ cat: "", sub: "", make: "", model: "", spec: "", qty: "", unit: "Nos" }); }} className={`relative w-12 h-6 rounded-full transition-colors ${isManual ? 'bg-indigo-600' : 'bg-orange-500'}`}><div className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${isManual ? 'translate-x-6' : ''}`}></div></button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {isManual ? (
                   <>
-                    <input type="text" placeholder="Category" className="p-3 border-2 rounded-xl font-bold text-xs" onChange={e=>setForm({...form, cat: e.target.value})} />
-                    <input type="text" placeholder="Sub-Category" className="p-3 border-2 rounded-xl font-bold text-xs" onChange={e=>setForm({...form, sub: e.target.value})} />
-                    <input type="text" placeholder="Make" className="p-3 border-2 rounded-xl font-bold text-xs" onChange={e=>setForm({...form, make: e.target.value})} />
-                    <input type="text" placeholder="Model" className="p-3 border-2 rounded-xl font-bold text-xs" onChange={e=>setForm({...form, model: e.target.value})} />
-                    <input type="text" placeholder="Specification" className="p-3 border-2 rounded-xl font-bold text-xs md:col-span-2" onChange={e=>setForm({...form, spec: e.target.value})} />
+                    <div className="space-y-1"><label className="text-[9px] font-bold text-slate-500 ml-1">Category</label><input type="text" className="w-full p-3 border rounded text-xs" onChange={e=>setForm({...form, cat: e.target.value})} /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-bold text-slate-500 ml-1">Sub Category</label><input type="text" className="w-full p-3 border rounded text-xs" onChange={e=>setForm({...form, sub: e.target.value})} /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-bold text-slate-500 ml-1">Make</label><input type="text" className="w-full p-3 border rounded text-xs" onChange={e=>setForm({...form, make: e.target.value})} /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-bold text-slate-500 ml-1">Model</label><input type="text" className="w-full p-3 border rounded text-xs" onChange={e=>setForm({...form, model: e.target.value})} /></div>
+                    <div className="md:col-span-2 space-y-1"><label className="text-[9px] font-bold text-slate-500 ml-1">Technical Spec</label><input type="text" className="w-full p-3 border rounded text-xs" onChange={e=>setForm({...form, spec: e.target.value})} /></div>
                   </>
                 ) : (
                   <>
-                    <select className="p-3 border-2 rounded-xl font-bold text-xs" value={form.cat} onChange={e=>setForm({ ...form, cat: e.target.value, sub: "", make: "", model: "", spec: "" })}><option value="">Select Cat</option>{catList.map(c => <option key={c} value={c}>{c}</option>)}</select>
-                    <select disabled={!form.cat} className="p-3 border-2 rounded-xl font-bold text-xs" value={form.sub} onChange={e=>setForm({ ...form, sub: e.target.value, make: "", model: "", spec: "" })}><option value="">Select Sub</option>{subList.map(s => <option key={s} value={s}>{s}</option>)}</select>
-                    <select disabled={!form.sub} className="p-3 border-2 rounded-xl font-bold text-xs" value={form.make} onChange={e=>setForm({ ...form, make: e.target.value, model: "", spec: "" })}><option value="">Select Make</option>{makeList.map(m => <option key={m} value={m}>{m}</option>)}</select>
-                    <select disabled={!form.make} className="p-3 border-2 rounded-xl font-bold text-xs" value={form.model} onChange={e=>setForm({ ...form, model: e.target.value, spec: "" })}><option value="">Select Model</option>{modelList.map(m => <option key={m} value={m}>{m}</option>)}</select>
-                    <select disabled={!form.model} className="p-3 border-2 rounded-xl font-bold text-xs md:col-span-2" value={form.spec} onChange={e=>setForm({ ...form, spec: e.target.value })}><option value="">Select Spec</option>{specList.map(s => <option key={s} value={s}>{s}</option>)}</select>
+                    <div className="space-y-1"><label className="text-[9px] font-bold text-slate-500 ml-1">Category</label><select className="w-full p-3 border rounded text-xs font-bold" value={form.cat} onChange={e=>setForm({ ...form, cat: e.target.value, sub: "", make: "", model: "", spec: "" })}><option value="">-Select-</option>{catList.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                    <div className="space-y-1"><label className="text-[9px] font-bold text-slate-500 ml-1">Sub-Cat</label><select disabled={!form.cat} className="w-full p-3 border rounded text-xs font-bold" value={form.sub} onChange={e=>setForm({ ...form, sub: e.target.value, make: "", model: "", spec: "" })}><option value="">-Select-</option>{subList.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                    <div className="space-y-1"><label className="text-[9px] font-bold text-slate-500 ml-1">Make</label><select disabled={!form.sub} className="w-full p-3 border rounded text-xs font-bold" value={form.make} onChange={e=>setForm({ ...form, make: e.target.value, model: "", spec: "" })}><option value="">-Select-</option>{makeList.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
+                    <div className="space-y-1"><label className="text-[9px] font-bold text-slate-500 ml-1">Model</label><select disabled={!form.make} className="w-full p-3 border rounded text-xs font-bold" value={form.model} onChange={e=>setForm({ ...form, model: e.target.value, spec: "" })}><option value="">-Select-</option>{modelList.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
+                    <div className="md:col-span-2 space-y-1"><label className="text-[9px] font-bold text-slate-500 ml-1">Final Spec</label><select disabled={!form.model} className="w-full p-3 border rounded text-xs font-bold" value={form.spec} onChange={e=>setForm({ ...form, spec: e.target.value })}><option value="">-Select Precise Specification-</option>{specList.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
                   </>
                 )}
-                <div className="md:col-span-2 flex gap-4">
-                   <input type="number" placeholder="Quantity" className="flex-1 p-4 border-2 border-orange-100 rounded-xl font-black text-xl text-orange-600 outline-none" onChange={e=>setForm({...form, qty: e.target.value})} />
-                   <input type="text" value={form.unit} className="w-32 p-4 border-2 border-orange-100 rounded-xl font-black text-center" onChange={e=>setForm({...form, unit: e.target.value})} />
+                <div className="md:col-span-2 flex gap-4 mt-2">
+                   <div className="flex-1 space-y-1">
+                     <label className="text-[9px] font-black text-orange-600 ml-1">PHYSICAL QTY</label>
+                     <input type="number" placeholder="00" className="w-full p-3 border border-orange-200 rounded font-black text-xl text-orange-600 outline-none focus:ring-1 focus:ring-orange-500" onChange={e=>setForm({...form, qty: e.target.value})} />
+                   </div>
+                   <div className="w-24 space-y-1">
+                     <label className="text-[9px] font-black text-slate-400 ml-1">UNIT</label>
+                     <input type="text" value={form.unit} className="w-full p-3 border border-slate-200 rounded font-black text-center text-slate-700" onChange={e=>setForm({...form, unit: e.target.value})} />
+                   </div>
                 </div>
               </div>
-              <button onClick={handleSave} disabled={saving} className="w-full py-5 rounded-2xl bg-orange-500 text-white font-black uppercase tracking-[0.2em]">{saving ? "Saving..." : "Inward Stock"}</button>
+              <button onClick={handleSave} disabled={saving} className="w-full py-4 bg-slate-800 text-white font-bold rounded shadow hover:bg-slate-900 transition-colors uppercase tracking-[0.2em] text-xs">{saving ? "SAVING DATA..." : "CONFIRM INWARD"}</button>
             </div>
           </div>
         </div>
@@ -515,27 +530,27 @@ function MyStoreView({ profile, fetchProfile, onExport }: any) {
   );
 }
 
-// --- USAGE HISTORY & ANALYSIS ---
+// --- USAGE HISTORY VIEW ---
 function UsageHistoryView({ profile }: any) {
   const [logs, setLogs] = useState<any[]>([]);
   useEffect(() => { if (profile) fetch(); }, [profile]);
   const fetch = async () => { try { const { data } = await supabase.from("usage_logs").select("*").eq("consumer_uid", profile.id).order("timestamp", { ascending: false }); if (data) setLogs(data); } catch(e){} };
   return (
     <section className="bg-white rounded-xl border border-slate-200 shadow-sm font-roboto font-bold uppercase">
-      <div className="p-5 border-b bg-slate-50/50"><h2 className="text-lg font-bold text-slate-800 uppercase tracking-wider">My Usage Timeline</h2></div>
-      <div className="overflow-x-auto"><table className="w-full text-left text-xs font-mono font-bold uppercase"><thead className="bg-slate-50 border-b text-[10px] font-black uppercase tracking-widest"><tr><th className="p-4 pl-8">Timestamp / Date</th><th className="p-4">Material Details</th><th className="p-4">Log / Comment</th><th className="p-4 text-center">Qty</th></tr></thead>
+      <div className="p-5 border-b bg-slate-50/50"><h2 className="text-lg font-bold text-slate-800 uppercase tracking-wider">Store Consumption Audit Feed</h2></div>
+      <div className="overflow-x-auto"><table className="w-full text-left text-xs font-mono font-bold uppercase"><thead className="bg-slate-50 border-b text-[10px] font-black uppercase tracking-widest"><tr><th className="p-4 pl-8">Entry Timestamp</th><th className="p-4">Material Details</th><th className="p-4">Consumption Log</th><th className="p-4 text-center">Net Qty</th></tr></thead>
         <tbody className="divide-y text-slate-600">
           {logs.map(l => (
             <tr key={l.id} className="hover:bg-slate-50 transition border-b border-slate-100">
-              <td className="p-4 pl-8 uppercase font-mono">
-                <div className="text-slate-800">{new Date(Number(l.timestamp)).toLocaleDateString()}</div>
-                <div className="text-[9px] text-slate-400">{new Date(Number(l.timestamp)).toLocaleTimeString()}</div>
+              <td className="p-4 pl-8 uppercase font-mono leading-tight">
+                <div className="text-slate-800 font-bold">{new Date(Number(l.timestamp)).toLocaleDateString('en-IN')}</div>
+                <div className="text-[9px] text-slate-400 font-medium">{new Date(Number(l.timestamp)).toLocaleTimeString('en-IN')}</div>
               </td>
               <td className="p-4 font-bold uppercase leading-tight">
                 <div className="text-slate-800 text-[13px] tracking-tight">{l.item_name}</div>
                 <div className="text-[9px] text-slate-400 uppercase mt-0.5">{l.category}</div>
               </td>
-              <td className="p-4 italic text-slate-500 text-[10px] font-bold">{l.comment || '--'}</td>
+              <td className="p-4 italic text-slate-500 text-[10px] font-bold max-w-xs truncate">{l.comment || '--'}</td>
               <td className="p-4 text-center font-black text-red-600">-{l.qty_consumed} Nos</td>
             </tr>
           ))}
@@ -545,7 +560,7 @@ function UsageHistoryView({ profile }: any) {
 function MonthlyAnalysisView({ profile }: any) {
   const [analysis, setAnalysis] = useState<any[]>([]);
   useEffect(() => { const f = async () => { try { const { data } = await supabase.from("usage_logs").select("*").eq("consumer_uid", profile.id); if (data) { const stats: any = {}; data.forEach((l: any) => { const month = new Date(Number(l.timestamp)).toLocaleString('default', { month: 'long', year: 'numeric' }); if (!stats[month]) stats[month] = { month, total: 0, count: 0 }; stats[month].total += Number(l.qty_consumed); stats[month].count += 1; }); setAnalysis(Object.values(stats)); } } catch(e){} }; if (profile) f(); }, [profile]);
-  return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-roboto uppercase tracking-tight font-bold font-roboto"><div className="col-span-3 pb-4 text-xs font-black text-slate-400 tracking-widest text-center border-b uppercase font-roboto">Analytical Summary</div>{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md uppercase font-bold font-roboto font-bold"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-[0.2em] font-roboto font-bold">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner font-bold font-roboto font-bold"><i className="fa-solid fa-chart-line font-bold font-bold"></i></div><div className="text-3xl font-black text-slate-800 font-bold font-roboto font-bold">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase tracking-widest uppercase font-roboto font-bold">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase tracking-tighter uppercase font-bold font-roboto font-bold">{a.count} Logged Records</div></div>))}</div>);
+  return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-roboto uppercase tracking-tight font-bold"><div className="col-span-3 pb-4 text-xs font-black text-slate-400 tracking-widest text-center border-b uppercase">Analytical Consumption Summary</div>{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md uppercase"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-[0.2em]">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner font-bold"><i className="fa-solid fa-chart-line"></i></div><div className="text-3xl font-black text-slate-800">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase tracking-tighter">{a.count} Logged Records</div></div>))}</div>);
 }
 
 // --- RETURNS LEDGER ---
@@ -621,23 +636,57 @@ function ReturnsLedgerView({ profile, onAction }: any) {
 
     return (
         <div className="space-y-10 animate-fade-in pb-20 font-roboto uppercase font-bold tracking-tight">
-            <h2 className="text-2xl font-bold text-slate-800 uppercase flex items-center gap-2"><i className="fa-solid fa-handshake-angle text-orange-500"></i> Udhaari Dashboard</h2>
-            {/* Same Returns UI as before, omitted for brevity, logic holds */}
+            <h2 className="text-2xl font-bold text-slate-800 uppercase flex items-center gap-2"><i className="fa-solid fa-handshake-angle text-orange-500"></i> Udhaari Management Dashboard</h2>
+            
             <section className="bg-white rounded-xl border-t-4 border-orange-500 shadow-xl overflow-hidden">
-                <div className="p-4 bg-orange-50/50 flex justify-between uppercase font-bold text-[10px] tracking-widest text-orange-900 border-b"><span>Attention Required</span><span>{pending.length}</span></div>
-                <div className="overflow-x-auto"><table className="w-full text-left text-sm divide-y font-mono uppercase"><thead className="bg-slate-50 text-[10px] font-bold text-slate-400 tracking-widest uppercase"><tr><th className="p-4 pl-6">Material</th><th className="p-4">Counterparty</th><th className="p-4 text-center">Qty</th><th className="p-4 text-center">Action</th></tr></thead>
+                <div className="p-4 bg-orange-50/50 flex justify-between uppercase font-bold text-[10px] tracking-widest text-orange-900 border-b"><span>Action Required Spares</span><span>{pending.length} ITEMS</span></div>
+                <div className="overflow-x-auto"><table className="w-full text-left text-sm divide-y font-mono uppercase"><thead className="bg-slate-50 text-[10px] font-bold text-slate-400 tracking-widest uppercase"><tr><th className="p-4 pl-6">Material Detail</th><th className="p-4">Counterparty</th><th className="p-4 text-center">Qty</th><th className="p-4 text-center">Process</th></tr></thead>
                     <tbody className="divide-y text-slate-600 uppercase font-bold">
                         {pending.map(r => (
-                            <tr key={r.id} className={`${r.status==='return_requested' ? 'bg-orange-50 animate-pulse' : 'bg-white'} border-b uppercase`}>
-                                <td className="p-4 pl-6 leading-tight uppercase font-bold"><div className="text-slate-800 text-[14px]">{r.item_name}</div><div className="text-[10px] text-slate-400 mt-1">{r.item_spec}</div><div className="text-[8.5px] text-orange-600 mt-1">{formatTS(r.timestamp)}</div></td>
+                            <tr key={r.id} className={`${r.status==='return_requested' ? 'bg-orange-50 animate-pulse' : 'bg-white'} border-b uppercase hover:bg-slate-50 transition-colors`}>
+                                <td className="p-4 pl-6 leading-tight uppercase font-bold"><div className="text-slate-800 text-[14px]">{r.item_name}</div><div className="text-[10px] text-slate-400 mt-1 font-mono">{r.item_spec}</div><div className="text-[8.5px] text-orange-600 mt-1 font-black">{formatTS(r.timestamp)}</div></td>
                                 <td className="p-4 text-slate-700 leading-tight">{r.from_name}<div className="text-[10px] text-slate-400">{r.from_unit}</div></td>
                                 <td className="p-4 text-center font-black text-orange-600 text-[14px]">{r.req_qty} {r.item_unit}</td>
-                                <td className="p-4 flex gap-2 justify-center"><button onClick={()=>setActionModal({type: r.status==='pending' ? 'approve' : 'verify', data:r})} className="bg-[#ff6b00] text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md hover:bg-orange-600 tracking-widest uppercase font-bold"> {r.status==='pending' ? 'Issue' : 'Verify'} </button><button onClick={()=>setActionModal({type: 'reject', data:r})} className="bg-slate-100 text-slate-500 px-4 py-2 rounded-lg text-[9px] font-black transition tracking-widest uppercase font-bold">Reject</button></td>
+                                <td className="p-4 flex gap-2 justify-center"><button onClick={()=>setActionModal({type: r.status==='pending' ? 'approve' : 'verify', data:r})} className="bg-slate-800 text-white px-4 py-2 rounded text-[10px] font-black shadow hover:bg-black tracking-widest uppercase"> {r.status==='pending' ? 'Issue' : 'Verify'} </button><button onClick={()=>setActionModal({type: 'reject', data:r})} className="bg-slate-100 text-slate-500 px-4 py-2 rounded text-[9px] font-black transition tracking-widest uppercase hover:bg-slate-200">Reject</button></td>
                             </tr>
                         ))}
                     </tbody>
                 </table></div>
             </section>
+
+            {/* ACTION (ISSUE/VERIFY) MODAL */}
+            {actionModal && (
+              <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 font-bold uppercase">
+                <div className="bg-white w-full max-w-md rounded-lg shadow-xl overflow-hidden border border-slate-200">
+                  <div className="p-4 bg-slate-50 border-b flex justify-between items-center">
+                    <h3 className="font-bold text-slate-800 text-sm tracking-wider uppercase">
+                      {actionModal.type === 'approve' ? 'Approve Spare Issuance' : actionModal.type === 'return' ? 'Request Return' : actionModal.type === 'verify' ? 'Confirm Return Verify' : 'Reject Action'}
+                    </h3>
+                    <button onClick={()=>setActionModal(null)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark"></i></button>
+                  </div>
+                  <div className="p-6 space-y-5 font-roboto font-bold uppercase">
+                    <div className="bg-slate-50 p-4 border rounded">
+                      <p className="text-[9px] text-slate-400 font-black mb-1 uppercase tracking-widest">TRANSACTION INFO</p>
+                      <p className="text-[13px] font-bold text-slate-800">{actionModal.data.item_name}</p>
+                      <p className="text-[10px] text-slate-400 mt-1">{actionModal.data.item_spec}</p>
+                    </div>
+                    {(actionModal.type === 'approve' || actionModal.type === 'return') && (
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Quantity {actionModal.type === 'return' ? '(Max Borrowed:' : '(Requested:'} {actionModal.data.req_qty})</label>
+                        <input type="number" defaultValue={actionModal.data.req_qty} className="w-full mt-1 p-3 border border-slate-300 rounded font-black text-slate-800 outline-none focus:ring-1 focus:ring-slate-800" onChange={e=>setForm({...form, qty:e.target.value})} />
+                      </div>
+                    )}
+                    <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Audit Log / Remarks</label>
+                        <textarea placeholder="Enter official remarks for this transaction..." className="w-full mt-1 p-3 border border-slate-300 rounded outline-none font-bold text-xs h-24 text-slate-800 focus:ring-1 focus:ring-slate-800 uppercase" onChange={e=>setForm({...form, comment:e.target.value})}></textarea>
+                    </div>
+                    <button onClick={handleProcess} className={`w-full py-3.5 ${actionModal.type === 'reject' ? 'bg-red-600' : 'bg-slate-800'} text-white font-bold rounded shadow hover:opacity-90 transition-opacity uppercase tracking-widest text-xs`}>
+                        {actionModal.type === 'return' ? 'SEND RETURN REQUEST' : 'CONFIRM TRANSACTION'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
         </div>
     ); 
 }
