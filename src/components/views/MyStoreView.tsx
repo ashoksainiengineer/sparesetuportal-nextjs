@@ -33,13 +33,12 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
 
   const fetchStore = async () => {
     try {
-      // Fetching all items for the ZONE
       const { data } = await supabase.from("inventory").select("*").eq("holder_unit", profile.unit).order("id", { ascending: false });
       if (data) setMyItems(data);
     } catch (e) { console.error("Fetch failed"); }
   };
 
-  // --- 1. LOGIC: AGGREGATION (Grouping same items) ---
+  // --- 1. ENGINE: AGGREGATION & FILTERING ---
   const groupedItems = myItems.reduce((acc: any, item: any) => {
     const key = `${item.item}-${item.spec}`;
     if (!acc[key]) {
@@ -50,19 +49,19 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
     return acc;
   }, {});
 
-  const aggregatedList = Object.values(groupedItems);
-
-  // --- 2. ENGINE: FILTER LOGIC ---
-  const filteredList = aggregatedList.filter((i: any) => {
+  const filteredList = Object.values(groupedItems).filter((i: any) => {
     const s = search.toLowerCase();
-    const matchSearch = i.item.toLowerCase().includes(s) || i.spec.toLowerCase().includes(s);
+    const matchSearch = (i.item || "").toLowerCase().includes(s) || (i.spec || "").toLowerCase().includes(s);
     const matchCat = selCat === "all" || i.cat === selCat;
     const matchSub = selSub === "all" || i.sub === selSub;
     const matchEngineer = selEngineer === "all" || i.records.some((r: any) => r.holder_name === selEngineer);
     return matchSearch && matchCat && matchSub && matchEngineer;
   });
 
-  // --- 3. LOGIC: SUMMARY FUNCTION (Build Safe) ---
+  const totalPages = Math.ceil(filteredList.length / itemsPerPage) || 1;
+  const currentItems = filteredList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  // --- 2. LOGIC: SUMMARY FUNCTION (Build Safe) ---
   const getSummaryData = () => {
     const summary: any = {};
     filteredList.forEach((i: any) => {
@@ -73,11 +72,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
     return Object.values(summary).sort((a: any, b: any) => a.cat.localeCompare(b.cat));
   };
 
-  // Pagination Logic
-  const totalPages = Math.ceil(filteredList.length / itemsPerPage) || 1;
-  const currentItems = filteredList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  // --- 4. MASTER DATA DROPDOWNS ---
+  // --- 3. MASTER DATA DROPDOWNS ---
   const uniqueCats = [...new Set(masterCatalog.map(i => i.cat))].sort();
   const availableSubs = masterCatalog.filter(i => i.cat === form.cat).map(i => i.sub).filter((v, i, a) => a.indexOf(v) === i).sort();
   const availableMakes = masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub).map(i => i.make).filter((v, i, a) => a.indexOf(v) === i).sort();
@@ -88,9 +83,9 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
   const filterSubCategories = selCat !== "all" ? [...new Set(masterCatalog.filter(i => i.cat === selCat).map(i => i.sub))].sort() : [];
   const filterEngineers = [...new Set(myItems.map(i => i.holder_name))].sort();
 
-  // --- 5. HANDLERS ---
+  // --- 4. HANDLERS ---
   const handleSaveItem = async () => {
-    if (!form.cat || !form.qty || !form.spec) return alert("Fill all fields!");
+    if (!form.cat || !form.qty || !form.spec) return alert("All fields are mandatory!");
     const itemName = form.isManual ? `${form.make} ${form.model} ${form.spec}`.trim() : `${form.make} ${form.sub} ${form.model}`.trim();
     const payload = {
       item: itemName, cat: form.cat, sub: form.sub, make: form.make, model: form.model,
@@ -103,8 +98,8 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
         await supabase.from("inventory").insert([payload]);
         await supabase.from("profiles").update({ item_count: (profile.item_count || 0) + 1 }).eq('id', profile.id);
       }
-      resetForm(); fetchStore(); fetchProfile(); alert("Success!");
-    } catch (e) { alert("Error saving data"); }
+      resetForm(); fetchStore(); fetchProfile(); alert("Material Recorded!");
+    } catch (e) { alert("Save Error"); }
   };
 
   const handleConsume = async () => {
@@ -116,12 +111,12 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
         consumer_uid: profile.id, item_name: consumeItem.item, category: consumeItem.cat,
         qty_consumed: q, timestamp: Date.now().toString(), purpose: consumeForm.note
       }]);
-      setConsumeItem(null); setConsumeForm({ qty: "", note: "" }); fetchStore(); alert("Logged!");
-    } catch (e) { alert("Error logging"); }
+      setConsumeItem(null); setConsumeForm({ qty: "", note: "" }); fetchStore(); alert("Material Usage Logged!");
+    } catch (e) { alert("Consumption Error"); }
   };
 
   const handleDeleteItem = async (id: number) => {
-    if (confirm("Permanently delete?")) {
+    if (confirm("Permanently delete this record?")) {
       await supabase.from("inventory").delete().eq("id", id);
       resetForm(); setBifurcationItem(null); fetchStore(); fetchProfile();
     }
@@ -133,41 +128,41 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
   };
 
   const exportStoreCSV = () => {
-    const headers = "Category,Sub-Cat,Item,Spec,Qty,Unit,Engineer,Date\n";
+    const headers = "Category,Sub-Cat,Item Detail,Spec,Qty,Unit,Engineer,Date\n";
     const rows = filteredList.flatMap((i: any) => i.records.map((r: any) => `"${r.cat}","${r.sub}","${r.item}","${r.spec}","${r.qty}","${r.unit}","${r.holder_name}","${new Date(r.created_at).toLocaleDateString()}"`)).join("\n");
     const blob = new Blob([headers + rows], { type: 'text/csv' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `LocalStore_${profile.unit}.csv`; a.click();
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `LocalStore_Audit_${profile.unit}.csv`; a.click();
   };
 
   return (
     <div className="animate-fade-in space-y-6 pb-20 font-roboto font-bold uppercase">
-      {/* Header */}
-      <div className="bg-white p-6 rounded-xl border shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
-        <div><h2 className="text-xl font-black text-slate-800 uppercase tracking-widest leading-none">My Local Store</h2><p className="text-[10px] font-black bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-2 inline-block tracking-widest">ZONE: {profile?.unit}</p></div>
-        <div className="flex gap-2 w-full md:w-auto">
-            <button onClick={exportStoreCSV} className="bg-emerald-600 text-white px-4 py-3 rounded-xl text-[10px] font-black shadow-md flex items-center justify-center gap-2 uppercase tracking-widest transition-all hover:bg-emerald-700"><i className="fa-solid fa-file-csv"></i> Export Sheet</button>
-            <button onClick={() => setShowSummary(true)} className="bg-indigo-600 text-white px-4 py-3 rounded-xl text-[10px] font-black shadow-md flex items-center justify-center gap-2 uppercase tracking-widest transition-all hover:bg-indigo-700"><i className="fa-solid fa-chart-bar"></i> Stock Summary</button>
-            <button onClick={() => { resetForm(); setShowAddModal(true); }} className="iocl-btn text-white px-5 py-3 rounded-xl text-[10px] font-black shadow-md flex items-center justify-center gap-2 uppercase tracking-widest transition-all"><i className="fa-solid fa-plus"></i> Add Stock</button>
-        </div>
+      {/* Header Info */}
+      <div className="bg-white p-6 rounded-xl border shadow-sm">
+        <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest leading-none">My Local Store</h2>
+        <p className="text-[10px] font-black bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-2 inline-block">ZONE: {profile?.unit}</p>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col gap-4 bg-white p-4 rounded-xl border shadow-sm">
-        <div className="relative w-full">
+      {/* FEATURE 1: TOOLBAR RESTORATION (Search -> Export -> Summary -> Add) */}
+      <div className="flex flex-col md:flex-row gap-4 bg-white p-4 rounded-xl border shadow-sm items-center">
+        <div className="relative flex-1 md:flex-[3] w-full">
             <i className="fa-solid fa-search absolute left-3 top-3.5 text-slate-400"></i>
             <input type="text" placeholder="Search Master Material or Spec..." className="w-full pl-10 pr-4 py-3 border-2 border-slate-100 rounded-xl text-xs outline-none focus:border-orange-400 font-bold uppercase shadow-inner" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <select className="border-2 border-slate-50 rounded-lg text-[10px] p-3 bg-white font-bold uppercase shadow-sm cursor-pointer" value={selCat} onChange={e => { setSelCat(e.target.value); setSelSub("all"); }}><option value="all">Category: All</option>{filterCategories.map(c => <option key={c} value={c}>{c}</option>)}</select>
-            <select disabled={selCat === "all"} className={`border-2 border-slate-50 rounded-lg text-[10px] p-3 bg-white font-bold uppercase shadow-sm cursor-pointer ${selCat === "all" ? 'opacity-50' : ''}`} value={selSub} onChange={e => setSelSub(e.target.value)}><option value="all">{selCat === "all" ? "Select Category" : "Sub-Category: All"}</option>{filterSubCategories.map(s => <option key={s} value={s}>{s}</option>)}</select>
-            <select className="border-2 border-slate-50 rounded-lg text-[10px] p-3 bg-white font-bold uppercase shadow-sm cursor-pointer" value={selEngineer} onChange={e => setSelEngineer(e.target.value)}>
-                <option value="all">Engineer: Team View</option>
-                {filterEngineers.map(name => <option key={name} value={name}>{name === profile?.name ? "Added By: You" : name}</option>)}
-            </select>
+        <div className="flex gap-2 w-full md:w-auto">
+            <button onClick={exportStoreCSV} className="bg-emerald-600 text-white px-4 py-3 rounded-xl text-[10px] font-black shadow-md flex items-center justify-center gap-2 flex-1 md:flex-none uppercase tracking-widest"><i className="fa-solid fa-file-csv"></i> Export Sheet</button>
+            <button onClick={() => setShowSummary(true)} className="bg-indigo-600 text-white px-4 py-3 rounded-xl text-[10px] font-black shadow-md flex items-center justify-center gap-2 flex-1 md:flex-none uppercase tracking-widest"><i className="fa-solid fa-chart-bar"></i> Stock Summary</button>
+            <button onClick={() => { resetForm(); setShowAddModal(true); }} className="iocl-btn text-white px-5 py-3 rounded-xl text-[10px] font-black shadow-md flex items-center justify-center gap-2 flex-1 md:flex-none uppercase tracking-widest"><i className="fa-solid fa-plus"></i> Add Stock</button>
         </div>
       </div>
 
-      {/* Main Aggregated Table */}
+      {/* Reordered Filters */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50/50 p-4 rounded-xl border shadow-sm">
+        <select className="border-2 border-white rounded-lg text-[10px] p-3 bg-white font-bold uppercase shadow-sm" value={selCat} onChange={e => { setSelCat(e.target.value); setSelSub("all"); }}><option value="all">Category: All</option>{filterCategories.map(c => <option key={c} value={c}>{c}</option>)}</select>
+        <select disabled={selCat === "all"} className={`border-2 border-white rounded-lg text-[10px] p-3 bg-white font-bold uppercase shadow-sm ${selCat === "all" ? 'opacity-50 cursor-not-allowed' : ''}`} value={selSub} onChange={e => setSelSub(e.target.value)}><option value="all">Sub-Category: All</option>{filterSubCategories.map(s => <option key={s} value={s}>{s}</option>)}</select>
+        <select className="border-2 border-white rounded-lg text-[10px] p-3 bg-white font-bold uppercase shadow-sm" value={selEngineer} onChange={e => setSelEngineer(e.target.value)}><option value="all">Engineer: Team View</option>{filterEngineers.map(name => <option key={name} value={name}>{name === profile?.name ? "Added By: You" : name}</option>)}</select>
+      </div>
+
+      {/* Main Table (Aggregated) */}
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
         <div className="overflow-x-auto"><table className="w-full text-left tracking-tight">
           <thead className="bg-slate-50 text-slate-500 text-[10px] font-black border-b tracking-widest uppercase"><tr><th className="p-5 pl-8">Material Detail</th><th className="p-5">Spec</th><th className="p-5 text-center">Zone Balance</th><th className="p-5 text-center">Action</th></tr></thead>
@@ -176,14 +171,14 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
               <tr key={`${i.item}-${i.spec}`} className="hover:bg-blue-50/50 transition border-b uppercase group cursor-pointer" onClick={() => setBifurcationItem(i)}>
                 <td className="p-5 pl-8 leading-tight">
                   <div className="text-slate-800 font-bold text-[14px] flex items-center gap-2">{i.item}{i.is_manual && <span className="bg-orange-100 text-orange-600 text-[8px] px-1.5 py-0.5 rounded font-black border border-orange-200">M</span>}</div>
-                  <div className="text-[9px] text-slate-400 mt-1">{i.cat} &gt; {i.sub}</div>
-                  <div className="text-[8px] text-indigo-500 mt-1 font-black tracking-widest uppercase animate-pulse opacity-0 group-hover:opacity-100">Click for bifurcation split-up →</div>
+                  <div className="text-[9px] text-slate-400 mt-1 uppercase font-bold">{i.cat} &gt; {i.sub}</div>
+                  <div className="text-[8px] text-indigo-500 mt-1 font-black tracking-widest uppercase animate-pulse opacity-0 group-hover:opacity-100">Click to view split-up →</div>
                 </td>
                 <td className="p-5 font-mono"><span className="bg-white border px-2 py-1 rounded-[4px] text-[10.5px] text-slate-600 font-bold shadow-sm">{i.spec}</span></td>
                 <td className="p-5 font-bold text-center text-slate-800 text-[16px] whitespace-nowrap bg-blue-50/20">{i.totalQty} {i.unit}</td>
-                <td className="p-5 text-center"><button className="bg-indigo-50 text-indigo-700 px-4 py-1.5 rounded-lg text-[10px] font-black border border-indigo-100 uppercase tracking-tighter shadow-sm">View split</button></td>
+                <td className="p-5 text-center"><button className="bg-indigo-50 text-indigo-700 px-4 py-1.5 rounded-lg text-[10px] font-black border border-indigo-100 uppercase tracking-tighter shadow-sm">View Records</button></td>
               </tr>
-            )) : <tr><td colSpan={4} className="p-20 text-center text-slate-300 font-black tracking-[0.2em]">NO INVENTORY DATA</td></tr>}
+            )) : <tr><td colSpan={4} className="p-20 text-center text-slate-300 font-black tracking-[0.2em]">NO INVENTORY FOUND</td></tr>}
           </tbody>
         </table></div>
         <div className="p-4 bg-slate-50 border-t flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
@@ -199,7 +194,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-scale-in uppercase font-bold">
             <div className="p-6 border-b bg-slate-50 flex justify-between items-center">
                 <div><h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Material Split-up</h3><p className="text-[10px] text-slate-400">{bifurcationItem.item}</p></div>
-                <button onClick={() => setBifurcationItem(null)} className="text-slate-400 hover:text-red-500 transition-colors"><i className="fa-solid fa-xmark text-xl"></i></button>
+                <button onClick={() => setBifurcationItem(null)} className="text-slate-400 hover:text-red-500"><i className="fa-solid fa-xmark text-xl"></i></button>
             </div>
             <div className="p-0 max-h-[60vh] overflow-y-auto">
                 <table className="w-full text-left text-xs uppercase">
@@ -208,7 +203,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
                         {bifurcationItem.records.map((r: any) => (
                             <tr key={r.id} className="hover:bg-slate-50">
                                 <td className="p-4 pl-6"><span className={`px-2 py-1 rounded text-[10px] font-black ${r.holder_uid === profile?.id ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-slate-100 text-slate-600'}`}>{r.holder_uid === profile?.id ? "YOU" : r.holder_name}</span></td>
-                                <td className="p-4 text-[10px] text-slate-500 font-medium">{r.created_at ? new Date(r.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '--'}</td>
+                                <td className="p-4 text-[10px] text-slate-500 font-medium uppercase tracking-widest">{r.created_at ? new Date(r.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '--'}</td>
                                 <td className="p-4 text-center font-black text-slate-800 text-[14px]">{r.qty} {r.unit}</td>
                                 <td className="p-4 text-center flex justify-center gap-2">
                                     <button onClick={(e) => { e.stopPropagation(); setConsumeItem(r); }} className="bg-orange-600 text-white px-3 py-1.5 rounded text-[9px] font-black uppercase shadow-sm">Consume</button>
@@ -219,46 +214,59 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
                     </tbody>
                 </table>
             </div>
-            <div className="p-4 bg-slate-50 text-center"><button onClick={() => setBifurcationItem(null)} className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] hover:text-indigo-600 transition-all">Close</button></div>
+            <div className="p-4 bg-slate-50 text-center"><button onClick={() => setBifurcationItem(null)} className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] hover:text-indigo-600">Close Bifurcation</button></div>
           </div>
         </div>
       )}
 
-      {/* ADD / EDIT MODAL */}
+      {/* FEATURE 2: ADD / EDIT MODAL RESTORATION (Cascading master Catalog) */}
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-scale-in uppercase font-bold">
-            <div className="p-6 border-b bg-slate-50 flex justify-between items-center"><h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">{editItem ? 'Edit Material Record' : 'Add New Entry'}</h3><button onClick={resetForm}><i className="fa-solid fa-xmark text-xl"></i></button></div>
+            <div className="p-6 border-b bg-slate-50 flex justify-between items-center"><h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">{editItem ? 'Edit Entry' : 'Add New Entry'}</h3><button onClick={resetForm}><i className="fa-solid fa-xmark text-xl"></i></button></div>
             <div className="p-6 space-y-4 font-bold">
               {!editItem && (
                 <div className="flex justify-between items-center bg-orange-50 p-4 rounded-xl border-2 border-dashed border-orange-200 mb-2 shadow-inner">
-                  <div className="flex flex-col"><span className="text-[10px] text-orange-800 font-black tracking-tight uppercase">Custom Details?</span><span className="text-[8.5px] text-orange-600 font-medium lowercase">toggle manual mode to type name</span></div>
+                  <div className="flex flex-col"><span className="text-[10px] text-orange-800 font-black tracking-tight uppercase">Custom Item?</span><span className="text-[8.5px] text-orange-600 font-medium lowercase">enable manual mode</span></div>
                   <button onClick={() => setForm({ ...form, isManual: !form.isManual, cat: "", sub: "", make: "", model: "", spec: "" })} className={`w-12 h-6 rounded-full relative transition-colors ${form.isManual ? 'bg-orange-500' : 'bg-slate-300'}`}><div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${form.isManual ? 'left-7' : 'left-1'}`}></div></button>
                 </div>
               )}
               <div className="space-y-3">
+                {/* Master Data Cascading Dropdowns restored */}
                 <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest font-black">Category</label>
-                  {form.isManual ? <input type="text" disabled={!!editItem && !form.isManual} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold" placeholder="e.g. Electrical" value={form.cat} onChange={e => setForm({ ...form, cat: e.target.value })} />
-                    : <select disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold uppercase cursor-pointer shadow-sm" value={form.cat} onChange={e => setForm({ ...form, cat: e.target.value, sub: "", make: "", model: "", spec: "" })}><option value="">-- Choose Category --</option>{uniqueCats.map(c => <option key={c} value={c}>{c}</option>)}</select>}
+                  {form.isManual ? <input type="text" disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold" placeholder="e.g. Electrical / Mechanical" value={form.cat} onChange={e => setForm({ ...form, cat: e.target.value })} />
+                    : <select disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold uppercase cursor-pointer" value={form.cat} onChange={e => setForm({ ...form, cat: e.target.value, sub: "", make: "", model: "", spec: "" })}><option value="">-- Choose Category --</option>{uniqueCats.map(c => <option key={c} value={c}>{c}</option>)}</select>}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest font-black">Sub-Cat</label>
-                    {form.isManual ? <input type="text" disabled={!!editItem && !form.isManual} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold" placeholder="e.g. Bearings" value={form.sub} onChange={e => setForm({ ...form, sub: e.target.value })} />
-                      : <select disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold uppercase shadow-sm cursor-pointer" value={form.sub} onChange={e => setForm({ ...form, sub: e.target.value, make: "", model: "", spec: "" })}><option value="">-- Select --</option>{availableSubs.map(s => <option key={s} value={s}>{s}</option>)}</select>}
+                    {form.isManual ? <input type="text" disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold" placeholder="e.g. Pumps / Bearings" value={form.sub} onChange={e => setForm({ ...form, sub: e.target.value })} />
+                      : <select disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold uppercase cursor-pointer" value={form.sub} onChange={e => setForm({ ...form, sub: e.target.value, make: "", model: "", spec: "" })}><option value="">-- Select --</option>{availableSubs.map(s => <option key={s} value={s}>{s}</option>)}</select>}
                   </div>
                   <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest font-black">Make</label>
-                    {form.isManual ? <input type="text" disabled={!!editItem && !form.isManual} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold" placeholder="e.g. SKF" value={form.make} onChange={e => setForm({ ...form, make: e.target.value, model: "", spec: "" })} />
-                      : <select disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold uppercase shadow-sm cursor-pointer" value={form.make} onChange={e => setForm({ ...form, make: e.target.value, model: "", spec: "" })}><option value="">-- Select --</option>{availableMakes.map(m => <option key={m} value={m}>{m}</option>)}</select>}
+                    {form.isManual ? <input type="text" disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold" placeholder="e.g. L&T / Sulzer" value={form.make} onChange={e => setForm({ ...form, make: e.target.value, model: "", spec: "" })} />
+                      : <select disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold uppercase cursor-pointer" value={form.make} onChange={e => setForm({ ...form, make: e.target.value, model: "", spec: "" })}><option value="">-- Select --</option>{availableMakes.map(m => <option key={m} value={m}>{m}</option>)}</select>}
                   </div>
                 </div>
+                {/* Restoration of Model & Spec logic */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest font-black">Model</label>
+                    {form.isManual ? <input type="text" disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold" placeholder="e.g. ML-2 / 6200" value={form.model} onChange={e => setForm({ ...form, model: e.target.value })} />
+                      : <select disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold uppercase cursor-pointer" value={form.model} onChange={e => setForm({ ...form, model: e.target.value, spec: "" })}><option value="">-- Select --</option>{availableModels.map(m => <option key={m} value={m}>{m}</option>)}</select>}
+                  </div>
+                  <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest font-black">Spec</label>
+                    {form.isManual ? <input type="text" disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold" placeholder="e.g. 240V / 25A" value={form.spec} onChange={e => setForm({ ...form, spec: e.target.value })} />
+                      : <select disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold uppercase cursor-pointer" value={form.spec} onChange={e => setForm({ ...form, spec: e.target.value })}><option value="">-- Select --</option>{availableSpecs.map(s => <option key={s} value={s}>{s}</option>)}</select>}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3 pt-2">
                   <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest font-black">Quantity</label><input type="number" className="w-full p-3 border-2 border-slate-100 rounded-xl text-lg font-black text-indigo-600 focus:border-indigo-400 outline-none" value={form.qty} onChange={e => setForm({ ...form, qty: e.target.value })} /></div>
-                  <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest font-black">Unit</label><select className="w-full p-3 border-2 border-slate-100 rounded-xl text-xs uppercase font-bold" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })}><option value="Nos">Nos</option><option value="Sets">Sets</option><option value="Mtrs">Mtrs</option></select></div>
+                  <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest font-black">Unit</label><select className="w-full p-3 border-2 border-slate-100 rounded-xl text-xs uppercase font-black cursor-pointer shadow-sm" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })}><option value="Nos">Nos</option><option value="Sets">Sets</option><option value="Mtrs">Mtrs</option></select></div>
                 </div>
               </div>
               <div className="flex gap-2 pt-2">
                 {editItem && <button onClick={()=>handleDeleteItem(editItem.id)} className="flex-1 py-4 bg-red-50 text-red-600 rounded-2xl shadow-sm hover:bg-red-100 uppercase tracking-widest font-black text-[10px] border border-red-100 transition-all"><i className="fa-solid fa-trash mr-2"></i>Delete</button>}
-                <button onClick={handleSaveItem} className="flex-[3] py-4 iocl-btn text-white rounded-2xl shadow-lg font-black uppercase tracking-[0.2em] text-sm hover:opacity-90">Confirm Material</button>
+                <button onClick={handleSaveItem} className="flex-[3] py-4 iocl-btn text-white rounded-2xl shadow-lg font-black uppercase tracking-[0.2em] text-sm hover:opacity-90 transition-all">{editItem ? 'Confirm Changes' : 'Register Stock'}</button>
               </div>
             </div>
           </div>
@@ -271,14 +279,14 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 animate-scale-in uppercase font-bold">
             <h3 className="text-xl font-black text-slate-800 uppercase mb-6 tracking-tight">Consume Material</h3>
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-6 shadow-inner">
-              <p className="text-[10px] text-slate-400 font-black mb-1 uppercase tracking-widest">Selected Record</p>
+              <p className="text-[10px] text-slate-400 font-black mb-1 uppercase tracking-widest">Inventory Detail</p>
               <p className="text-sm font-black text-slate-700">{consumeItem.item}</p>
               <p className="text-[9px] text-green-600 mt-2 tracking-widest uppercase font-black">Balance: {consumeItem.qty} {consumeItem.unit}</p>
             </div>
             <div className="space-y-4">
-              <div><label className="text-[10px] text-slate-500 font-black uppercase mb-1 tracking-widest">Qty to use</label><input type="number" className="w-full p-4 border-2 border-slate-100 rounded-2xl font-black text-xl text-center focus:border-orange-500 outline-none shadow-sm" value={consumeForm.qty} onChange={e => setConsumeForm({ ...consumeForm, qty: e.target.value })} /></div>
-              <div><label className="text-[10px] text-slate-500 font-black uppercase mb-1 tracking-widest">Purpose / Note</label><textarea placeholder="Maintenance description..." className="w-full p-4 border-2 border-slate-100 rounded-2xl font-bold h-24 focus:border-orange-500 outline-none text-xs shadow-sm" value={consumeForm.note} onChange={e => setConsumeForm({ ...consumeForm, note: e.target.value })}></textarea></div>
-              <button onClick={handleConsume} className="w-full py-4 bg-slate-900 text-white rounded-2xl shadow-xl font-black tracking-widest uppercase hover:bg-black transition-all">Confirm</button>
+              <div><label className="text-[10px] text-slate-500 font-black uppercase mb-1 tracking-widest">Qty Used</label><input type="number" className="w-full p-4 border-2 border-slate-100 rounded-2xl font-black text-xl text-center focus:border-orange-500 outline-none shadow-sm" value={consumeForm.qty} onChange={e => setConsumeForm({ ...consumeForm, qty: e.target.value })} /></div>
+              <div><label className="text-[10px] text-slate-500 font-black uppercase mb-1 tracking-widest">Purpose / Note</label><textarea placeholder="Specify maintenance job description..." className="w-full p-4 border-2 border-slate-100 rounded-2xl font-bold h-24 focus:border-orange-500 outline-none text-xs shadow-sm" value={consumeForm.note} onChange={e => setConsumeForm({ ...consumeForm, note: e.target.value })}></textarea></div>
+              <button onClick={handleConsume} className="w-full py-4 bg-slate-900 text-white rounded-2xl shadow-xl font-black tracking-widest uppercase hover:bg-black transition-all">Confirm Log</button>
             </div>
           </div>
         </div>
@@ -292,7 +300,6 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
             <div className="p-6 max-h-[60vh] overflow-y-auto">
               <table className="w-full text-left text-xs font-bold uppercase">
                 <thead className="border-b text-slate-400 uppercase tracking-widest"><tr><th className="pb-3">Category &gt; Sub-Category</th><th className="pb-3 text-right">Aggregated Balance</th></tr></thead>
-                {/* FIXED LINE BELOW: Added explicit (s: any) type to avoid build error */}
                 <tbody className="divide-y">{getSummaryData().map((s: any, idx: number) => (
                   <tr key={idx} className="hover:bg-slate-50 transition border-b"><td className="py-4 text-slate-700">{s.cat} <i className="fa-solid fa-chevron-right text-[8px] mx-1 opacity-40"></i> {s.sub}</td><td className="py-4 text-right font-black text-indigo-600 text-sm">{s.total} Nos</td></tr>
                 ))}</tbody>
