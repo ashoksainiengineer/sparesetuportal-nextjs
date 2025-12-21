@@ -13,6 +13,7 @@ import {
 import { Bar } from "react-chartjs-2";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 
+// Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ChartDataLabels);
 
 export default function MonthlyAnalysisView({ profile }: any) {
@@ -36,7 +37,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
     const endTs = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59).getTime();
 
     try {
-      // 1. Fetch Global Logs
+      // 1. Fetch Global Logs (All Zones Combined)
       const { data: logs, error } = await supabase
         .from("usage_logs")
         .select("*")
@@ -45,7 +46,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
 
       if (error) throw error;
 
-      // 2. Complex Aggregation: Category -> SubCat -> Items
+      // 2. Data Processing: Category -> SubCat -> Items
       const report: any = {};
 
       logs?.forEach((log) => {
@@ -61,26 +62,22 @@ export default function MonthlyAnalysisView({ profile }: any) {
           report[cat][sub] = { total: 0, items: {} };
         }
 
-        // Aggregate Sub-Category Total
         report[cat][sub].total += qty;
-        
-        // Aggregate Individual Item Total inside that Sub-Category
         report[cat][sub].items[item] = (report[cat][sub].items[item] || 0) + qty;
       });
 
-      // 3. Generate Chart Configs
+      // 3. Prepare Bar Chart Data
       const charts = Object.keys(report).sort().map(catName => {
         const subDataMap = report[catName];
         const labels = Object.keys(subDataMap).sort();
         const values = labels.map(l => subDataMap[l].total);
 
-        // Logic for Item Breakdown in Tooltips
+        // Tooltip Breakdown (Top 5 items per sub-cat)
         const breakdownInfo = labels.map(l => {
             const items = subDataMap[l].items;
-            // Sort items by qty to show most used first
             return Object.entries(items)
                 .sort((a: any, b: any) => b[1] - a[1])
-                .slice(0, 5); // Top 5 items
+                .slice(0, 5);
         });
 
         return {
@@ -94,8 +91,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
               backgroundColor: labels.map((_, i) => `hsl(${210 + (i * 20)}, 75%, 50%)`),
               borderRadius: 6,
               barPercentage: 0.6,
-              // Custom property to pass breakdown to tooltip
-              itemBreakdown: breakdownInfo
+              itemBreakdown: breakdownInfo // Custom data for tooltips
             }]
           }
         };
@@ -111,7 +107,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
 
   return (
     <div className="animate-fade-in space-y-8 pb-20 font-roboto font-bold uppercase tracking-tight">
-      {/* Header Panel */}
+      {/* Analytics Header */}
       <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl flex flex-col md:flex-row justify-between items-center gap-6 border-b-4 border-orange-500">
         <div>
           <h2 className="text-xl font-black uppercase tracking-widest leading-none">Global Consumption Analysis</h2>
@@ -123,7 +119,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
         </div>
       </div>
 
-      {/* Charts Grid */}
+      {/* Grid for Bar Charts */}
       {loading ? (
         <div className="p-40 text-center animate-pulse">
             <p className="text-[10px] text-slate-400 font-black tracking-[0.4em]">Aggregating Refinery Logs...</p>
@@ -135,7 +131,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
               <div className="flex justify-between items-center mb-6 border-b pb-4">
                 <div>
                     <h3 className="text-md font-black text-slate-800 leading-none">{cfg.category}</h3>
-                    <p className="text-[8px] text-slate-400 mt-1 font-bold tracking-widest uppercase">Usage by Sub-Category</p>
+                    <p className="text-[8px] text-slate-400 mt-1 font-bold tracking-widest uppercase">Usage Breakdown</p>
                 </div>
                 <div className="text-right">
                     <p className="text-[14px] font-black text-indigo-600 leading-none">{cfg.total} <span className="text-[9px] text-slate-400">Total</span></p>
@@ -149,24 +145,23 @@ export default function MonthlyAnalysisView({ profile }: any) {
                     maintainAspectRatio: false,
                     plugins: {
                       legend: { display: false },
-                      // Logic: Attach values to bars
+                      // Values attached to bars
                       datalabels: {
                         color: '#1e293b',
                         font: { weight: 'bold', size: 10 },
                         anchor: 'end',
                         align: 'top',
+                        offset: 2,
                         formatter: (v) => v
                       },
-                      // Logic: Custom Tooltip for Item Breakdown
+                      // Item Breakdown on Hover
                       tooltip: {
                         backgroundColor: '#0f172a',
                         padding: 12,
                         titleFont: { size: 12, weight: 'bold' },
                         bodyFont: { size: 11 },
                         callbacks: {
-                          label: (context: any) => {
-                             return ` Total Used: ${context.raw}`;
-                          },
+                          label: (context: any) => ` Total Used: ${context.raw}`,
                           afterBody: (context: any) => {
                             const dataIndex = context[0].dataIndex;
                             const breakdown = context[0].dataset.itemBreakdown[dataIndex];
@@ -180,8 +175,9 @@ export default function MonthlyAnalysisView({ profile }: any) {
                       }
                     },
                     scales: {
+                      // FIXED TYPE ERRORS HERE: Changed weight strings to 'bold'
                       y: { beginAtZero: true, grid: { color: '#f8fafc' }, ticks: { font: { size: 9, weight: 'bold' } } },
-                      x: { grid: { display: false }, ticks: { font: { size: 9, weight: '900' }, color: '#64748b' } }
+                      x: { grid: { display: false }, ticks: { font: { size: 9, weight: 'bold' }, color: '#64748b' } }
                     }
                   }} 
                 />
