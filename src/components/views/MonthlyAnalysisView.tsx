@@ -1,11 +1,24 @@
 "use client";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from "chart.js";
+import { Bar } from "react-chartjs-2";
+import ChartDataLabels from "chartjs-plugin-datalabels";
 
-// Point: Accepting 'profile' prop to fix TypeScript Build Error
+// Registering plugins to make them available for the charts
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ChartDataLabels);
+
 export default function MonthlyAnalysisView({ profile }: any) {
   const [selectedMonth, setSelectedMonth] = useState("");
-  const [reportData, setReportData] = useState<any[]>([]);
+  const [chartConfigs, setChartConfigs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -32,7 +45,6 @@ export default function MonthlyAnalysisView({ profile }: any) {
 
       if (error) throw error;
 
-      // --- LOGIC: AGGREGATION (Category > Raw Sub-category) ---
       const report: any = {};
       logs?.forEach((log) => {
         const cat = log.cat || 'Others';
@@ -43,21 +55,30 @@ export default function MonthlyAnalysisView({ profile }: any) {
         report[cat][sub] = (report[cat][sub] || 0) + Number(log.qty_consumed || 0);
       });
 
-      const finalArray = Object.keys(report).sort().map(cat => {
-        const subItems = Object.keys(report[cat]).map(sub => ({
-          name: sub,
-          qty: report[cat][sub]
-        })).sort((a, b) => b.qty - a.qty);
+      const charts = Object.keys(report).sort().map(catName => {
+        const subData = report[catName];
+        const labels = Object.keys(subData).sort();
+        const values = labels.map(l => subData[l]);
 
-        const maxQty = Math.max(...subItems.map(i => i.qty));
-        const total = subItems.reduce((acc, curr) => acc + curr.qty, 0);
-
-        return { category: cat, total, maxQty, items: subItems };
+        return {
+          category: catName,
+          total: values.reduce((a, b) => a + b, 0),
+          data: {
+            labels,
+            datasets: [{
+              label: 'Consumption',
+              data: values,
+              backgroundColor: labels.map((_, i) => `hsl(${210 + (i * 20)}, 70%, 55%)`),
+              borderRadius: 5,
+              barPercentage: 0.6
+            }]
+          }
+        };
       });
 
-      setReportData(finalArray);
+      setChartConfigs(charts);
     } catch (e) {
-      console.error("Fetch error:", e);
+      console.error(e);
     } finally {
       setLoading(false);
     }
@@ -65,70 +86,55 @@ export default function MonthlyAnalysisView({ profile }: any) {
 
   return (
     <div className="animate-fade-in space-y-8 pb-20 font-roboto font-bold uppercase tracking-tight">
-      {/* Header Panel */}
       <div className="bg-white p-6 rounded-2xl border shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
-          <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest leading-none">Monthly Consumption Analytics</h2>
-          <p className="text-[10px] font-black bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded mt-2 inline-block">Refinery Global View</p>
+          <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest leading-none">Monthly Consumption Analysis</h2>
+          <p className="text-[10px] font-black bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded mt-2 inline-block">Global Refinery View</p>
         </div>
-        <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-xl border border-slate-100">
+        <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-xl border">
           <span className="text-[9px] font-black text-slate-400 pl-2">MONTH:</span>
-          <input 
-            type="month" 
-            className="bg-transparent text-slate-800 outline-none font-black text-sm cursor-pointer" 
-            value={selectedMonth} 
-            onChange={e => setSelectedMonth(e.target.value)} 
-          />
+          <input type="month" className="bg-transparent text-slate-800 outline-none font-black text-sm" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} />
         </div>
       </div>
 
-      {/* Analysis Grid */}
       {loading ? (
-        <div className="p-40 text-center animate-pulse">
-            <p className="text-[10px] text-slate-300 font-black tracking-[0.5em]">Aggregating Global Logs...</p>
-        </div>
-      ) : reportData.length > 0 ? (
+        <div className="p-40 text-center text-slate-300 font-black animate-pulse tracking-[0.4em]">GENERATING ANALYTICS...</div>
+      ) : chartConfigs.length > 0 ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {reportData.map((data, idx) => (
-            <div key={idx} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm transition-all hover:shadow-lg">
+          {chartConfigs.map((cfg, i) => (
+            <div key={i} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm transition-all hover:shadow-lg">
               <div className="flex justify-between items-center mb-6 border-b pb-4">
-                <div>
-                  <h3 className="text-md font-black text-slate-800 leading-none">{data.category}</h3>
-                  <p className="text-[8px] text-slate-400 mt-1 font-bold tracking-widest">Sub-Category Breakdown</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xl font-black text-indigo-600 leading-none">{data.total}</p>
-                  <p className="text-[9px] text-slate-400 font-black">TOTAL QTY</p>
-                </div>
+                <h3 className="text-md font-black text-slate-800">{cfg.category}</h3>
+                <span className="text-[14px] font-black text-indigo-600">{cfg.total} <span className="text-[8px] text-slate-400">TOTAL</span></span>
               </div>
-
-              {/* CUSTOM BARS (Zero Dependencies) */}
-              <div className="space-y-5">
-                {data.items.map((item: any, i: number) => (
-                  <div key={i} className="space-y-1.5">
-                    <div className="flex justify-between text-[10px] font-black tracking-tight">
-                      <span className="text-slate-600 truncate max-w-[70%]">{item.name}</span>
-                      <span className="text-slate-800 font-mono">{item.qty} Nos</span>
-                    </div>
-                    <div className="h-3 bg-slate-50 rounded-full overflow-hidden border border-slate-100 shadow-inner">
-                      <div 
-                        className="h-full rounded-full transition-all duration-1000 ease-out shadow-sm"
-                        style={{ 
-                          width: `${(item.qty / data.maxQty) * 100}%`,
-                          backgroundColor: `hsl(${210 + (i * 20)}, 70%, 50%)` 
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-                ))}
+              <div className="h-[280px]">
+                <Bar 
+                  data={cfg.data} 
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: { display: false },
+                      datalabels: {
+                        color: '#475569',
+                        font: { weight: 'bold', size: 10 },
+                        anchor: 'end',
+                        align: 'top',
+                        formatter: (v) => v
+                      }
+                    },
+                    scales: {
+                      y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 9 } } },
+                      x: { grid: { display: false }, ticks: { font: { size: 9, weight: 'bold' } } }
+                    }
+                  }} 
+                />
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <div className="bg-white border-2 border-dashed border-slate-100 rounded-3xl p-32 text-center">
-            <p className="text-slate-300 font-black tracking-widest text-xs">No global logs found for this period</p>
-        </div>
+        <div className="bg-white border-2 border-dashed rounded-3xl p-32 text-center text-slate-300 font-black text-xs">NO DATA FOUND FOR THIS MONTH</div>
       )}
     </div>
   );
