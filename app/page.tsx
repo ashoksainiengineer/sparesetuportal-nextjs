@@ -159,7 +159,7 @@ function AuthView() {
           const { error } = await supabase.auth.resetPasswordForEmail(form.email);
           if (error) alert(error.message); else alert("Reset link sent to your email!");
         }
-    } catch (err) { alert("Network Error: Supabase connection failed."); }
+    } catch (err) { alert("Network Connection Error"); }
     setAuthLoading(false);
   };
 
@@ -231,16 +231,8 @@ function GlobalSearchView({ profile }: any) {
         const { error } = await supabase.from("requests").insert([{
             item_id: requestItem.id, item_name: requestItem.item, item_spec: requestItem.spec, item_unit: requestItem.unit, req_qty: Number(reqForm.qty), req_comment: reqForm.comment, from_name: profile.name, from_uid: profile.id, from_unit: profile.unit, to_name: requestItem.holder_name, to_uid: requestItem.holder_uid, to_unit: requestItem.holder_unit, status: 'pending', viewed_by_requester: false
         }]);
-        if (!error) { 
-            alert("Request Sent Successfully!"); 
-            setRequestItem(null); 
-            setReqForm({ qty: "", comment: "" }); 
-        } else {
-            alert("Database Error: " + error.message);
-        }
-    } catch (err) {
-        alert("Connection Failed! Please check your internet or Supabase status.");
-    }
+        if (!error) { alert("Request Sent!"); setRequestItem(null); setReqForm({ qty: "", comment: "" }); } else alert(error.message);
+    } catch (err) { alert("Check your internet connection!"); }
     setSubmitting(false);
   };
 
@@ -296,7 +288,7 @@ function GlobalSearchView({ profile }: any) {
               <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quantity (Available: {requestItem.qty})</label><input type="number" placeholder="Enter Qty" className="w-full mt-1 p-3 border rounded-lg outline-none font-bold text-slate-800" onChange={e=>setReqForm({...reqForm, qty:e.target.value})} /></div>
               <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purpose / Log Comment</label><textarea placeholder="Why do you need this?" className="w-full mt-1 p-3 border rounded-lg outline-none font-bold text-xs h-24 text-slate-800" onChange={e=>setReqForm({...reqForm, comment:e.target.value})}></textarea></div>
               <button onClick={handleSendRequest} disabled={submitting} className="w-full py-3 bg-[#ff6b00] text-white font-black rounded-xl shadow-lg uppercase tracking-widest disabled:opacity-50">
-                {submitting ? "Sending..." : "Submit Request"}
+                {submitting ? "Submitting..." : "Submit Request"}
               </button>
             </div>
           </div>
@@ -321,7 +313,7 @@ function MyStoreView({ profile, fetchProfile }: any) {
     try {
         const { error } = await supabase.from("inventory").insert([{ item: itemName, cat: form.cat, sub: form.sub, make: form.make, model: form.model, spec: form.spec, qty: parseInt(form.qty), unit: 'Nos', holder_unit: profile.unit, holder_uid: profile.id, holder_name: profile.name }]);
         if (!error) { alert("Stock Inward Success!"); fetch(); setShowAddModal(false); setForm({ cat: "", sub: "", make: "", model: "", spec: "", qty: "", isManual: false }); await supabase.from("profiles").update({ item_count: (profile.item_count || 0) + 1 }).eq('id', profile.id); fetchProfile(); } else alert(error.message);
-    } catch(e){ alert("Connection Error"); }
+    } catch(e){ alert("Database connection error"); }
   };
 
   return (
@@ -360,7 +352,7 @@ function MonthlyAnalysisView({ profile }: any) {
   return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-roboto uppercase tracking-tight font-bold font-roboto"><div className="col-span-3 pb-4 text-xs font-black text-slate-400 tracking-widest text-center border-b uppercase font-roboto">Analytical Summary</div>{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md uppercase font-bold font-roboto font-bold"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-[0.2em] font-roboto font-bold">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner font-bold font-roboto font-bold"><i className="fa-solid fa-chart-line font-bold font-bold"></i></div><div className="text-3xl font-black text-slate-800 font-bold font-roboto font-bold">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase tracking-widest uppercase font-roboto font-bold">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase tracking-tighter uppercase font-bold font-roboto font-bold">{a.count} Logged Records</div></div>))}</div>);
 }
 
-// --- RETURNS LEDGER (PARTIAL RETURN SUPPORTED WITH UNIQUE TXN ID) ---
+// --- RETURNS LEDGER (COLUMN SUPPORTED TXN ID) ---
 function ReturnsLedgerView({ profile, onAction }: any) { 
     const [pending, setPending] = useState<any[]>([]);
     const [given, setGiven] = useState<any[]>([]);
@@ -399,9 +391,9 @@ function ReturnsLedgerView({ profile, onAction }: any) {
 
         try {
             if (type === 'approve') {
-                const txnId = `#TXN-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 99)}`;
-                const combinedComment = `${form.comment} ||| ${txnId}`; 
-                const { error } = await supabase.from("requests").update({ status: 'approved', approve_comment: combinedComment, to_uid: profile.id, to_name: profile.name, req_qty: actionQty, viewed_by_requester: false }).eq("id", data.id);
+                // GENERATE NEW TXN ID
+                const newTxnId = `#TXN-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 99)}`;
+                const { error } = await supabase.from("requests").update({ status: 'approved', approve_comment: form.comment, txn_id: newTxnId, to_uid: profile.id, to_name: profile.name, req_qty: actionQty, viewed_by_requester: false }).eq("id", data.id);
                 if (!error) {
                     const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
                     if (inv) await supabase.from("inventory").update({ qty: inv.qty - actionQty }).eq("id", data.item_id);
@@ -411,11 +403,11 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 await supabase.from("requests").update({ status: 'rejected', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
             }
             else if (type === 'return') {
-                const existingTxnIdMatch = data.approve_comment?.match(/\|\|\| (#TXN-\d+-\d+)/);
-                const txnIdTag = existingTxnIdMatch ? existingTxnIdMatch[1] : '(No ID)';
+                // CARRY FORWARD TXN ID FROM DATABASE
                 const { error } = await supabase.from("requests").insert([{ 
                     item_id: data.item_id, item_name: data.item_name, item_spec: data.item_spec, item_unit: data.item_unit, req_qty: actionQty, status: 'return_requested', return_comment: form.comment, from_uid: profile.id, from_name: profile.name, from_unit: profile.unit, to_uid: data.to_uid, to_name: data.to_name, to_unit: data.to_unit, viewed_by_requester: false, 
-                    approve_comment: `VERIFY_LINK_ID:${data.id} ||| ${txnIdTag}` 
+                    approve_comment: `VERIFY_LINK_ID:${data.id}`,
+                    txn_id: data.txn_id // Use existing ID
                 }]);
                 if (!error) alert("Return Request Sent!");
             }
@@ -433,7 +425,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
                 if (inv) await supabase.from("inventory").update({ qty: inv.qty + data.req_qty }).eq("id", data.item_id);
             }
-        } catch(e){ alert("Database connection lost."); }
+        } catch(e){ alert("Action failed - database sync error."); }
         setActionModal(null); setForm({comment:"", qty:""});
     };
 
@@ -443,7 +435,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
 
             {/* ATTENTION REQUIRED (INCOMING ACTIONS) */}
             <section className="bg-white rounded-xl border-t-4 border-orange-500 shadow-xl overflow-hidden">
-                <div className="p-4 bg-orange-50/50 flex justify-between border-b uppercase font-bold font-roboto"><div className="flex items-center gap-2 text-orange-900 font-black uppercase text-[10px] tracking-widest"><i className="fa-solid fa-bolt animate-pulse font-bold uppercase"></i> Attention Required (Incoming Actions)</div><span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px] uppercase font-bold">{pending.length}</span></div>
+                <div className="p-4 bg-orange-50/50 flex justify-between border-b uppercase font-bold font-roboto"><div className="flex items-center gap-2 text-orange-900 font-black uppercase text-[10px] tracking-widest"><i className="fa-solid fa-bolt animate-pulse font-bold uppercase"></i> Attention Required</div><span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px] uppercase font-bold">{pending.length}</span></div>
                 <div className="overflow-x-auto"><table className="w-full text-left text-sm divide-y font-mono font-bold uppercase font-roboto font-bold"><thead className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-roboto"><tr><th className="p-4 pl-6 font-roboto">Material Detail</th><th className="p-4 font-roboto">Counterparty</th><th className="p-4 text-center font-roboto">Qty</th><th className="p-4 text-center font-roboto font-bold">Action</th></tr></thead>
                     <tbody className="divide-y text-slate-600 uppercase font-bold font-roboto">
                         {pending.map(r => (
@@ -473,8 +465,8 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                                 <div className="text-[10px] text-slate-400 mb-3 uppercase tracking-tighter font-roboto font-bold">{r.item_spec}</div>
                                 <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg mb-3 font-roboto font-bold"><div><p className="text-[9px] font-bold text-slate-400 uppercase font-roboto font-bold uppercase">Receiver</p><p className="text-[12.5px] font-black text-slate-700 uppercase tracking-tighter font-roboto font-bold">{r.from_name} ({r.from_unit})</p></div><div className="text-right font-black text-blue-600 font-mono text-[14px] font-roboto font-bold uppercase">{r.req_qty} {r.item_unit}</div></div>
                                 <div className="text-[9px] font-mono text-slate-400 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed tracking-tighter font-roboto font-bold uppercase">
+                                    <p><span className="font-black text-blue-600/70 uppercase font-roboto font-bold uppercase">TXN:</span> {r.txn_id || '--'}</p>
                                     <p><span className="font-black text-blue-600/70 uppercase font-roboto font-bold uppercase">ISSUED BY:</span> {r.to_name}</p>
-                                    <p><span className="font-black uppercase tracking-tighter font-roboto font-bold uppercase font-bold font-roboto">DATE:</span> {formatTS(r.timestamp)}</p>
                                 </div>
                             </div>
                         ))}
@@ -490,10 +482,10 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                                 <div className="text-[10px] text-slate-400 mb-3 uppercase tracking-tighter font-roboto font-bold font-bold">{r.item_spec}</div>
                                 <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg mb-3 font-bold font-roboto font-bold font-bold"><div><p className="text-[9px] font-bold text-slate-400 uppercase font-roboto font-bold font-bold uppercase">Source</p><p className="text-[12.5px] font-black text-slate-700 uppercase tracking-tighter font-roboto font-bold font-bold">{r.to_unit} ({r.to_name})</p></div><div className="text-right font-black text-red-600 font-mono text-[14px] font-roboto font-bold font-bold">{r.req_qty} {r.item_unit}</div></div>
                                 <div className="text-[9px] font-mono text-slate-400 mb-3 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed tracking-tighter font-roboto font-bold font-bold">
+                                    <p><span className="font-black text-red-600/70 uppercase font-roboto font-bold font-bold">TXN:</span> {r.txn_id || '--'}</p>
                                     <p><span className="font-black text-red-600/70 uppercase font-roboto font-bold font-bold">TAKEN BY:</span> {r.from_name}</p>
-                                    <p><span className="font-black uppercase tracking-tighter font-roboto font-bold font-bold">DATE:</span> {formatTS(r.timestamp)}</p>
                                 </div>
-                                <button onClick={()=>setActionModal({type:'return', data:r})} className="w-full py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow-md font-roboto font-bold font-bold hover:bg-slate-800 transition">Initiate Partial/Full Return</button>
+                                <button onClick={()=>setActionModal({type:'return', data:r})} className="w-full py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow-md font-roboto font-bold font-bold hover:bg-slate-800 transition">Initiate Return</button>
                             </div>
                         ))}
                     </div>
@@ -502,15 +494,15 @@ function ReturnsLedgerView({ profile, onAction }: any) {
 
             {/* ACTION MODAL */}
             {actionModal && (
-              <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in font-roboto font-bold uppercase">
+              <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-roboto font-bold uppercase">
+                <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
                   <div className="p-6 border-b bg-slate-50 flex justify-between items-center">
                     <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">
                       {actionModal.type === 'approve' ? 'Issue Spare' : actionModal.type === 'return' ? 'Initiate Return' : actionModal.type === 'verify' ? 'Verify Return' : 'Reject Action'}
                     </h3>
-                    <button onClick={()=>setActionModal(null)} className="text-slate-400 hover:text-slate-600 transition-colors"><i className="fa-solid fa-xmark"></i></button>
+                    <button onClick={()=>setActionModal(null)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark"></i></button>
                   </div>
-                  <div className="p-6 space-y-4">
+                  <div className="p-6 space-y-4 font-roboto font-bold uppercase">
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
                       <p className="text-[9px] text-slate-400 font-black uppercase mb-1 tracking-widest">Transaction Details</p>
                       <p className="text-[13px] font-bold text-slate-800">{actionModal.data.item_name}</p>
@@ -519,14 +511,14 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                     {(actionModal.type === 'approve' || actionModal.type === 'return') && (
                       <div>
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quantity {actionModal.type === 'return' ? '(Borrowed:' : '(Requested:'} {actionModal.data.req_qty})</label>
-                        <input type="number" defaultValue={actionModal.data.req_qty} className="w-full mt-1 p-3 border-2 rounded-lg outline-none font-black text-slate-800 focus:border-orange-500 transition-all" onChange={e=>setForm({...form, qty:e.target.value})} />
+                        <input type="number" defaultValue={actionModal.data.req_qty} className="w-full mt-1 p-3 border-2 rounded-lg outline-none font-black text-slate-800 focus:border-orange-500 transition-all font-roboto font-bold" onChange={e=>setForm({...form, qty:e.target.value})} />
                       </div>
                     )}
                     <div>
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Log / Comment</label>
-                        <textarea placeholder="Reason/Log Details..." className="w-full mt-1 p-3 border-2 rounded-lg outline-none font-bold text-xs h-24 text-slate-800 focus:border-orange-500 transition-all uppercase" onChange={e=>setForm({...form, comment:e.target.value})}></textarea>
+                        <textarea placeholder="Reason/Log Details..." className="w-full mt-1 p-3 border-2 rounded-lg outline-none font-bold text-xs h-24 text-slate-800 focus:border-orange-500 transition-all uppercase font-roboto" onChange={e=>setForm({...form, comment:e.target.value})}></textarea>
                     </div>
-                    <button onClick={handleProcess} className={`w-full py-3 ${actionModal.type === 'reject' ? 'bg-red-600' : 'bg-[#ff6b00]'} text-white font-black rounded-xl shadow-lg uppercase tracking-widest text-sm hover:opacity-90 transition-opacity`}>
+                    <button onClick={handleProcess} className={`w-full py-3 ${actionModal.type === 'reject' ? 'bg-red-600' : 'bg-[#ff6b00]'} text-white font-black rounded-xl shadow-lg uppercase tracking-widest text-sm hover:opacity-90 transition-opacity font-roboto font-bold`}>
                         {actionModal.type === 'return' ? 'Send Return Request' : 'Confirm Transaction'}
                     </button>
                   </div>
@@ -534,7 +526,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
               </div>
             )}
 
-            {/* DIGITAL ARCHIVE LOGS */}
+            {/* DIGITAL ARCHIVE LOGS (DATABASE COLUMN BASED) */}
             <div className="pt-10 space-y-10 font-roboto font-bold uppercase">
                 <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden font-roboto font-bold uppercase">
                     <div className="p-6 bg-slate-800 text-white flex flex-col items-center justify-center font-roboto">
@@ -546,27 +538,27 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                         <tbody className="divide-y text-slate-600 font-roboto">
                             {[...givenHistory, ...takenHistory].sort((a,b)=>Number(b.timestamp)-Number(a.timestamp)).map(h => (
                                 <tr key={h.id} className="hover:bg-slate-50 transition border-b uppercase font-roboto">
-                                    <td className="p-4 font-roboto font-bold uppercase text-slate-400 whitespace-nowrap tracking-tighter">
-                                        {h.approve_comment?.match(/\|\|\| (#TXN-\d+-\d+)/)?.[1] || '--'}
+                                    <td className="p-4 font-roboto font-bold uppercase text-slate-800 whitespace-nowrap tracking-tighter">
+                                        <span className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{h.txn_id || '--'}</span>
                                     </td>
                                     <td className="p-4 leading-tight uppercase font-roboto">
                                       <p className="text-slate-800 font-bold text-[12.5px] tracking-tight font-roboto uppercase">{h.item_name}</p>
-                                      <p className="text-[8.5px] text-slate-400 mt-1.5 font-roboto uppercase font-bold uppercase">SPEC: {h.item_spec}</p>
+                                      <p className="text-[8.5px] text-slate-400 mt-1.5 font-roboto uppercase font-bold">SPEC: {h.item_spec}</p>
                                     </td>
                                     <td className="p-4 text-center font-black whitespace-nowrap font-roboto uppercase">
-                                      <div className="flex flex-col items-center gap-1 leading-none font-roboto uppercase">
-                                        <span className="text-[9.5px] text-blue-600/80 font-bold tracking-tighter font-roboto font-bold uppercase">UDH: {h.req_qty} {h.item_unit}</span>
-                                        <span className={`text-[9.5px] font-black tracking-tighter font-roboto font-bold uppercase ${h.status === 'returned' ? 'text-green-600' : 'text-slate-300'}`}>RET: {h.status === 'returned' ? h.req_qty : 0} {h.item_unit}</span>
+                                      <div className="flex flex-col items-center gap-1 leading-none font-roboto">
+                                        <span className="text-[9.5px] text-blue-600/80 font-bold tracking-tighter uppercase">UDH: {h.req_qty} {h.item_unit}</span>
+                                        <span className={`text-[9.5px] font-black tracking-tighter uppercase ${h.status === 'returned' ? 'text-green-600' : 'text-slate-300'}`}>RET: {h.status === 'returned' ? h.req_qty : 0} {h.item_unit}</span>
                                       </div>
                                     </td>
-                                    <td className="p-4 leading-tight font-roboto uppercase font-bold"><p className="text-blue-500 font-bold font-roboto uppercase font-bold">BORR: {h.from_name}</p><p className="text-red-500 font-bold mt-1 font-roboto uppercase font-bold">LEND: {h.to_name}</p></td>
-                                    <td className="p-4 leading-none space-y-1.5 font-bold tracking-tighter text-[8.5px] font-roboto font-bold uppercase">
-                                        <p><span className="opacity-50 font-roboto uppercase">1. REQUEST BY:</span> {h.from_name} ({h.from_unit}) (QTY: {h.req_qty}) on {formatTS(h.timestamp)}</p>
-                                        <p><span className="opacity-50 font-roboto uppercase">2. APPROVED BY:</span> {h.to_name} (QTY: {h.req_qty}) on {formatTS(h.timestamp)}</p>
-                                        <p><span className="opacity-50 font-roboto uppercase">3. RETURN BY:</span> {h.from_name} (QTY: {h.req_qty}) on {formatTS(h.timestamp)}</p>
-                                        <p><span className="opacity-50 font-black text-green-600 font-roboto font-bold uppercase">4. FINAL VERIFY:</span> {h.to_name} (QTY: {h.req_qty}) on {formatTS(h.timestamp)}</p>
+                                    <td className="p-4 leading-tight font-roboto uppercase font-bold"><p className="text-blue-500 font-bold uppercase">BORR: {h.from_name}</p><p className="text-red-500 font-bold mt-1 uppercase">LEND: {h.to_name}</p></td>
+                                    <td className="p-4 leading-none space-y-1.5 font-bold tracking-tighter text-[8.5px] font-roboto uppercase">
+                                        <p><span className="opacity-50">1. REQUEST BY:</span> {h.from_name} ({h.from_unit}) on {formatTS(h.timestamp)}</p>
+                                        <p><span className="opacity-50">2. APPROVED BY:</span> {h.to_name} on {formatTS(h.timestamp)}</p>
+                                        <p><span className="opacity-50">3. RETURN BY:</span> {h.from_name} on {formatTS(h.timestamp)}</p>
+                                        <p><span className="opacity-50 font-black text-green-600">4. FINAL VERIFY:</span> {h.to_name} on {formatTS(h.timestamp)}</p>
                                     </td>
-                                    <td className="p-4 text-center font-roboto font-bold uppercase"><span className={`px-2.5 py-1 rounded-full text-[8.5px] font-black uppercase tracking-widest font-roboto ${h.status==='returned' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{h.status}</span></td>
+                                    <td className="p-4 text-center font-roboto font-bold uppercase"><span className={`px-2.5 py-1 rounded-full text-[8.5px] font-black uppercase tracking-widest ${h.status==='returned' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{h.status}</span></td>
                                 </tr>
                             ))}
                         </tbody></table></div>
