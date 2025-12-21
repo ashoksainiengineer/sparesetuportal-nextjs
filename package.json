@@ -12,7 +12,10 @@
     "next": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "@supabase/supabase-js": "latest"
+    "@supabase/supabase-js": "latest",
+    "chart.js": "^4.4.1",
+    "react-chartjs-2": "^5.2.0",
+    "chartjs-plugin-datalabels": "^2.2.0"
   },
   "devDependencies": {
     "typescript": "^5",
