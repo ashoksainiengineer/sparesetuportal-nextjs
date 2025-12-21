@@ -11,7 +11,6 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
     const [actionModal, setActionModal] = useState<any>(null); 
     const [form, setForm] = useState({ comment: "", qty: "" });
 
-    // Pagination State for Archive Logs
     const [archivePage, setArchivePage] = useState(1);
     const logsPerPage = 20;
 
@@ -42,7 +41,6 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
     const handleProcess = async () => {
         const { type, data } = actionModal;
         const actionQty = Number(form.qty || data.req_qty);
-
         if (!form.comment.trim()) { alert("Provide a transaction log/reason!"); return; }
         if (actionQty <= 0 || actionQty > data.req_qty) { alert(`Invalid Quantity! Range: 1 to ${data.req_qty}`); return; }
 
@@ -90,19 +88,17 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
 
     return (
         <div className="space-y-10 animate-fade-in pb-20 font-roboto uppercase font-bold tracking-tight">
-            {/* 1. Dashboard Heading (Centered & Renamed) */}
             <h2 className="text-2xl font-black text-slate-800 uppercase flex items-center justify-center gap-3 py-4">
                 <i className="fa-solid fa-handshake-angle text-orange-500"></i> UDHAARI & RETURN DASHBOARD
             </h2>
 
-            {/* SECTION 1: ATTENTION REQUIRED (Increased Height) */}
+            {/* SECTION 1: ATTENTION REQUIRED (Height Adjusted to ~180px-200px) */}
             <section className="bg-white rounded-xl border-t-4 border-orange-500 shadow-xl overflow-hidden">
                 <div className="p-4 bg-orange-50/50 flex justify-between border-b">
                     <div className="flex items-center gap-2 text-orange-900 font-black uppercase text-[10px] tracking-widest"><i className="fa-solid fa-bolt animate-pulse"></i> Attention Required</div>
                     <span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px]">{pending.length}</span>
                 </div>
-                {/* min-h added to push archive logs down */}
-                <div className="overflow-x-auto min-h-[450px]">
+                <div className="overflow-x-auto min-h-[200px]">
                     <table className="w-full text-left text-sm divide-y font-mono font-bold uppercase">
                         <thead className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                             <tr><th className="p-4 pl-6">Material Detail</th><th className="p-4">Counterparty</th><th className="p-4 text-center">Qty</th><th className="p-4 text-center">Action</th></tr>
@@ -128,15 +124,13 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
                 </div>
             </section>
 
-            {/* SECTION 2: ACTIVE LEDGERS (Renamed & Increased Height) */}
+            {/* SECTION 2: ACTIVE LEDGERS (Height Adjusted to ~250px-300px) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* UDHAARI DIYA (ITEMS GIVEN) */}
                 <section className="bg-white rounded-2xl border-t-4 border-blue-600 shadow-lg overflow-hidden flex flex-col">
                     <div className="p-5 border-b bg-blue-50/30 flex items-center gap-3 uppercase text-xs font-black text-blue-900 tracking-widest">
                         <i className="fa-solid fa-arrow-up-from-bracket text-blue-600"></i> UDHAARI DIYA (ITEMS GIVEN)
                     </div>
-                    {/* min-h and max-h increased to push archive down */}
-                    <div className="p-4 space-y-4 min-h-[600px] max-h-[850px] overflow-y-auto bg-slate-50/20">
+                    <div className="p-4 space-y-4 min-h-[250px] max-h-[500px] overflow-y-auto bg-slate-50/20">
                         {given.map(r => (
                             <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative shadow-sm hover:border-blue-100 transition-colors">
                                 <div className="text-slate-800 font-bold text-[14px] tracking-tight mb-1">{r.item_name}</div>
@@ -152,13 +146,11 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
                     </div>
                 </section>
 
-                {/* UDHAARI LIYA (ITEMS TAKEN) */}
                 <section className="bg-white rounded-2xl border-t-4 border-red-600 shadow-lg overflow-hidden flex flex-col">
                     <div className="p-5 border-b bg-red-50/30 flex items-center gap-3 uppercase text-xs font-black text-red-900 tracking-widest">
                         <i className="fa-solid fa-arrow-down-long text-red-600"></i> UDHAARI LIYA (ITEMS TAKEN)
                     </div>
-                    {/* min-h and max-h increased to push archive down */}
-                    <div className="p-4 space-y-4 min-h-[600px] max-h-[850px] overflow-y-auto bg-slate-50/20">
+                    <div className="p-4 space-y-4 min-h-[250px] max-h-[500px] overflow-y-auto bg-slate-50/20">
                         {taken.map(r => (
                             <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative shadow-sm hover:border-red-100 transition-colors">
                                 <div className="text-slate-800 font-bold text-[14px] tracking-tight mb-1">{r.item_name}</div>
@@ -176,7 +168,7 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
                 </section>
             </div>
 
-            {/* SECTION 3: DIGITAL ARCHIVE LOGS (Pushed down due to heights above) */}
+            {/* SECTION 3: DIGITAL ARCHIVE LOGS */}
             <div className="pt-10 space-y-6">
                 <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
                     <div className="p-6 bg-slate-800 text-white flex flex-col items-center justify-center">
@@ -213,29 +205,14 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
                             </tbody>
                         </table>
                     </div>
-                    
-                    {/* Pagination Toolbar */}
                     <div className="p-4 bg-slate-50 border-t flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                        <button 
-                            onClick={() => setArchivePage(prev => Math.max(prev - 1, 1))} 
-                            disabled={archivePage === 1} 
-                            className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 hover:bg-slate-50 transition-all"
-                        >
-                            Prev
-                        </button>
+                        <button onClick={() => setArchivePage(prev => Math.max(prev - 1, 1))} disabled={archivePage === 1} className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 hover:bg-slate-50 transition-all">Prev</button>
                         <span className="text-slate-400">Page {archivePage} of {totalArchivePages}</span>
-                        <button 
-                            onClick={() => setArchivePage(prev => Math.min(prev + 1, totalArchivePages))} 
-                            disabled={archivePage === totalArchivePages} 
-                            className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 hover:bg-slate-50 transition-all"
-                        >
-                            Next
-                        </button>
+                        <button onClick={() => setArchivePage(prev => Math.min(prev + 1, totalArchivePages))} disabled={archivePage === totalArchivePages} className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 hover:bg-slate-50 transition-all">Next</button>
                     </div>
                 </div>
             </div>
 
-            {/* ACTION MODAL (Same logic, same UI) */}
             {actionModal && (
               <div className="fixed top-0 left-0 w-full h-full bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
                 <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
