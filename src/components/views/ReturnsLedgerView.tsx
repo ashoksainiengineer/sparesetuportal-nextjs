@@ -92,7 +92,7 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
                 <i className="fa-solid fa-handshake-angle text-orange-500"></i> UDHAARI & RETURN DASHBOARD
             </h2>
 
-            {/* SECTION 1: ATTENTION REQUIRED (Height Adjusted to ~180px-200px) */}
+            {/* SECTION 1: ATTENTION REQUIRED */}
             <section className="bg-white rounded-xl border-t-4 border-orange-500 shadow-xl overflow-hidden">
                 <div className="p-4 bg-orange-50/50 flex justify-between border-b">
                     <div className="flex items-center gap-2 text-orange-900 font-black uppercase text-[10px] tracking-widest"><i className="fa-solid fa-bolt animate-pulse"></i> Attention Required</div>
@@ -124,7 +124,7 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
                 </div>
             </section>
 
-            {/* SECTION 2: ACTIVE LEDGERS (Height Adjusted to ~250px-300px) */}
+            {/* SECTION 2: ACTIVE LEDGERS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <section className="bg-white rounded-2xl border-t-4 border-blue-600 shadow-lg overflow-hidden flex flex-col">
                     <div className="p-5 border-b bg-blue-50/30 flex items-center gap-3 uppercase text-xs font-black text-blue-900 tracking-widest">
@@ -168,11 +168,11 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
                 </section>
             </div>
 
-            {/* SECTION 3: DIGITAL ARCHIVE LOGS */}
+            {/* SECTION 3: RETURN & UDHAARI LOGS (Title Renamed) */}
             <div className="pt-10 space-y-6">
                 <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
                     <div className="p-6 bg-slate-800 text-white flex flex-col items-center justify-center">
-                      <span className="text-[20px] font-bold tracking-widest">Digital Archive Logs</span>
+                      <span className="text-[20px] font-bold tracking-widest">RETURN & UDHAARI LOGS</span>
                       <span className="text-[10px] opacity-80 font-black tracking-[0.2em] mt-1">(UDH: UDHAARI • RET: RETURNED)</span>
                     </div>
                     <div className="overflow-x-auto">
@@ -213,6 +213,7 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
                 </div>
             </div>
 
+            {/* ACTION MODAL */}
             {actionModal && (
               <div className="fixed top-0 left-0 w-full h-full bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
                 <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
