@@ -71,13 +71,11 @@ export default function GlobalSearchView({ profile }: any) {
     const matchesZone = (selZone === "all" || i.holder_unit === selZone);
     const matchesSub = (selSubCat === "all" || i.sub === selSubCat);
     
-    // Category filter logic (including "Out of Stock" condition)
     let matchesCat = (selCat === "all" || i.cat === selCat);
     if (selCat === "OUT_OF_STOCK") matchesCat = (i.qty === 0);
 
     return matchesSearch && matchesZone && matchesCat && matchesSub;
   }).sort((a, b) => {
-    // FEATURE 4: Move 0 stock items to bottom
     if (a.qty === 0 && b.qty !== 0) return 1;
     if (a.qty !== 0 && b.qty === 0) return -1;
     return 0;
@@ -159,7 +157,7 @@ export default function GlobalSearchView({ profile }: any) {
         </div>
       </section>
 
-      {/* FEATURE 3: STOCK SUMMARY MODAL */}
+      {/* STOCK SUMMARY MODAL */}
       {showSummary && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
@@ -169,7 +167,10 @@ export default function GlobalSearchView({ profile }: any) {
                 </div>
                 <div className="p-6 max-h-[60vh] overflow-y-auto">
                     <table className="w-full text-left text-xs font-bold uppercase">
-                        <thead className="border-b text-slate-400 uppercase"><tr><th className="pb-2">Category > Sub-Category</th><th className="pb-2 text-right">Total Available Stock</th></tr></thead>
+                        <thead className="border-b text-slate-400 uppercase">
+                          {/* FIXED LINE BELOW: Used &gt; instead of > to avoid Vercel build error */}
+                          <tr><th className="pb-2">Category &gt; Sub-Category</th><th className="pb-2 text-right">Total Available Stock</th></tr>
+                        </thead>
                         <tbody className="divide-y">
                             {getSummaryData().map((s: any, idx) => (
                                 <tr key={idx} className="hover:bg-slate-50">
