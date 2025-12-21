@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { masterCatalog } from "@/lib/masterdata"; // Importing your masterCatalog
+import { masterCatalog } from "@/lib/masterdata"; //
 
 export default function MyStoreView({ profile, fetchProfile }: any) {
   const [myItems, setMyItems] = useState<any[]>([]);
@@ -15,7 +15,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
   const [selCat, setSelCat] = useState("all");
   const [selSub, setSelSub] = useState("all");
 
-  // Pagination Fix
+  // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
@@ -32,17 +32,18 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
     if (data) setMyItems(data);
   };
 
-  // --- LOGIC: MASTER DATA DEPENDENT DROPDOWNS ---
+  // --- 1. LOGIC: MASTER DATA DROPDOWNS ---
   const uniqueCats = [...new Set(masterCatalog.map(i => i.cat))].sort();
   const availableSubs = masterCatalog.filter(i => i.cat === form.cat).map(i => i.sub).filter((v, i, a) => a.indexOf(v) === i).sort();
   const availableMakes = masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub).map(i => i.make).filter((v, i, a) => a.indexOf(v) === i).sort();
   const availableModels = masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make).map(i => i.model).filter((v, i, a) => a.indexOf(v) === i).sort();
   const availableSpecs = masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make && i.model === form.model).map(i => i.spec).filter((v, i, a) => a.indexOf(v) === i).sort();
 
-  // --- LOGIC: FILTERS (Same as Global Search) ---
+  // --- 2. LOGIC: FILTERS (Based on Master Data) ---
   const filterCategories = [...new Set(masterCatalog.map(i => i.cat))].sort();
   const filterSubCategories = selCat !== "all" ? [...new Set(masterCatalog.filter(i => i.cat === selCat).map(i => i.sub))].sort() : [];
 
+  // --- 3. LOGIC: SAVE / UPDATE ---
   const handleSaveItem = async () => {
     if (!form.cat || !form.qty || !form.spec) return alert("All fields are mandatory!");
     const itemName = form.isManual ? form.model : `${form.make} ${form.sub} ${form.model}`.trim();
@@ -54,14 +55,30 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
     try {
       if (editItem) {
         await supabase.from("inventory").update(payload).eq("id", editItem.id);
+        alert("Stock Updated!");
       } else {
         await supabase.from("inventory").insert([payload]);
         await supabase.from("profiles").update({ item_count: (profile.item_count || 0) + 1 }).eq('id', profile.id);
+        alert("New Stock Added!");
       }
       resetForm(); fetchStore(); fetchProfile();
     } catch (e) { alert("Database Error"); }
   };
 
+  // --- 4. LOGIC: DELETE (The missing function) ---
+  const handleDeleteItem = async (id: number) => {
+    if (confirm("Are you sure you want to PERMANENTLY DELETE this item?")) {
+      try {
+        const { error } = await supabase.from("inventory").delete().eq("id", id);
+        if (!error) {
+            alert("Item Deleted Successfully!");
+            resetForm(); fetchStore(); fetchProfile();
+        }
+      } catch (e) { alert("Error deleting item"); }
+    }
+  };
+
+  // --- 5. LOGIC: CONSUME ---
   const handleConsume = async () => {
     const q = parseInt(consumeForm.qty);
     if (!q || q <= 0 || q > consumeItem.qty) return alert("Invalid Quantity");
@@ -72,10 +89,11 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
         qty_consumed: q, timestamp: Date.now().toString(), purpose: consumeForm.note
       }]);
       setConsumeItem(null); setConsumeForm({ qty: "", note: "" }); fetchStore();
-      alert("Material Consumed!");
+      alert("Material Consumed Successfully!");
     } catch (e) { alert("Error logging consumption"); }
   };
 
+  // --- 6. LOGIC: SUMMARY ---
   const getSummaryData = () => {
     const summary: any = {};
     myItems.forEach(i => {
@@ -91,7 +109,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
     setForm({ cat: "", sub: "", make: "", model: "", spec: "", qty: "", unit: "Nos", isManual: false });
   };
 
-  // Pagination & Filter Logic
+  // Pagination & Filter Engine
   const filteredItems = myItems.filter(i =>
     (i.item.toLowerCase().includes(search.toLowerCase()) || i.spec.toLowerCase().includes(search.toLowerCase())) &&
     (selCat === "all" || i.cat === selCat) && (selSub === "all" || i.sub === selSub)
@@ -100,33 +118,25 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
   const totalPages = Math.ceil(filteredItems.length / itemsPerPage) || 1;
   const currentItems = filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const exportStore = () => {
-    const headers = "Category,Sub-Cat,Item,Spec,Qty,Unit,Date,Engineer\n";
-    const rows = filteredItems.map(i => `"${i.cat}","${i.sub}","${i.item}","${i.spec}","${i.qty}","${i.unit}","${new Date(i.created_at).toLocaleDateString()}","${i.holder_name}"\n`);
-    const blob = new Blob([headers + rows.join("")], { type: 'text/csv' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'MyStore_Stock.csv'; a.click();
-  };
-
   return (
     <div className="animate-fade-in space-y-6 pb-20 font-roboto font-bold uppercase">
-      {/* Header */}
+      {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl border shadow-sm">
-        <div><h2 className="text-xl font-bold text-slate-800 uppercase leading-none font-black">My Local Store</h2><p className="text-[10px] font-black bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-2 tracking-tighter uppercase">ZONE: {profile?.unit}</p></div>
+        <div><h2 className="text-xl font-bold text-slate-800 uppercase leading-none font-black">My Local Store</h2><p className="text-[10px] font-black bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-2 tracking-tighter uppercase uppercase">ZONE: {profile?.unit}</p></div>
         <div className="flex gap-2 mt-4 md:mt-0">
-          <button onClick={exportStore} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md flex items-center gap-2 uppercase tracking-widest"><i className="fa-solid fa-file-excel"></i> Export Sheet</button>
           <button onClick={() => setShowSummary(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md flex items-center gap-2 uppercase tracking-widest"><i className="fa-solid fa-chart-bar"></i> Stock Summary</button>
           <button onClick={() => { resetForm(); setShowAddModal(true); }} className="iocl-btn text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md flex items-center gap-2 uppercase tracking-widest"><i className="fa-solid fa-plus"></i> Add New Stock</button>
         </div>
       </div>
 
-      {/* Filters (As per Global Search) */}
+      {/* Filter Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-4 rounded-xl border shadow-sm">
         <div className="relative"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Search Item or Spec..." className="w-full pl-9 pr-4 py-2 border rounded-md text-xs outline-none font-bold uppercase" onChange={e => setSearch(e.target.value)} /></div>
         <select className="border rounded-md text-[10px] p-2 bg-white font-bold uppercase" value={selCat} onChange={e => { setSelCat(e.target.value); setSelSub("all"); }}><option value="all">Category: All</option>{filterCategories.map(c => <option key={c} value={c}>{c}</option>)}</select>
         <select className="border rounded-md text-[10px] p-2 bg-white font-bold uppercase" value={selSub} onChange={e => setSelSub(e.target.value)}><option value="all">Sub-Category: All</option>{filterSubCategories.map(s => <option key={s} value={s}>{s}</option>)}</select>
       </div>
 
-      {/* Table */}
+      {/* Main Table */}
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
         <div className="overflow-x-auto"><table className="w-full text-left tracking-tight">
           <thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b tracking-widest uppercase"><tr><th className="p-5 pl-8">Material Detail</th><th className="p-5">Spec</th><th className="p-5 text-center">Qty</th><th className="p-5 text-center">Actions</th></tr></thead>
@@ -148,7 +158,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
             )) : <tr><td colSpan={4} className="p-10 text-center text-slate-400 font-bold">No Items Found In Your Store</td></tr>}
           </tbody>
         </table></div>
-        {/* Pagination Footer */}
+        {/* Pagination Logic */}
         <div className="p-4 bg-slate-50 border-t flex justify-between items-center text-xs font-bold uppercase tracking-widest">
           <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="px-4 py-1.5 bg-white border rounded shadow-sm disabled:opacity-30">Prev</button>
           <span className="text-slate-500">Page {currentPage} of {totalPages}</span>
@@ -172,35 +182,35 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
 
               <div className="space-y-3">
                 <div><label className="text-[9px] text-slate-400 block mb-1">Category</label>
-                  {form.isManual ? <input type="text" disabled={!!editItem} className="w-full p-2.5 border rounded-lg text-xs" value={form.cat} onChange={e => setForm({ ...form, cat: e.target.value })} />
+                  {form.isManual ? <input type="text" disabled={!!editItem && !form.isManual} className="w-full p-2.5 border rounded-lg text-xs" value={form.cat} onChange={e => setForm({ ...form, cat: e.target.value })} />
                     : <select disabled={!!editItem} className="w-full p-2.5 border rounded-lg text-xs" value={form.cat} onChange={e => setForm({ ...form, cat: e.target.value, sub: "", make: "", model: "", spec: "" })}><option value="">-- Choose Category --</option>{uniqueCats.map(c => <option key={c} value={c}>{c}</option>)}</select>}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div><label className="text-[9px] text-slate-400 block mb-1">Sub Category</label>
-                    {form.isManual ? <input type="text" disabled={!!editItem} className="w-full p-2.5 border rounded-lg text-xs" value={form.sub} onChange={e => setForm({ ...form, sub: e.target.value })} />
+                    {form.isManual ? <input type="text" disabled={!!editItem && !form.isManual} className="w-full p-2.5 border rounded-lg text-xs" value={form.sub} onChange={e => setForm({ ...form, sub: e.target.value })} />
                       : <select disabled={!!editItem} className="w-full p-2.5 border rounded-lg text-xs" value={form.sub} onChange={e => setForm({ ...form, sub: e.target.value, make: "", model: "", spec: "" })}><option value="">-- Select Sub --</option>{availableSubs.map(s => <option key={s} value={s}>{s}</option>)}</select>}
                   </div>
                   <div><label className="text-[9px] text-slate-400 block mb-1">Make</label>
-                    {form.isManual ? <input type="text" disabled={!!editItem} className="w-full p-2.5 border rounded-lg text-xs" value={form.make} onChange={e => setForm({ ...form, make: e.target.value })} />
+                    {form.isManual ? <input type="text" disabled={!!editItem && !form.isManual} className="w-full p-2.5 border rounded-lg text-xs" value={form.make} onChange={e => setForm({ ...form, make: e.target.value })} />
                       : <select disabled={!!editItem} className="w-full p-2.5 border rounded-lg text-xs" value={form.make} onChange={e => setForm({ ...form, make: e.target.value, model: "", spec: "" })}><option value="">-- Select Make --</option>{availableMakes.map(m => <option key={m} value={m}>{m}</option>)}</select>}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div><label className="text-[9px] text-slate-400 block mb-1">Model / Series</label>
-                    {form.isManual ? <input type="text" disabled={!!editItem} className="w-full p-2.5 border rounded-lg text-xs" value={form.model} onChange={e => setForm({ ...form, model: e.target.value })} />
+                    {form.isManual ? <input type="text" disabled={!!editItem && !form.isManual} className="w-full p-2.5 border rounded-lg text-xs" value={form.model} onChange={e => setForm({ ...form, model: e.target.value })} />
                       : <select disabled={!!editItem} className="w-full p-2.5 border rounded-lg text-xs" value={form.model} onChange={e => setForm({ ...form, model: e.target.value, spec: "" })}><option value="">-- Select Model --</option>{availableModels.map(mo => <option key={mo} value={mo}>{mo}</option>)}</select>}
                   </div>
                   <div><label className="text-[9px] text-slate-400 block mb-1">Specification</label>
-                    {form.isManual ? <input type="text" disabled={!!editItem} className="w-full p-2.5 border rounded-lg text-xs" value={form.spec} onChange={e => setForm({ ...form, spec: e.target.value })} />
+                    {form.isManual ? <input type="text" disabled={!!editItem && !form.isManual} className="w-full p-2.5 border rounded-lg text-xs" value={form.spec} onChange={e => setForm({ ...form, spec: e.target.value })} />
                       : <select disabled={!!editItem} className="w-full p-2.5 border rounded-lg text-xs" value={form.spec} onChange={e => setForm({ ...form, spec: e.target.value })}><option value="">-- Select Spec --</option>{availableSpecs.map(sp => <option key={sp} value={sp}>{sp}</option>)}</select>}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 pt-2">
                   <div><label className="text-[9px] text-slate-400 block mb-1">Quantity</label><input type="number" className="w-full p-3 border-2 border-slate-100 rounded-xl text-lg font-black text-indigo-600 focus:border-indigo-400 outline-none" value={form.qty} onChange={e => setForm({ ...form, qty: e.target.value })} /></div>
-                  <div><label className="text-[9px] text-slate-400 block mb-1">Unit</label><select className="w-full p-3 border-2 border-slate-100 rounded-xl text-xs" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })}><option value="Nos">Nos</option><option value="Sets">Sets</option><option value="Mtrs">Mtrs</option></select></div>
+                  <div><label className="text-[9px] text-slate-400 block mb-1">Unit</label><select className="w-full p-3 border-2 border-slate-100 rounded-xl text-xs uppercase" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })}><option value="Nos">Nos</option><option value="Sets">Sets</option><option value="Mtrs">Mtrs</option></select></div>
                 </div>
               </div>
 
@@ -221,7 +231,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-6">
               <p className="text-[10px] text-slate-400 font-black mb-1 uppercase tracking-widest">Material</p>
               <p className="text-sm font-black text-slate-700">{consumeItem.item}</p>
-              <p className="text-[9px] text-green-600 mt-2 tracking-widest">Current Balance: {consumeItem.qty} {consumeItem.unit}</p>
+              <p className="text-[9px] text-green-600 mt-2 tracking-widest uppercase">Current Balance: {consumeItem.qty} {consumeItem.unit}</p>
             </div>
             <div className="space-y-4">
               <div><label className="text-[10px] text-slate-500 font-black uppercase mb-1 tracking-widest">Quantity Used</label><input type="number" className="w-full p-4 border-2 rounded-2xl font-black text-xl text-center focus:border-orange-500 outline-none" value={consumeForm.qty} onChange={e => setConsumeForm({ ...consumeForm, qty: e.target.value })} /></div>
