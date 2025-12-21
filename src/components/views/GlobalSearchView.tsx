@@ -30,7 +30,6 @@ export default function GlobalSearchView({ profile }: any) {
     } catch(e){} 
   };
   
-  // --- NEW LOGIC: ZONE-WISE AGGREGATION ---
   const lead = async () => { 
     try { 
       const { data } = await supabase.from("profiles").select("unit, item_count"); 
@@ -45,7 +44,7 @@ export default function GlobalSearchView({ profile }: any) {
         const sortedZones = Object.keys(zoneMap)
           .map(unit => ({ unit, total: zoneMap[unit] }))
           .sort((a, b) => b.total - a.total)
-          .slice(0, 4); // Show Top 4 Zones
+          .slice(0, 4);
 
         setContributors(sortedZones);
       } 
@@ -53,12 +52,11 @@ export default function GlobalSearchView({ profile }: any) {
   };
 
   const getRankStyle = (idx: number) => {
-    if (idx === 0) return { label: "Refinery Legend", color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-400", icon: "fa-crown" };
-    if (idx === 1) return { label: "Elite Zone", color: "text-slate-500", bg: "bg-slate-50", border: "border-slate-300", icon: "fa-medal" };
-    return { label: "Active Zone", color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100", icon: "fa-shield-halved" };
+    if (idx === 0) return { label: "Legend", color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-400", icon: "fa-crown" };
+    if (idx === 1) return { label: "Elite", color: "text-slate-500", bg: "bg-slate-50", border: "border-slate-300", icon: "fa-medal" };
+    return { label: "Active", color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100", icon: "fa-shield-halved" };
   };
 
-  // --- FEATURE 2: EXPORT TO SHEET (CSV) ---
   const exportToCSV = () => {
     const headers = ["Item Name,Category,Sub-Category,Specification,Quantity,Unit,Zone,Holder\n"];
     const rows = filtered.map(i => 
@@ -72,7 +70,6 @@ export default function GlobalSearchView({ profile }: any) {
     a.click();
   };
 
-  // --- FEATURE 3: STOCK SUMMARY LOGIC ---
   const getSummaryData = () => {
     const summary: any = {};
     items.forEach(i => {
@@ -95,15 +92,12 @@ export default function GlobalSearchView({ profile }: any) {
     setSubmitting(false);
   };
 
-  // --- FILTERING & SORTING ---
   const filtered = items.filter((i: any) => {
     const matchesSearch = (i.item.toLowerCase().includes(search.toLowerCase()) || i.spec.toLowerCase().includes(search.toLowerCase()));
     const matchesZone = (selZone === "all" || i.holder_unit === selZone);
     const matchesSub = (selSubCat === "all" || i.sub === selSubCat);
-    
     let matchesCat = (selCat === "all" || i.cat === selCat);
     if (selCat === "OUT_OF_STOCK") matchesCat = (i.qty === 0);
-
     return matchesSearch && matchesZone && matchesCat && matchesSub;
   }).sort((a, b) => {
     if (a.qty === 0 && b.qty !== 0) return 1;
@@ -114,35 +108,33 @@ export default function GlobalSearchView({ profile }: any) {
   return (
     <div className="space-y-6 animate-fade-in font-roboto font-bold uppercase tracking-tight">
       
-      {/* 1. Zone Leaderboard Banner */}
-      <section className="bg-slate-900 p-5 rounded-2xl border-b-4 border-orange-500 shadow-2xl overflow-hidden relative group">
-        <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-           <i className="fa-solid fa-ranking-star text-9xl text-white"></i>
+      {/* 1. Optimized Zone Leaderboard Banner (Compact Height) */}
+      <section className="bg-slate-900 py-4 px-6 rounded-2xl border-b-4 border-orange-500 shadow-2xl overflow-hidden relative group">
+        <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
+           <i className="fa-solid fa-ranking-star text-7xl text-white"></i>
         </div>
         
-        <div className="relative z-10 flex flex-col lg:flex-row items-center gap-8">
-          <div className="text-center lg:text-left space-y-2">
-            <h2 className="text-white text-xl font-black flex items-center gap-3 justify-center lg:justify-start tracking-widest leading-none">
-              <i className="fa-solid fa-trophy text-orange-400 animate-pulse"></i> ZONE LEADERBOARD
+        <div className="relative z-10 flex flex-col lg:flex-row items-center gap-6">
+          <div className="shrink-0">
+            <h2 className="text-white text-lg font-black flex items-center gap-3 tracking-widest leading-none">
+              <i className="fa-solid fa-trophy text-orange-400"></i> ZONE LEADERBOARD
             </h2>
-            <p className="text-slate-400 text-[10px] font-bold tracking-[0.2em]">Refinery-Wide Spares Contribution Ranking</p>
           </div>
 
-          <div className="flex gap-4 overflow-x-auto no-scrollbar w-full pb-2">
+          <div className="flex gap-3 overflow-x-auto no-scrollbar w-full py-1">
             {contributors.map((c, idx) => {
               const rank = getRankStyle(idx);
               return (
-                <div key={idx} className={`min-w-[200px] flex-1 bg-white/5 border-2 ${rank.border} rounded-2xl p-4 flex items-center gap-4 hover:bg-white/10 transition-all cursor-default`}>
-                   <div className={`w-10 h-10 rounded-xl ${rank.bg} ${rank.color} flex items-center justify-center text-xl shadow-lg`}>
+                <div key={idx} className={`min-w-[180px] flex-1 bg-white/5 border ${rank.border} rounded-xl p-3 flex items-center gap-3 hover:bg-white/10 transition-all cursor-default`}>
+                   <div className={`w-8 h-8 shrink-0 rounded-lg ${rank.bg} ${rank.color} flex items-center justify-center text-sm shadow-lg`}>
                       <i className={`fa-solid ${rank.icon}`}></i>
                    </div>
                    <div className="flex-1 truncate">
-                      <p className="text-white text-sm font-black truncate">{c.unit}</p>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-[9px] text-slate-400 font-bold uppercase">Contribution</span>
-                        <span className="text-green-400 text-[12px] font-black">{c.total} Items</span>
+                      <p className="text-white text-[12px] font-black truncate">{c.unit}</p>
+                      <div className="flex items-center justify-between mt-0.5">
+                        <span className="text-green-400 text-[10px] font-black">{c.total} Items</span>
                       </div>
-                      <div className="w-full bg-slate-700 h-1 mt-2 rounded-full overflow-hidden">
+                      <div className="w-full bg-slate-700 h-1 mt-1.5 rounded-full overflow-hidden">
                         <div className="bg-orange-400 h-full transition-all duration-1000" style={{ width: `${contributors[0].total > 0 ? (c.total / contributors[0].total) * 100 : 0}%` }}></div>
                       </div>
                    </div>
