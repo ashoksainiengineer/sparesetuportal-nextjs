@@ -13,7 +13,6 @@ import {
 import { Bar } from "react-chartjs-2";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 
-// Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ChartDataLabels);
 
 export default function MonthlyAnalysisView({ profile }: any) {
@@ -37,7 +36,6 @@ export default function MonthlyAnalysisView({ profile }: any) {
     const endTs = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59).getTime();
 
     try {
-      // 1. Fetch Global Logs (All Zones Combined)
       const { data: logs, error } = await supabase
         .from("usage_logs")
         .select("*")
@@ -46,9 +44,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
 
       if (error) throw error;
 
-      // 2. Data Processing: Category -> SubCat -> Items
       const report: any = {};
-
       logs?.forEach((log) => {
         const cat = log.cat || 'Others';
         const sub = log.sub || 'General';
@@ -66,13 +62,11 @@ export default function MonthlyAnalysisView({ profile }: any) {
         report[cat][sub].items[item] = (report[cat][sub].items[item] || 0) + qty;
       });
 
-      // 3. Prepare Bar Chart Data
       const charts = Object.keys(report).sort().map(catName => {
         const subDataMap = report[catName];
         const labels = Object.keys(subDataMap).sort();
         const values = labels.map(l => subDataMap[l].total);
 
-        // Tooltip Breakdown (Top 5 items per sub-cat)
         const breakdownInfo = labels.map(l => {
             const items = subDataMap[l].items;
             return Object.entries(items)
@@ -91,7 +85,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
               backgroundColor: labels.map((_, i) => `hsl(${210 + (i * 20)}, 75%, 50%)`),
               borderRadius: 6,
               barPercentage: 0.6,
-              itemBreakdown: breakdownInfo // Custom data for tooltips
+              itemBreakdown: breakdownInfo 
             }]
           }
         };
@@ -107,7 +101,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
 
   return (
     <div className="animate-fade-in space-y-8 pb-20 font-roboto font-bold uppercase tracking-tight">
-      {/* Analytics Header */}
+      {/* Header Panel */}
       <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl flex flex-col md:flex-row justify-between items-center gap-6 border-b-4 border-orange-500">
         <div>
           <h2 className="text-xl font-black uppercase tracking-widest leading-none">Global Consumption Analysis</h2>
@@ -119,7 +113,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
         </div>
       </div>
 
-      {/* Grid for Bar Charts */}
+      {/* Charts Grid */}
       {loading ? (
         <div className="p-40 text-center animate-pulse">
             <p className="text-[10px] text-slate-400 font-black tracking-[0.4em]">Aggregating Refinery Logs...</p>
@@ -143,18 +137,18 @@ export default function MonthlyAnalysisView({ profile }: any) {
                   options={{
                     responsive: true,
                     maintainAspectRatio: false,
+                    // FIX: Layout padding for extra headroom
+                    layout: { padding: { top: 30 } },
                     plugins: {
                       legend: { display: false },
-                      // Values attached to bars
                       datalabels: {
                         color: '#1e293b',
                         font: { weight: 'bold', size: 10 },
                         anchor: 'end',
                         align: 'top',
-                        offset: 2,
+                        offset: 4,
                         formatter: (v) => v
                       },
-                      // Item Breakdown on Hover
                       tooltip: {
                         backgroundColor: '#0f172a',
                         padding: 12,
@@ -175,9 +169,17 @@ export default function MonthlyAnalysisView({ profile }: any) {
                       }
                     },
                     scales: {
-                      // FIXED TYPE ERRORS HERE: Changed weight strings to 'bold'
-                      y: { beginAtZero: true, grid: { color: '#f8fafc' }, ticks: { font: { size: 9, weight: 'bold' } } },
-                      x: { grid: { display: false }, ticks: { font: { size: 9, weight: 'bold' }, color: '#64748b' } }
+                      // FIX: Added 'grace' to add 15% extra headroom on Y-axis
+                      y: { 
+                        beginAtZero: true, 
+                        grace: '15%', 
+                        grid: { color: '#f8fafc' }, 
+                        ticks: { font: { size: 9, weight: 'bold' } } 
+                      },
+                      x: { 
+                        grid: { display: false }, 
+                        ticks: { font: { size: 9, weight: 'bold' }, color: '#64748b' } 
+                      }
                     }
                   }} 
                 />
@@ -186,9 +188,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
           ))}
         </div>
       ) : (
-        <div className="bg-white border-2 border-dashed rounded-3xl p-32 text-center">
-            <p className="text-slate-300 font-black tracking-widest text-xs">No records for selected month</p>
-        </div>
+        <div className="bg-white border-2 border-dashed rounded-3xl p-32 text-center text-slate-300 font-black text-xs">NO DATA FOUND FOR THIS MONTH</div>
       )}
     </div>
   );
