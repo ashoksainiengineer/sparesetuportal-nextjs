@@ -10,7 +10,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { Bar } from "react-chartjs-2"; // Fixed: Correct library name
+import { Bar } from "react-chartjs-2";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 
 // Register Chart.js components
@@ -51,7 +51,6 @@ export default function MonthlyAnalysisView({ profile }: any) {
         const cat = log.cat || 'Others';
         const sub = log.sub || 'General';
         
-        // Creating full identity (Make Model Spec)
         const make = log.make && log.make !== '-' ? log.make : '';
         const model = log.model && log.model !== '-' ? log.model : '';
         const spec = log.spec && log.spec !== '-' ? log.spec : '';
@@ -165,7 +164,8 @@ export default function MonthlyAnalysisView({ profile }: any) {
                         titleColor: '#fb923c',
                         padding: 15,
                         titleFont: { size: 13, weight: 'bold' },
-                        bodyFont: { size: 11, weight: '500' },
+                        // FIXED: Changed '500' string to 'normal' to satisfy TypeScript
+                        bodyFont: { size: 11, weight: 'normal' },
                         displayColors: false,
                         callbacks: {
                           title: (context: any) => `SUB-CAT: ${context[0].label}`,
