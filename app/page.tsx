@@ -12,9 +12,14 @@ export default function SpareSetuApp() {
 
   useEffect(() => {
     const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) { setUser(session.user); fetchProfile(session.user.id); }
-      setLoading(false);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) { setUser(session.user); fetchProfile(session.user.id); }
+        setLoading(false);
+      } catch (err) {
+        console.error("Session Error:", err);
+        setLoading(false);
+      }
     };
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) { setUser(session.user); fetchProfile(session.user.id); }
@@ -29,9 +34,11 @@ export default function SpareSetuApp() {
   useEffect(() => {
     if (!profile?.id || !profile?.unit) return;
     const fetchAllCounts = async () => {
-        const { count: incoming } = await supabase.from("requests").select("*", { count: 'exact', head: true }).eq("to_unit", profile.unit).in("status", ["pending", "return_requested"]);
-        const { count: updates } = await supabase.from("requests").select("*", { count: 'exact', head: true }).eq("from_uid", profile.id).eq("viewed_by_requester", false).in("status", ["approved", "rejected", "returned"]);
-        setPendingCount((incoming || 0) + (updates || 0));
+        try {
+            const { count: incoming } = await supabase.from("requests").select("*", { count: 'exact', head: true }).eq("to_unit", profile.unit).in("status", ["pending", "return_requested"]);
+            const { count: updates } = await supabase.from("requests").select("*", { count: 'exact', head: true }).eq("from_uid", profile.id).eq("viewed_by_requester", false).in("status", ["approved", "rejected", "returned"]);
+            setPendingCount((incoming || 0) + (updates || 0));
+        } catch (err) { console.error("Notif Error:", err); }
     };
     fetchAllCounts();
     const channel = supabase.channel('sparesetu-global-sync-vfinal-v2').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAllCounts(); }).subscribe();
@@ -45,8 +52,10 @@ export default function SpareSetuApp() {
   }, [activeTab, profile]);
 
   const fetchProfile = async (uid: string) => {
-    const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
-    if (data) setProfile(data);
+    try {
+        const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
+        if (data) setProfile(data);
+    } catch (err) { console.error("Profile Fetch Error:", err); }
   };
 
   if (loading) return (
@@ -129,26 +138,28 @@ function AuthView() {
 
   const handleAuth = async () => {
     setAuthLoading(true);
-    if (view === "login") {
-      const { error } = await supabase.auth.signInWithPassword({ email: form.email, password: form.pass });
-      if (error) alert(error.message);
-    } else if (view === "register") {
-      if (!form.name || !form.unit || !form.email || !form.pass) { alert("Details bhariye!"); setAuthLoading(false); return; }
-      const { data: allowed } = await supabase.from('allowed_users').select('*').eq('email', form.email).eq('unit', form.unit).single();
-      if (!allowed) { alert("Email access not allowed for this zone!"); setAuthLoading(false); return; }
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      setForm({ ...form, generatedOtp: otp });
-      const res = await fetch('/api/send-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.name, email: form.email, otp }) });
-      if (res.ok) { alert("OTP sent!"); setView("otp"); } else alert("OTP Send Failed");
-    } else if (view === "otp") {
-      if (form.enteredOtp === form.generatedOtp) {
-        const { error } = await supabase.auth.signUp({ email: form.email, password: form.pass, options: { data: { name: form.name, unit: form.unit } } });
-        if (error) alert(error.message); else setView("login");
-      } else alert("Wrong OTP");
-    } else if (view === "forgot") {
-      const { error } = await supabase.auth.resetPasswordForEmail(form.email);
-      if (error) alert(error.message); else alert("Reset link sent to your email!");
-    }
+    try {
+        if (view === "login") {
+          const { error } = await supabase.auth.signInWithPassword({ email: form.email, password: form.pass });
+          if (error) alert(error.message);
+        } else if (view === "register") {
+          if (!form.name || !form.unit || !form.email || !form.pass) { alert("Details bhariye!"); setAuthLoading(false); return; }
+          const { data: allowed } = await supabase.from('allowed_users').select('*').eq('email', form.email).eq('unit', form.unit).single();
+          if (!allowed) { alert("Email access not allowed for this zone!"); setAuthLoading(false); return; }
+          const otp = Math.floor(100000 + Math.random() * 900000).toString();
+          setForm({ ...form, generatedOtp: otp });
+          const res = await fetch('/api/send-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.name, email: form.email, otp }) });
+          if (res.ok) { alert("OTP sent!"); setView("otp"); } else alert("OTP Send Failed");
+        } else if (view === "otp") {
+          if (form.enteredOtp === form.generatedOtp) {
+            const { error } = await supabase.auth.signUp({ email: form.email, password: form.pass, options: { data: { name: form.name, unit: form.unit } } });
+            if (error) alert(error.message); else setView("login");
+          } else alert("Wrong OTP");
+        } else if (view === "forgot") {
+          const { error } = await supabase.auth.resetPasswordForEmail(form.email);
+          if (error) alert(error.message); else alert("Reset link sent to your email!");
+        }
+    } catch (err) { alert("Network Error: Supabase connection failed."); }
     setAuthLoading(false);
   };
 
@@ -207,17 +218,30 @@ function GlobalSearchView({ profile }: any) {
   const [selCat, setSelCat] = useState("all");
   const [requestItem, setRequestItem] = useState<any>(null);
   const [reqForm, setReqForm] = useState({ qty: "", comment: "" });
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => { fetchAll(); lead(); }, []);
-  const fetchAll = async () => { const { data } = await supabase.from("inventory").select("*"); if (data) setItems(data); };
-  const lead = async () => { const { data } = await supabase.from("profiles").select("name, unit, item_count").order("item_count", { ascending: false }).limit(3); if (data) setContributors(data); };
+  const fetchAll = async () => { try { const { data } = await supabase.from("inventory").select("*"); if (data) setItems(data); } catch(e){} };
+  const lead = async () => { try { const { data } = await supabase.from("profiles").select("name, unit, item_count").order("item_count", { ascending: false }).limit(3); if (data) setContributors(data); } catch(e){} };
 
   const handleSendRequest = async () => {
     if (!reqForm.qty || Number(reqForm.qty) <= 0 || Number(reqForm.qty) > requestItem.qty) { alert("Invalid quantity!"); return; }
-    const { error } = await supabase.from("requests").insert([{
-        item_id: requestItem.id, item_name: requestItem.item, item_spec: requestItem.spec, item_unit: requestItem.unit, req_qty: Number(reqForm.qty), req_comment: reqForm.comment, from_name: profile.name, from_uid: profile.id, from_unit: profile.unit, to_name: requestItem.holder_name, to_uid: requestItem.holder_uid, to_unit: requestItem.holder_unit, status: 'pending', viewed_by_requester: false
-    }]);
-    if (!error) { alert("Request Sent Successfully!"); setRequestItem(null); setReqForm({ qty: "", comment: "" }); } else alert(error.message);
+    setSubmitting(true);
+    try {
+        const { error } = await supabase.from("requests").insert([{
+            item_id: requestItem.id, item_name: requestItem.item, item_spec: requestItem.spec, item_unit: requestItem.unit, req_qty: Number(reqForm.qty), req_comment: reqForm.comment, from_name: profile.name, from_uid: profile.id, from_unit: profile.unit, to_name: requestItem.holder_name, to_uid: requestItem.holder_uid, to_unit: requestItem.holder_unit, status: 'pending', viewed_by_requester: false
+        }]);
+        if (!error) { 
+            alert("Request Sent Successfully!"); 
+            setRequestItem(null); 
+            setReqForm({ qty: "", comment: "" }); 
+        } else {
+            alert("Database Error: " + error.message);
+        }
+    } catch (err) {
+        alert("Connection Failed! Please check your internet or Supabase status.");
+    }
+    setSubmitting(false);
   };
 
   const filtered = items.filter((i: any) => (i.item.toLowerCase().includes(search.toLowerCase()) || i.spec.toLowerCase().includes(search.toLowerCase())) && (selCat === "all" ? true : i.cat === selCat));
@@ -271,7 +295,9 @@ function GlobalSearchView({ profile }: any) {
               </div>
               <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quantity (Available: {requestItem.qty})</label><input type="number" placeholder="Enter Qty" className="w-full mt-1 p-3 border rounded-lg outline-none font-bold text-slate-800" onChange={e=>setReqForm({...reqForm, qty:e.target.value})} /></div>
               <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purpose / Log Comment</label><textarea placeholder="Why do you need this?" className="w-full mt-1 p-3 border rounded-lg outline-none font-bold text-xs h-24 text-slate-800" onChange={e=>setReqForm({...reqForm, comment:e.target.value})}></textarea></div>
-              <button onClick={handleSendRequest} className="w-full py-3 bg-[#ff6b00] text-white font-black rounded-xl shadow-lg uppercase tracking-widest">Submit Request</button>
+              <button onClick={handleSendRequest} disabled={submitting} className="w-full py-3 bg-[#ff6b00] text-white font-black rounded-xl shadow-lg uppercase tracking-widest disabled:opacity-50">
+                {submitting ? "Sending..." : "Submit Request"}
+              </button>
             </div>
           </div>
         </div>
@@ -287,13 +313,15 @@ function MyStoreView({ profile, fetchProfile }: any) {
   const [form, setForm] = useState({ cat: "", sub: "", make: "", model: "", spec: "", qty: "", isManual: false });
 
   useEffect(() => { if (profile) fetch(); }, [profile]);
-  const fetch = async () => { const { data } = await supabase.from("inventory").select("*").eq("holder_uid", profile.id).order("id", { ascending: false }); if (data) setMyItems(data); };
+  const fetch = async () => { try { const { data } = await supabase.from("inventory").select("*").eq("holder_uid", profile.id).order("id", { ascending: false }); if (data) setMyItems(data); } catch(e){} };
 
   const handleSave = async () => {
     if (!form.spec || !form.qty) return alert("Sari details bhariye!");
     const itemName = `${form.make} ${form.sub} ${form.model}`.trim();
-    const { error } = await supabase.from("inventory").insert([{ item: itemName, cat: form.cat, sub: form.sub, make: form.make, model: form.model, spec: form.spec, qty: parseInt(form.qty), unit: 'Nos', holder_unit: profile.unit, holder_uid: profile.id, holder_name: profile.name }]);
-    if (!error) { alert("Stock Inward Success!"); fetch(); setShowAddModal(false); setForm({ cat: "", sub: "", make: "", model: "", spec: "", qty: "", isManual: false }); await supabase.from("profiles").update({ item_count: (profile.item_count || 0) + 1 }).eq('id', profile.id); fetchProfile(); } else alert(error.message);
+    try {
+        const { error } = await supabase.from("inventory").insert([{ item: itemName, cat: form.cat, sub: form.sub, make: form.make, model: form.model, spec: form.spec, qty: parseInt(form.qty), unit: 'Nos', holder_unit: profile.unit, holder_uid: profile.id, holder_name: profile.name }]);
+        if (!error) { alert("Stock Inward Success!"); fetch(); setShowAddModal(false); setForm({ cat: "", sub: "", make: "", model: "", spec: "", qty: "", isManual: false }); await supabase.from("profiles").update({ item_count: (profile.item_count || 0) + 1 }).eq('id', profile.id); fetchProfile(); } else alert(error.message);
+    } catch(e){ alert("Connection Error"); }
   };
 
   return (
@@ -322,13 +350,13 @@ function MyStoreView({ profile, fetchProfile }: any) {
 function UsageHistoryView({ profile }: any) {
   const [logs, setLogs] = useState<any[]>([]);
   useEffect(() => { if (profile) fetch(); }, [profile]);
-  const fetch = async () => { const { data } = await supabase.from("usage_logs").select("*").eq("consumer_uid", profile.id).order("timestamp", { ascending: false }); if (data) setLogs(data); };
+  const fetch = async () => { try { const { data } = await supabase.from("usage_logs").select("*").eq("consumer_uid", profile.id).order("timestamp", { ascending: false }); if (data) setLogs(data); } catch(e){} };
   return (<section className="bg-white rounded-xl border border-slate-200 shadow-sm font-roboto font-bold uppercase"><div className="p-5 border-b bg-slate-50/50 flex justify-between font-roboto"><h2 className="text-lg font-bold text-slate-800 uppercase tracking-wider font-roboto">Log: Usage Feed</h2></div><div className="overflow-x-auto font-roboto"><table className="w-full text-left text-xs font-mono font-bold uppercase font-roboto font-bold"><thead className="bg-slate-50 border-b text-[10px] font-black uppercase tracking-widest font-roboto"><tr><th className="p-4 pl-8 font-roboto">Date</th><th className="p-4 font-roboto">Details</th><th className="p-4 text-center font-roboto">Qty</th></tr></thead><tbody className="divide-y text-slate-600 font-roboto">{logs.map(l => (<tr key={l.id} className="hover:bg-slate-50 transition border-b border-slate-100 font-roboto"><td className="p-4 pl-8 uppercase font-mono font-roboto">{new Date(Number(l.timestamp)).toLocaleDateString()}</td><td className="p-4 font-bold uppercase leading-tight font-roboto font-bold"><div className="text-slate-800 font-bold text-[13px] tracking-tight uppercase font-roboto font-bold">{l.item_name}</div><div className="text-[9px] text-slate-400 uppercase mt-0.5 tracking-tighter uppercase font-roboto font-bold">{l.category}</div></td><td className="p-4 text-center font-black text-red-600 font-roboto">-{l.qty_consumed} Nos</td></tr>))}</tbody></table></div></section>);
 }
 
 function MonthlyAnalysisView({ profile }: any) {
   const [analysis, setAnalysis] = useState<any[]>([]);
-  useEffect(() => { const f = async () => { const { data } = await supabase.from("usage_logs").select("*").eq("consumer_uid", profile.id); if (data) { const stats: any = {}; data.forEach((l: any) => { const month = new Date(Number(l.timestamp)).toLocaleString('default', { month: 'long', year: 'numeric' }); if (!stats[month]) stats[month] = { month, total: 0, count: 0 }; stats[month].total += Number(l.qty_consumed); stats[month].count += 1; }); setAnalysis(Object.values(stats)); } }; if (profile) f(); }, [profile]);
+  useEffect(() => { const f = async () => { try { const { data } = await supabase.from("usage_logs").select("*").eq("consumer_uid", profile.id); if (data) { const stats: any = {}; data.forEach((l: any) => { const month = new Date(Number(l.timestamp)).toLocaleString('default', { month: 'long', year: 'numeric' }); if (!stats[month]) stats[month] = { month, total: 0, count: 0 }; stats[month].total += Number(l.qty_consumed); stats[month].count += 1; }); setAnalysis(Object.values(stats)); } } catch(e){} }; if (profile) f(); }, [profile]);
   return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-roboto uppercase tracking-tight font-bold font-roboto"><div className="col-span-3 pb-4 text-xs font-black text-slate-400 tracking-widest text-center border-b uppercase font-roboto">Analytical Summary</div>{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md uppercase font-bold font-roboto font-bold"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-[0.2em] font-roboto font-bold">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner font-bold font-roboto font-bold"><i className="fa-solid fa-chart-line font-bold font-bold"></i></div><div className="text-3xl font-black text-slate-800 font-bold font-roboto font-bold">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase tracking-widest uppercase font-roboto font-bold">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase tracking-tighter uppercase font-bold font-roboto font-bold">{a.count} Logged Records</div></div>))}</div>);
 }
 
@@ -343,13 +371,15 @@ function ReturnsLedgerView({ profile, onAction }: any) {
     const [form, setForm] = useState({ comment: "", qty: "" });
 
     const fetchAll = async () => {
-        const { data: p } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).in("status", ["pending", "return_requested"]).order("id", { ascending: false });
-        const { data: g } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).eq("status", "approved").order("id", { ascending: false });
-        const { data: t = [] } = await supabase.from("requests").select("*").eq("from_unit", profile.unit).eq("status", "approved").order("id", { ascending: false });
-        const { data: gh } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).in("status", ["returned", "rejected"]).order("id", { ascending: false });
-        const { data: th = [] } = await supabase.from("requests").select("*").eq("from_unit", profile.unit).in("status", ["returned", "rejected"]).order("id", { ascending: false });
-        if (p) setPending(p); if (g) setGiven(g); if (t) setTaken(t);
-        if (gh) setGivenHistory(gh); if (th) setTakenHistory(th);
+        try {
+            const { data: p } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).in("status", ["pending", "return_requested"]).order("id", { ascending: false });
+            const { data: g } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).eq("status", "approved").order("id", { ascending: false });
+            const { data: t = [] } = await supabase.from("requests").select("*").eq("from_unit", profile.unit).eq("status", "approved").order("id", { ascending: false });
+            const { data: gh } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).in("status", ["returned", "rejected"]).order("id", { ascending: false });
+            const { data: th = [] } = await supabase.from("requests").select("*").eq("from_unit", profile.unit).in("status", ["returned", "rejected"]).order("id", { ascending: false });
+            if (p) setPending(p); if (g) setGiven(g); if (t) setTaken(t);
+            if (gh) setGivenHistory(gh); if (th) setTakenHistory(th);
+        } catch(e){}
     };
 
     useEffect(() => {
@@ -367,47 +397,43 @@ function ReturnsLedgerView({ profile, onAction }: any) {
         if (!form.comment.trim()) { alert("Provide a transaction log/reason!"); return; }
         if (actionQty <= 0 || actionQty > data.req_qty) { alert(`Invalid Quantity! Range: 1 to ${data.req_qty}`); return; }
 
-        if (type === 'approve') {
-            // GENERATE UNIQUE TXN ID ON APPROVAL
-            const txnId = `#TXN-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 99)}`;
-            const combinedComment = `${form.comment} ||| ${txnId}`; // Store combined data
-
-            const { error } = await supabase.from("requests").update({ status: 'approved', approve_comment: combinedComment, to_uid: profile.id, to_name: profile.name, req_qty: actionQty, viewed_by_requester: false }).eq("id", data.id);
-            if (!error) {
-                const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
-                if (inv) await supabase.from("inventory").update({ qty: inv.qty - actionQty }).eq("id", data.item_id);
-            }
-        } 
-        else if (type === 'reject') {
-            await supabase.from("requests").update({ status: 'rejected', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
-        }
-        else if (type === 'return') {
-            // Partial/Full Return initiation - CARRY FORWARD TXN ID
-            // Extract existing Txn ID from parent's comment
-            const existingTxnIdMatch = data.approve_comment?.match(/\|\|\| (#TXN-\d+-\d+)/);
-            const txnIdTag = existingTxnIdMatch ? existingTxnIdMatch[1] : '(No ID)';
-
-            const { error } = await supabase.from("requests").insert([{ 
-                item_id: data.item_id, item_name: data.item_name, item_spec: data.item_spec, item_unit: data.item_unit, req_qty: actionQty, status: 'return_requested', return_comment: form.comment, from_uid: profile.id, from_name: profile.name, from_unit: profile.unit, to_uid: data.to_uid, to_name: data.to_name, to_unit: data.to_unit, viewed_by_requester: false, 
-                approve_comment: `VERIFY_LINK_ID:${data.id} ||| ${txnIdTag}` // Pass Txn ID along
-            }]);
-            if (!error) alert("Return Request Sent to Lender!");
-        }
-        else if (type === 'verify') {
-            const parentId = data.approve_comment?.match(/VERIFY_LINK_ID:(\d+)/)?.[1];
-            if (parentId) {
-                const { data: parent } = await supabase.from("requests").select("req_qty").eq("id", parentId).single();
-                if (parent) {
-                    const newBal = parent.req_qty - data.req_qty;
-                    // If balance becomes 0, borrow entry is settled (deleted or status changed), else balance updated
-                    if (newBal <= 0) await supabase.from("requests").delete().eq("id", parentId);
-                    else await supabase.from("requests").update({ req_qty: newBal }).eq("id", parentId);
+        try {
+            if (type === 'approve') {
+                const txnId = `#TXN-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 99)}`;
+                const combinedComment = `${form.comment} ||| ${txnId}`; 
+                const { error } = await supabase.from("requests").update({ status: 'approved', approve_comment: combinedComment, to_uid: profile.id, to_name: profile.name, req_qty: actionQty, viewed_by_requester: false }).eq("id", data.id);
+                if (!error) {
+                    const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
+                    if (inv) await supabase.from("inventory").update({ qty: inv.qty - actionQty }).eq("id", data.item_id);
                 }
+            } 
+            else if (type === 'reject') {
+                await supabase.from("requests").update({ status: 'rejected', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
             }
-            await supabase.from("requests").update({ status: 'returned', approve_comment: `Verified: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
-            const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
-            if (inv) await supabase.from("inventory").update({ qty: inv.qty + data.req_qty }).eq("id", data.item_id);
-        }
+            else if (type === 'return') {
+                const existingTxnIdMatch = data.approve_comment?.match(/\|\|\| (#TXN-\d+-\d+)/);
+                const txnIdTag = existingTxnIdMatch ? existingTxnIdMatch[1] : '(No ID)';
+                const { error } = await supabase.from("requests").insert([{ 
+                    item_id: data.item_id, item_name: data.item_name, item_spec: data.item_spec, item_unit: data.item_unit, req_qty: actionQty, status: 'return_requested', return_comment: form.comment, from_uid: profile.id, from_name: profile.name, from_unit: profile.unit, to_uid: data.to_uid, to_name: data.to_name, to_unit: data.to_unit, viewed_by_requester: false, 
+                    approve_comment: `VERIFY_LINK_ID:${data.id} ||| ${txnIdTag}` 
+                }]);
+                if (!error) alert("Return Request Sent!");
+            }
+            else if (type === 'verify') {
+                const parentId = data.approve_comment?.match(/VERIFY_LINK_ID:(\d+)/)?.[1];
+                if (parentId) {
+                    const { data: parent } = await supabase.from("requests").select("req_qty").eq("id", parentId).single();
+                    if (parent) {
+                        const newBal = parent.req_qty - data.req_qty;
+                        if (newBal <= 0) await supabase.from("requests").delete().eq("id", parentId);
+                        else await supabase.from("requests").update({ req_qty: newBal }).eq("id", parentId);
+                    }
+                }
+                await supabase.from("requests").update({ status: 'returned', approve_comment: `Verified: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
+                const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
+                if (inv) await supabase.from("inventory").update({ qty: inv.qty + data.req_qty }).eq("id", data.item_id);
+            }
+        } catch(e){ alert("Database connection lost."); }
         setActionModal(null); setForm({comment:"", qty:""});
     };
 
@@ -474,7 +500,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 </section>
             </div>
 
-            {/* ACTION MODAL (FOR APPROVAL, RETURN & VERIFICATION) */}
+            {/* ACTION MODAL */}
             {actionModal && (
               <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                 <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in font-roboto font-bold uppercase">
@@ -490,20 +516,16 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                       <p className="text-[13px] font-bold text-slate-800">{actionModal.data.item_name}</p>
                       <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-tighter">{actionModal.data.item_spec}</p>
                     </div>
-
-                    {/* Qty Field (Visible for Approve and Return for Partial Support) */}
                     {(actionModal.type === 'approve' || actionModal.type === 'return') && (
                       <div>
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quantity {actionModal.type === 'return' ? '(Borrowed:' : '(Requested:'} {actionModal.data.req_qty})</label>
                         <input type="number" defaultValue={actionModal.data.req_qty} className="w-full mt-1 p-3 border-2 rounded-lg outline-none font-black text-slate-800 focus:border-orange-500 transition-all" onChange={e=>setForm({...form, qty:e.target.value})} />
                       </div>
                     )}
-
                     <div>
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Transaction Log / Comment</label>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Log / Comment</label>
                         <textarea placeholder="Reason/Log Details..." className="w-full mt-1 p-3 border-2 rounded-lg outline-none font-bold text-xs h-24 text-slate-800 focus:border-orange-500 transition-all uppercase" onChange={e=>setForm({...form, comment:e.target.value})}></textarea>
                     </div>
-
                     <button onClick={handleProcess} className={`w-full py-3 ${actionModal.type === 'reject' ? 'bg-red-600' : 'bg-[#ff6b00]'} text-white font-black rounded-xl shadow-lg uppercase tracking-widest text-sm hover:opacity-90 transition-opacity`}>
                         {actionModal.type === 'return' ? 'Send Return Request' : 'Confirm Transaction'}
                     </button>
@@ -512,7 +534,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
               </div>
             )}
 
-            {/* DIGITAL ARCHIVE LOGS (BLACK BOX DESIGN) WITH TXN ID COLUMN */}
+            {/* DIGITAL ARCHIVE LOGS */}
             <div className="pt-10 space-y-10 font-roboto font-bold uppercase">
                 <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden font-roboto font-bold uppercase">
                     <div className="p-6 bg-slate-800 text-white flex flex-col items-center justify-center font-roboto">
@@ -520,11 +542,10 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                       <span className="text-[10px] opacity-80 font-black tracking-[0.2em] uppercase mt-1 font-roboto">(UDH: UDHAARI • RET: RETURNED)</span>
                     </div>
                     <div className="overflow-x-auto font-roboto font-bold uppercase"><table className="w-full text-left text-[9px] divide-y divide-slate-100 font-mono font-bold uppercase font-roboto">
-                        <thead className="bg-slate-50 text-[8.5px] font-black text-slate-400 tracking-widest font-roboto"><tr><th className="p-4 font-roboto">Txn ID</th><th className="p-4 font-roboto">Material Details & Technical Spec</th><th className="p-4 text-center font-roboto">Qty</th><th className="p-4 font-roboto">Receiver & Lender Info</th><th className="p-4 font-roboto">7-Point Audit Life-Cycle Log</th><th className="p-4 text-center font-roboto">Status</th></tr></thead>
+                        <thead className="bg-slate-50 text-[8.5px] font-black text-slate-400 tracking-widest font-roboto"><tr><th className="p-4 font-roboto">Txn ID</th><th className="p-4 font-roboto">Material Details</th><th className="p-4 text-center font-roboto">Qty</th><th className="p-4 font-roboto">Info</th><th className="p-4 font-roboto">Audit Log</th><th className="p-4 text-center font-roboto">Status</th></tr></thead>
                         <tbody className="divide-y text-slate-600 font-roboto">
                             {[...givenHistory, ...takenHistory].sort((a,b)=>Number(b.timestamp)-Number(a.timestamp)).map(h => (
                                 <tr key={h.id} className="hover:bg-slate-50 transition border-b uppercase font-roboto">
-                                    {/* New Txn ID Column */}
                                     <td className="p-4 font-roboto font-bold uppercase text-slate-400 whitespace-nowrap tracking-tighter">
                                         {h.approve_comment?.match(/\|\|\| (#TXN-\d+-\d+)/)?.[1] || '--'}
                                     </td>
