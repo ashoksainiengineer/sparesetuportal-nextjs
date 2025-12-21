@@ -59,7 +59,7 @@ export default function SpareSetuApp() {
   };
 
   if (loading) return (
-    <div className="fixed inset-0 z-[60] bg-[#0f172a] flex flex-col items-center justify-center font-roboto">
+    <div className="fixed inset-0 z-[110] bg-[#0f172a] flex flex-col items-center justify-center font-roboto">
       <div className="iocl-logo-container mb-4 animate-pulse" style={{ fontSize: '20px' }}>
         <div className="iocl-circle"><div className="iocl-band"><span className="iocl-hindi-text">इंडियनऑयल</span></div></div>
       </div>
@@ -164,7 +164,7 @@ function AuthView() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 login-bg">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 login-bg">
       <div className="w-full max-w-md login-card rounded-2xl shadow-2xl p-8 border-t-4 border-orange-500 text-center relative animate-fade-in font-roboto font-bold uppercase">
         <div className="mb-8">
             <div className="flex justify-center mb-4 font-bold uppercase">
@@ -271,9 +271,9 @@ function GlobalSearchView({ profile }: any) {
         </table></div>
       </section>
 
-      {/* REQUEST MODAL */}
+      {/* REQUEST MODAL - Z-INDEX FIXED FOR BLUR */}
       {requestItem && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
             <div className="p-6 border-b bg-slate-50 flex justify-between items-center">
               <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Raise Request</h3>
@@ -493,9 +493,9 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 </section>
             </div>
 
-            {/* ACTION MODAL */}
+            {/* ACTION MODAL - Z-INDEX FIXED FOR HEADER BLUR */}
             {actionModal && (
-              <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-roboto font-bold uppercase">
+              <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 font-roboto font-bold uppercase">
                 <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
                   <div className="p-6 border-b bg-slate-50 flex justify-between items-center">
                     <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">
@@ -527,7 +527,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
               </div>
             )}
 
-            {/* DIGITAL ARCHIVE LOGS (BLACK BOX DESIGN) */}
+            {/* DIGITAL ARCHIVE LOGS */}
             <div className="pt-10 space-y-10 font-roboto font-bold uppercase">
                 <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden font-roboto font-bold uppercase">
                     <div className="p-6 bg-slate-800 text-white flex flex-col items-center justify-center font-roboto">
