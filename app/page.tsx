@@ -59,7 +59,7 @@ export default function SpareSetuApp() {
   };
 
   if (loading) return (
-    <div className="fixed inset-0 z-[110] bg-[#0f172a] flex flex-col items-center justify-center font-roboto">
+    <div className="fixed inset-0 z-[10000] bg-[#0f172a] flex flex-col items-center justify-center font-roboto">
       <div className="iocl-logo-container mb-4 animate-pulse" style={{ fontSize: '20px' }}>
         <div className="iocl-circle"><div className="iocl-band"><span className="iocl-hindi-text">इंडियनऑयल</span></div></div>
       </div>
@@ -164,7 +164,7 @@ function AuthView() {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 login-bg">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 login-bg">
       <div className="w-full max-w-md login-card rounded-2xl shadow-2xl p-8 border-t-4 border-orange-500 text-center relative animate-fade-in font-roboto font-bold uppercase">
         <div className="mb-8">
             <div className="flex justify-center mb-4 font-bold uppercase">
@@ -271,9 +271,9 @@ function GlobalSearchView({ profile }: any) {
         </table></div>
       </section>
 
-      {/* REQUEST MODAL - Z-INDEX FIXED FOR BLUR */}
+      {/* REQUEST MODAL - FULL FIX FOR HEADER BLUR */}
       {requestItem && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div className="fixed top-0 left-0 w-full h-full bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
             <div className="p-6 border-b bg-slate-50 flex justify-between items-center">
               <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Raise Request</h3>
@@ -380,7 +380,6 @@ function ReturnsLedgerView({ profile, onAction }: any) {
         return () => { supabase.removeChannel(channel); };
     }, [profile]);
 
-    // UPDATED HELPER TO SHOW DATE + TIME (AM/PM)
     const formatTS = (ts: any) => new Date(Number(ts)).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
 
     const handleProcess = async () => {
@@ -432,7 +431,6 @@ function ReturnsLedgerView({ profile, onAction }: any) {
         <div className="space-y-10 animate-fade-in pb-20 font-roboto uppercase font-bold tracking-tight">
             <h2 className="text-2xl font-bold text-slate-800 uppercase flex items-center gap-2"><i className="fa-solid fa-handshake-angle text-orange-500 font-bold uppercase"></i> Udhaari Dashboard</h2>
 
-            {/* ATTENTION REQUIRED */}
             <section className="bg-white rounded-xl border-t-4 border-orange-500 shadow-xl overflow-hidden">
                 <div className="p-4 bg-orange-50/50 flex justify-between border-b uppercase font-bold font-roboto"><div className="flex items-center gap-2 text-orange-900 font-black uppercase text-[10px] tracking-widest"><i className="fa-solid fa-bolt animate-pulse font-bold uppercase"></i> Attention Required</div><span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px] uppercase font-bold">{pending.length}</span></div>
                 <div className="overflow-x-auto"><table className="w-full text-left text-sm divide-y font-mono font-bold uppercase font-roboto font-bold"><thead className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-roboto"><tr><th className="p-4 pl-6 font-roboto">Material Detail</th><th className="p-4 font-roboto">Counterparty</th><th className="p-4 text-center font-roboto">Qty</th><th className="p-4 text-center font-roboto font-bold">Action</th></tr></thead>
@@ -453,7 +451,6 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 </table></div>
             </section>
 
-            {/* ACTIVE LEDGERS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 font-roboto font-bold uppercase">
                 <section className="bg-white rounded-2xl border-t-4 border-blue-600 shadow-lg overflow-hidden font-mono uppercase font-bold">
                     <div className="p-5 border-b bg-blue-50/30 flex items-center gap-3 uppercase text-xs font-black text-blue-900 tracking-widest font-roboto font-bold"><i className="fa-solid fa-arrow-up-from-bracket text-blue-600 font-bold uppercase"></i> Active Ledger (Items Given)</div>
@@ -493,9 +490,9 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                 </section>
             </div>
 
-            {/* ACTION MODAL - Z-INDEX FIXED FOR HEADER BLUR */}
+            {/* ACTION MODAL - MAXIMUM Z-INDEX (z-[9999]) FOR FULL HEADER BLUR */}
             {actionModal && (
-              <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 font-roboto font-bold uppercase">
+              <div className="fixed top-0 left-0 w-full h-full bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 font-roboto font-bold uppercase">
                 <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
                   <div className="p-6 border-b bg-slate-50 flex justify-between items-center">
                     <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">
@@ -527,7 +524,6 @@ function ReturnsLedgerView({ profile, onAction }: any) {
               </div>
             )}
 
-            {/* DIGITAL ARCHIVE LOGS */}
             <div className="pt-10 space-y-10 font-roboto font-bold uppercase">
                 <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden font-roboto font-bold uppercase">
                     <div className="p-6 bg-slate-800 text-white flex flex-col items-center justify-center font-roboto">
@@ -535,7 +531,7 @@ function ReturnsLedgerView({ profile, onAction }: any) {
                       <span className="text-[10px] opacity-80 font-black tracking-[0.2em] uppercase mt-1 font-roboto">(UDH: UDHAARI • RET: RETURNED)</span>
                     </div>
                     <div className="overflow-x-auto font-roboto font-bold uppercase"><table className="w-full text-left text-[9px] divide-y divide-slate-100 font-mono font-bold uppercase font-roboto">
-                        <thead className="bg-slate-50 text-[8.5px] font-black text-slate-400 tracking-widest font-roboto"><tr><th className="p-4 font-roboto">Txn ID</th><th className="p-4 font-roboto">Material Details</th><th className="p-4 text-center font-roboto">Qty</th><th className="p-4 font-roboto">Info</th><th className="p-4 font-roboto">Audit Log (7-Point Timeline)</th><th className="p-4 text-center font-roboto">Status</th></tr></thead>
+                        <thead className="bg-slate-50 text-[8.5px] font-black text-slate-400 tracking-widest font-roboto"><tr><th className="p-4 font-roboto">Txn ID</th><th className="p-4 font-roboto">Material Details</th><th className="p-4 text-center font-roboto">Qty</th><th className="p-4 font-roboto">Info</th><th className="p-4 font-roboto">Audit Log</th><th className="p-4 text-center font-roboto">Status</th></tr></thead>
                         <tbody className="divide-y text-slate-600 font-roboto">
                             {[...givenHistory, ...takenHistory].sort((a,b)=>Number(b.timestamp)-Number(a.timestamp)).map(h => (
                                 <tr key={h.id} className="hover:bg-slate-50 transition border-b uppercase font-roboto">
