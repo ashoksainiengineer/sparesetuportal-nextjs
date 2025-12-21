@@ -95,7 +95,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
   const availableModels = masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make).map(i => i.model).filter((v, i, a) => a.indexOf(v) === i).sort();
   const availableSpecs = masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make && i.model === form.model).map(i => i.spec).filter((v, i, a) => a.indexOf(v) === i).sort();
 
-  // --- HANDLERS (BUG FIXED HERE) ---
+  // --- HANDLERS ---
   const handleSaveItem = async () => {
     if (!form.cat || !form.qty || !form.spec) return alert("Fill mandatory fields!");
     const itemName = form.isManual ? `${form.make} ${form.model} ${form.spec}`.trim() : `${form.make} ${form.sub} ${form.model}`.trim();
@@ -104,23 +104,17 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
       item: itemName, cat: form.cat, sub: form.sub, make: form.make, model: form.model,
       spec: form.spec, qty: parseInt(form.qty), unit: form.unit, note: form.note,
       is_manual: form.isManual, holder_unit: profile.unit, holder_uid: profile.id, holder_name: profile.name,
-      timestamp: editItem ? editItem.timestamp : Date.now() // Keep original timestamp if editing
+      timestamp: editItem ? editItem.timestamp : Date.now()
     };
 
     try {
       if (editItem) {
-        // --- BUG FIX: Use .update() for existing records ---
-        const { error } = await supabase
-          .from("inventory")
-          .update(payload)
-          .eq("id", editItem.id);
-
+        const { error } = await supabase.from("inventory").update(payload).eq("id", editItem.id);
         if (!error) {
           alert("Entry Updated Successfully!");
           resetForm(); await fetchStore();
         } else alert(error.message);
       } else {
-        // --- Normal Insert for New Records ---
         const { error } = await supabase.from("inventory").insert([payload]);
         if (!error) {
           await supabase.from("profiles").update({ item_count: (profile.item_count || 0) + 1 }).eq('id', profile.id);
@@ -145,7 +139,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
         model: consumeItem.model || '-',
       }]);
       setConsumeItem(null); setConsumeForm({ qty: "", note: "" }); 
-      setBifurcationItem(null); // Close the detail view to refresh parent
+      setBifurcationItem(null); 
       await fetchStore(); alert("Usage Logged!");
     } catch (e) { alert("Error"); }
   };
@@ -181,7 +175,6 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
 
   return (
     <div className="animate-fade-in space-y-6 pb-20 font-roboto font-bold uppercase">
-      {/* UI Code is unchanged from your provided code, just the handlers were fixed above */}
       {/* Header Panel */}
       <div className="bg-white p-6 rounded-xl border shadow-sm">
         <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest leading-none">My Local Store</h2>
@@ -237,7 +230,9 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
               <tr key={`${i.item}-${i.spec}`} className={`hover:bg-blue-50/50 transition border-b uppercase group cursor-pointer ${i.totalQty === 0 ? 'bg-red-50/30' : ''}`} onClick={() => setBifurcationItem(i)}>
                 <td className="p-5 pl-8 leading-tight">
                   <div className="text-slate-800 font-bold text-[14px] flex items-center gap-2">{i.item}{i.is_manual && <span className="bg-orange-100 text-orange-600 text-[8px] px-1.5 py-0.5 rounded font-black border border-orange-200">M</span>}</div>
-                  <div className="text-[9px] text-slate-400 mt-1 uppercase font-bold">{i.cat} > {i.sub}</div>
+                  {/* FIXED ERROR BELOW: Used &gt; instead of raw > */}
+                  <div className="text-[9px] text-slate-400 mt-1 uppercase font-bold">{i.cat} &gt; {i.sub}</div>
+                  <div className="text-[8px] text-indigo-500 mt-1 font-black tracking-widest uppercase opacity-0 group-hover:opacity-100 transition-opacity">View split-up details →</div>
                 </td>
                 <td className="p-5 font-mono"><span className="bg-white border px-2 py-1 rounded-[4px] text-[10.5px] text-slate-600 font-bold shadow-sm">{i.spec}</span></td>
                 <td className={`p-5 font-bold text-center text-[16px] whitespace-nowrap ${i.totalQty === 0 ? 'text-red-600 animate-pulse' : 'text-slate-800'}`}>{i.totalQty === 0 ? "ZERO STOCK" : `${i.totalQty} ${i.unit}`}</td>
@@ -366,7 +361,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
             <div className="p-6 border-b bg-indigo-50 flex justify-between items-center"><h3 className="font-black text-indigo-900 text-lg tracking-tight uppercase"><i className="fa-solid fa-boxes-stacked mr-2"></i> Zone Balance Summary</h3><button onClick={() => setShowSummary(false)} className="text-slate-400 hover:text-red-500"><i className="fa-solid fa-xmark text-xl"></i></button></div>
             <div className="p-6 max-h-[60vh] overflow-y-auto">
               <table className="w-full text-left text-xs font-bold uppercase">
-                <thead className="border-b text-slate-400 uppercase tracking-widest"><tr><th className="pb-3 text-[10px]">Category > Sub-Category</th><th className="pb-3 text-right text-[10px]">Total Balance</th></tr></thead>
+                <thead className="border-b text-slate-400 uppercase tracking-widest"><tr><th className="pb-3 text-[10px]">Category &gt; Sub-Category</th><th className="pb-3 text-right text-[10px]">Total Balance</th></tr></thead>
                 <tbody className="divide-y">{getSummaryData().map((s: any, idx: number) => (
                   <tr key={idx} className="hover:bg-slate-50 transition border-b"><td className="py-4 text-slate-700 text-[11px]">{s.cat} <i className="fa-solid fa-chevron-right text-[8px] mx-1 opacity-40"></i> {s.sub}</td><td className="py-4 text-right font-black text-indigo-600 text-sm">{s.total} Nos</td></tr>
                 ))}</tbody>
