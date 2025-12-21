@@ -11,6 +11,10 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
     const [actionModal, setActionModal] = useState<any>(null); 
     const [form, setForm] = useState({ comment: "", qty: "" });
 
+    // Pagination State for Archive Logs
+    const [archivePage, setArchivePage] = useState(1);
+    const logsPerPage = 20;
+
     const fetchAll = async () => {
         try {
             const { data: p } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).in("status", ["pending", "return_requested"]).order("id", { ascending: false });
@@ -18,8 +22,12 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
             const { data: t = [] } = await supabase.from("requests").select("*").eq("from_unit", profile.unit).eq("status", "approved").order("id", { ascending: false });
             const { data: gh } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).in("status", ["returned", "rejected"]).order("id", { ascending: false });
             const { data: th = [] } = await supabase.from("requests").select("*").eq("from_unit", profile.unit).in("status", ["returned", "rejected"]).order("id", { ascending: false });
-            if (p) setPending(p); if (g) setGiven(g); if (t) setTaken(t);
-            if (gh) setGivenHistory(gh); if (th) setTakenHistory(th);
+            
+            if (p) setPending(p); 
+            if (g) setGiven(g); 
+            if (t) setTaken(t);
+            if (gh) setGivenHistory(gh); 
+            if (th) setTakenHistory(th);
         } catch(e){}
     };
 
@@ -76,6 +84,11 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
         setActionModal(null); setForm({comment:"", qty:""});
     };
 
+    // Pagination Engine for Digital Archive Logs
+    const sortedHistory = [...givenHistory, ...takenHistory].sort((a,b) => Number(b.timestamp) - Number(a.timestamp));
+    const totalArchivePages = Math.ceil(sortedHistory.length / logsPerPage) || 1;
+    const currentArchiveLogs = sortedHistory.slice((archivePage - 1) * logsPerPage, archivePage * logsPerPage);
+
     return (
         <div className="space-y-10 animate-fade-in pb-20 font-roboto uppercase font-bold tracking-tight">
             <h2 className="text-2xl font-bold text-slate-800 uppercase flex items-center gap-2"><i className="fa-solid fa-handshake-angle text-orange-500"></i> Udhaari Dashboard</h2>
@@ -101,7 +114,7 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
                 </table></div>
             </section>
 
-            {/* SECTION 2: ACTIVE LEDGERS (GIVEN & TAKEN) */}
+            {/* SECTION 2: ACTIVE LEDGERS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <section className="bg-white rounded-2xl border-t-4 border-blue-600 shadow-lg overflow-hidden">
                     <div className="p-5 border-b bg-blue-50/30 flex items-center gap-3 uppercase text-xs font-black text-blue-900 tracking-widest"><i className="fa-solid fa-arrow-up-from-bracket text-blue-600"></i> Active Ledger (Items Given)</div>
@@ -141,8 +154,8 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
                 </section>
             </div>
 
-            {/* SECTION 3: DIGITAL ARCHIVE LOGS */}
-            <div className="pt-10 space-y-10">
+            {/* SECTION 3: DIGITAL ARCHIVE LOGS (With Pagination) */}
+            <div className="pt-10 space-y-6">
                 <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
                     <div className="p-6 bg-slate-800 text-white flex flex-col items-center justify-center">
                       <span className="text-[20px] font-bold tracking-widest">Digital Archive Logs</span>
@@ -151,7 +164,7 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
                     <div className="overflow-x-auto"><table className="w-full text-left text-[9px] divide-y divide-slate-100 font-mono">
                         <thead className="bg-slate-50 text-[8.5px] font-black text-slate-400 tracking-widest uppercase"><tr><th className="p-4">Txn ID</th><th className="p-4">Material Details</th><th className="p-4 text-center">Qty</th><th className="p-4">Info</th><th className="p-4">Audit Log</th><th className="p-4 text-center">Status</th></tr></thead>
                         <tbody className="divide-y text-slate-600">
-                            {[...givenHistory, ...takenHistory].sort((a,b)=>Number(b.timestamp)-Number(a.timestamp)).map(h => (
+                            {currentArchiveLogs.map(h => (
                                 <tr key={h.id} className="hover:bg-slate-50 transition border-b">
                                     <td className="p-4 whitespace-nowrap tracking-tighter"><span className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{h.txn_id || '--'}</span></td>
                                     <td className="p-4 leading-tight">
@@ -175,6 +188,25 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
                                 </tr>
                             ))}
                         </tbody></table></div>
+                    
+                    {/* Pagination Toolbar for Archive */}
+                    <div className="p-4 bg-slate-50 border-t flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                        <button 
+                            onClick={() => setArchivePage(prev => Math.max(prev - 1, 1))} 
+                            disabled={archivePage === 1} 
+                            className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 hover:bg-slate-50 transition-all"
+                        >
+                            Prev
+                        </button>
+                        <span className="text-slate-400">Page {archivePage} of {totalArchivePages}</span>
+                        <button 
+                            onClick={() => setArchivePage(prev => Math.min(prev + 1, totalArchivePages))} 
+                            disabled={archivePage === totalArchivePages} 
+                            className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 hover:bg-slate-50 transition-all"
+                        >
+                            Next
+                        </button>
+                    </div>
                 </div>
             </div>
 
