@@ -11,7 +11,6 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
     const [actionModal, setActionModal] = useState<any>(null); 
     const [form, setForm] = useState({ comment: "", qty: "" });
 
-    // Pagination State for Archive Logs
     const [archivePage, setArchivePage] = useState(1);
     const logsPerPage = 20;
 
@@ -42,7 +41,6 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
     const handleProcess = async () => {
         const { type, data } = actionModal;
         const actionQty = Number(form.qty || data.req_qty);
-
         if (!form.comment.trim()) { alert("Provide a transaction log/reason!"); return; }
         if (actionQty <= 0 || actionQty > data.req_qty) { alert(`Invalid Quantity! Range: 1 to ${data.req_qty}`); return; }
 
@@ -84,43 +82,57 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
         setActionModal(null); setForm({comment:"", qty:""});
     };
 
-    // Pagination Engine for Digital Archive Logs
     const sortedHistory = [...givenHistory, ...takenHistory].sort((a,b) => Number(b.timestamp) - Number(a.timestamp));
     const totalArchivePages = Math.ceil(sortedHistory.length / logsPerPage) || 1;
     const currentArchiveLogs = sortedHistory.slice((archivePage - 1) * logsPerPage, archivePage * logsPerPage);
 
     return (
         <div className="space-y-10 animate-fade-in pb-20 font-roboto uppercase font-bold tracking-tight">
-            <h2 className="text-2xl font-bold text-slate-800 uppercase flex items-center gap-2"><i className="fa-solid fa-handshake-angle text-orange-500"></i> Udhaari Dashboard</h2>
+            <h2 className="text-2xl font-black text-slate-800 uppercase flex items-center justify-center gap-3 py-4">
+                <i className="fa-solid fa-handshake-angle text-orange-500"></i> UDHAARI & RETURN DASHBOARD
+            </h2>
 
             {/* SECTION 1: ATTENTION REQUIRED */}
             <section className="bg-white rounded-xl border-t-4 border-orange-500 shadow-xl overflow-hidden">
-                <div className="p-4 bg-orange-50/50 flex justify-between border-b"><div className="flex items-center gap-2 text-orange-900 font-black uppercase text-[10px] tracking-widest"><i className="fa-solid fa-bolt animate-pulse"></i> Attention Required</div><span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px]">{pending.length}</span></div>
-                <div className="overflow-x-auto"><table className="w-full text-left text-sm divide-y font-mono font-bold uppercase"><thead className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-widest"><tr><th className="p-4 pl-6">Material Detail</th><th className="p-4">Counterparty</th><th className="p-4 text-center">Qty</th><th className="p-4 text-center">Action</th></tr></thead>
-                    <tbody className="divide-y text-slate-600 uppercase">
-                        {pending.map(r => (
-                            <tr key={r.id} className={`${r.status==='return_requested' ? 'bg-orange-50 animate-pulse' : 'bg-white'} transition border-b`}>
-                                <td className="p-4 pl-6 leading-tight">
-                                  <div className="text-slate-800 font-bold text-[14px] tracking-tight">{r.item_name}</div>
-                                  <div className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">{r.item_spec}</div>
-                                  <div className="text-[8.5px] text-orange-600 font-black mt-1 tracking-widest">{formatTS(r.timestamp)}</div>
-                                </td>
-                                <td className="p-4 font-bold text-slate-700 leading-tight">{r.from_name}<div className="text-[10px] text-slate-400 font-normal uppercase">{r.from_unit}</div></td>
-                                <td className="p-4 text-center font-black text-orange-600 text-[14px] whitespace-nowrap">{r.req_qty} {r.item_unit}</td>
-                                <td className="p-4 flex gap-2 justify-center"><button onClick={()=>setActionModal({type: r.status==='pending' ? 'approve' : 'verify', data:r})} className="bg-[#ff6b00] text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md hover:bg-orange-600 tracking-widest"> {r.status==='pending' ? 'Issue' : 'Verify'} </button><button onClick={()=>setActionModal({type: 'reject', data:r})} className="bg-slate-100 text-slate-500 px-4 py-2 rounded-lg text-[9px] font-black transition tracking-widest">Reject</button></td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table></div>
+                <div className="p-4 bg-orange-50/50 flex justify-between border-b">
+                    <div className="flex items-center gap-2 text-orange-900 font-black uppercase text-[10px] tracking-widest"><i className="fa-solid fa-bolt animate-pulse"></i> Attention Required</div>
+                    <span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px]">{pending.length}</span>
+                </div>
+                <div className="overflow-x-auto min-h-[200px]">
+                    <table className="w-full text-left text-sm divide-y font-mono font-bold uppercase">
+                        <thead className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            <tr><th className="p-4 pl-6">Material Detail</th><th className="p-4">Counterparty</th><th className="p-4 text-center">Qty</th><th className="p-4 text-center">Action</th></tr>
+                        </thead>
+                        <tbody className="divide-y text-slate-600 uppercase">
+                            {pending.map(r => (
+                                <tr key={r.id} className={`${r.status==='return_requested' ? 'bg-orange-50 animate-pulse' : 'bg-white'} transition border-b hover:bg-slate-50`}>
+                                    <td className="p-4 pl-6 leading-tight">
+                                      <div className="text-slate-800 font-bold text-[14px] tracking-tight">{r.item_name}</div>
+                                      <div className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">{r.item_spec}</div>
+                                      <div className="text-[8.5px] text-orange-600 font-black mt-1 tracking-widest">{formatTS(r.timestamp)}</div>
+                                    </td>
+                                    <td className="p-4 font-bold text-slate-700 leading-tight">{r.from_name}<div className="text-[10px] text-slate-400 font-normal uppercase">{r.from_unit}</div></td>
+                                    <td className="p-4 text-center font-black text-orange-600 text-[14px] whitespace-nowrap">{r.req_qty} {r.item_unit}</td>
+                                    <td className="p-4 flex gap-2 justify-center">
+                                        <button onClick={()=>setActionModal({type: r.status==='pending' ? 'approve' : 'verify', data:r})} className="bg-[#ff6b00] text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md hover:bg-orange-600 tracking-widest"> {r.status==='pending' ? 'Issue' : 'Verify'} </button>
+                                        <button onClick={()=>setActionModal({type: 'reject', data:r})} className="bg-slate-100 text-slate-500 px-4 py-2 rounded-lg text-[9px] font-black transition tracking-widest hover:bg-slate-200">Reject</button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </section>
 
             {/* SECTION 2: ACTIVE LEDGERS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <section className="bg-white rounded-2xl border-t-4 border-blue-600 shadow-lg overflow-hidden">
-                    <div className="p-5 border-b bg-blue-50/30 flex items-center gap-3 uppercase text-xs font-black text-blue-900 tracking-widest"><i className="fa-solid fa-arrow-up-from-bracket text-blue-600"></i> Active Ledger (Items Given)</div>
-                    <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
+                <section className="bg-white rounded-2xl border-t-4 border-blue-600 shadow-lg overflow-hidden flex flex-col">
+                    <div className="p-5 border-b bg-blue-50/30 flex items-center gap-3 uppercase text-xs font-black text-blue-900 tracking-widest">
+                        <i className="fa-solid fa-arrow-up-from-bracket text-blue-600"></i> UDHAARI DIYA (ITEMS GIVEN)
+                    </div>
+                    <div className="p-4 space-y-4 min-h-[250px] max-h-[500px] overflow-y-auto bg-slate-50/20">
                         {given.map(r => (
-                            <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative shadow-sm">
+                            <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative shadow-sm hover:border-blue-100 transition-colors">
                                 <div className="text-slate-800 font-bold text-[14px] tracking-tight mb-1">{r.item_name}</div>
                                 <div className="text-[10px] text-slate-400 mb-3 uppercase tracking-tighter">{r.item_spec}</div>
                                 <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg mb-3"><div><p className="text-[9px] font-bold text-slate-400 uppercase">Receiver</p><p className="text-[12.5px] font-black text-slate-700 uppercase tracking-tighter">{r.from_name} ({r.from_unit})</p></div><div className="text-right font-black text-blue-600 font-mono text-[14px]">{r.req_qty} {r.item_unit}</div></div>
@@ -134,11 +146,13 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
                     </div>
                 </section>
 
-                <section className="bg-white rounded-2xl border-t-4 border-red-600 shadow-lg overflow-hidden">
-                    <div className="p-5 border-b bg-red-50/30 flex items-center gap-3 uppercase text-xs font-black text-red-900 tracking-widest"><i className="fa-solid fa-arrow-down-long text-red-600"></i> Active Ledger (Items Taken)</div>
-                    <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
+                <section className="bg-white rounded-2xl border-t-4 border-red-600 shadow-lg overflow-hidden flex flex-col">
+                    <div className="p-5 border-b bg-red-50/30 flex items-center gap-3 uppercase text-xs font-black text-red-900 tracking-widest">
+                        <i className="fa-solid fa-arrow-down-long text-red-600"></i> UDHAARI LIYA (ITEMS TAKEN)
+                    </div>
+                    <div className="p-4 space-y-4 min-h-[250px] max-h-[500px] overflow-y-auto bg-slate-50/20">
                         {taken.map(r => (
-                            <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative">
+                            <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative shadow-sm hover:border-red-100 transition-colors">
                                 <div className="text-slate-800 font-bold text-[14px] tracking-tight mb-1">{r.item_name}</div>
                                 <div className="text-[10px] text-slate-400 mb-3 uppercase tracking-tighter">{r.item_spec}</div>
                                 <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg mb-3"><div><p className="text-[9px] font-bold text-slate-400 uppercase">Source</p><p className="text-[12.5px] font-black text-slate-700 uppercase tracking-tighter">{r.to_unit} ({r.to_name})</p></div><div className="text-right font-black text-red-600 font-mono text-[14px]">{r.req_qty} {r.item_unit}</div></div>
@@ -154,58 +168,47 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
                 </section>
             </div>
 
-            {/* SECTION 3: DIGITAL ARCHIVE LOGS (With Pagination) */}
+            {/* SECTION 3: RETURN & UDHAARI LOGS (Title Renamed) */}
             <div className="pt-10 space-y-6">
                 <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
                     <div className="p-6 bg-slate-800 text-white flex flex-col items-center justify-center">
-                      <span className="text-[20px] font-bold tracking-widest">Digital Archive Logs</span>
+                      <span className="text-[20px] font-bold tracking-widest">RETURN & UDHAARI LOGS</span>
                       <span className="text-[10px] opacity-80 font-black tracking-[0.2em] mt-1">(UDH: UDHAARI • RET: RETURNED)</span>
                     </div>
-                    <div className="overflow-x-auto"><table className="w-full text-left text-[9px] divide-y divide-slate-100 font-mono">
-                        <thead className="bg-slate-50 text-[8.5px] font-black text-slate-400 tracking-widest uppercase"><tr><th className="p-4">Txn ID</th><th className="p-4">Material Details</th><th className="p-4 text-center">Qty</th><th className="p-4">Info</th><th className="p-4">Audit Log</th><th className="p-4 text-center">Status</th></tr></thead>
-                        <tbody className="divide-y text-slate-600">
-                            {currentArchiveLogs.map(h => (
-                                <tr key={h.id} className="hover:bg-slate-50 transition border-b">
-                                    <td className="p-4 whitespace-nowrap tracking-tighter"><span className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{h.txn_id || '--'}</span></td>
-                                    <td className="p-4 leading-tight">
-                                      <p className="text-slate-800 font-bold text-[12.5px] tracking-tight">{h.item_name}</p>
-                                      <p className="text-[8.5px] text-slate-400 mt-1.5 uppercase font-bold">SPEC: {h.item_spec}</p>
-                                    </td>
-                                    <td className="p-4 text-center font-black whitespace-nowrap">
-                                      <div className="flex flex-col items-center gap-1 leading-none">
-                                        <span className="text-[9.5px] text-blue-600/80 font-bold tracking-tighter uppercase">UDH: {h.req_qty} {h.item_unit}</span>
-                                        <span className={`text-[9.5px] font-black tracking-tighter uppercase ${h.status === 'returned' ? 'text-green-600' : 'text-slate-300'}`}>RET: {h.status === 'returned' ? h.req_qty : 0} {h.item_unit}</span>
-                                      </div>
-                                    </td>
-                                    <td className="p-4 leading-tight"><p className="text-blue-500 font-bold">BORR: {h.from_name}</p><p className="text-red-500 font-bold mt-1">LEND: {h.to_name}</p></td>
-                                    <td className="p-4 leading-none space-y-1.5 font-bold tracking-tighter text-[8px] uppercase">
-                                        <p><span className="opacity-50">1. REQUEST BY:</span> {h.from_name} ({h.from_unit}) on {formatTS(h.timestamp)}</p>
-                                        <p><span className="opacity-50">2. APPROVED BY:</span> {h.to_name} on {formatTS(h.timestamp)}</p>
-                                        <p><span className="opacity-50">3. RETURN BY:</span> {h.from_name} on {formatTS(h.timestamp)}</p>
-                                        <p><span className="opacity-50 font-black text-green-600">4. FINAL VERIFY:</span> {h.to_name} on {formatTS(h.timestamp)}</p>
-                                    </td>
-                                    <td className="p-4 text-center"><span className={`px-2.5 py-1 rounded-full text-[8.5px] font-black uppercase tracking-widest ${h.status==='returned' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{h.status}</span></td>
-                                </tr>
-                            ))}
-                        </tbody></table></div>
-                    
-                    {/* Pagination Toolbar for Archive */}
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-[9px] divide-y divide-slate-100 font-mono">
+                            <thead className="bg-slate-50 text-[8.5px] font-black text-slate-400 tracking-widest uppercase"><tr><th className="p-4">Txn ID</th><th className="p-4">Material Details</th><th className="p-4 text-center">Qty</th><th className="p-4">Info</th><th className="p-4">Audit Log</th><th className="p-4 text-center">Status</th></tr></thead>
+                            <tbody className="divide-y text-slate-600">
+                                {currentArchiveLogs.map(h => (
+                                    <tr key={h.id} className="hover:bg-slate-50 transition border-b">
+                                        <td className="p-4 whitespace-nowrap tracking-tighter"><span className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{h.txn_id || '--'}</span></td>
+                                        <td className="p-4 leading-tight">
+                                          <p className="text-slate-800 font-bold text-[12.5px] tracking-tight">{h.item_name}</p>
+                                          <p className="text-[8.5px] text-slate-400 mt-1.5 uppercase font-bold">SPEC: {h.item_spec}</p>
+                                        </td>
+                                        <td className="p-4 text-center font-black whitespace-nowrap">
+                                          <div className="flex flex-col items-center gap-1 leading-none">
+                                            <span className="text-[9.5px] text-blue-600/80 font-bold tracking-tighter uppercase">UDH: {h.req_qty} {h.item_unit}</span>
+                                            <span className={`text-[9.5px] font-black tracking-tighter uppercase ${h.status === 'returned' ? 'text-green-600' : 'text-slate-300'}`}>RET: {h.status === 'returned' ? h.req_qty : 0} {h.item_unit}</span>
+                                          </div>
+                                        </td>
+                                        <td className="p-4 leading-tight"><p className="text-blue-500 font-bold">BORR: {h.from_name}</p><p className="text-red-500 font-bold mt-1">LEND: {h.to_name}</p></td>
+                                        <td className="p-4 leading-none space-y-1.5 font-bold tracking-tighter text-[8px] uppercase">
+                                            <p><span className="opacity-50">1. REQUEST BY:</span> {h.from_name} ({h.from_unit}) on {formatTS(h.timestamp)}</p>
+                                            <p><span className="opacity-50">2. APPROVED BY:</span> {h.to_name} on {formatTS(h.timestamp)}</p>
+                                            <p><span className="opacity-50">3. RETURN BY:</span> {h.from_name} on {formatTS(h.timestamp)}</p>
+                                            <p><span className="opacity-50 font-black text-green-600">4. FINAL VERIFY:</span> {h.to_name} on {formatTS(h.timestamp)}</p>
+                                        </td>
+                                        <td className="p-4 text-center"><span className={`px-2.5 py-1 rounded-full text-[8.5px] font-black uppercase tracking-widest ${h.status==='returned' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{h.status}</span></td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                     <div className="p-4 bg-slate-50 border-t flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                        <button 
-                            onClick={() => setArchivePage(prev => Math.max(prev - 1, 1))} 
-                            disabled={archivePage === 1} 
-                            className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 hover:bg-slate-50 transition-all"
-                        >
-                            Prev
-                        </button>
+                        <button onClick={() => setArchivePage(prev => Math.max(prev - 1, 1))} disabled={archivePage === 1} className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 hover:bg-slate-50 transition-all">Prev</button>
                         <span className="text-slate-400">Page {archivePage} of {totalArchivePages}</span>
-                        <button 
-                            onClick={() => setArchivePage(prev => Math.min(prev + 1, totalArchivePages))} 
-                            disabled={archivePage === totalArchivePages} 
-                            className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 hover:bg-slate-50 transition-all"
-                        >
-                            Next
-                        </button>
+                        <button onClick={() => setArchivePage(prev => Math.min(prev + 1, totalArchivePages))} disabled={archivePage === totalArchivePages} className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 hover:bg-slate-50 transition-all">Next</button>
                     </div>
                 </div>
             </div>
