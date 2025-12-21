@@ -21,7 +21,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
-  // Form States (Point 1: Added note)
+  // Form States
   const [form, setForm] = useState({
     cat: "", sub: "", make: "", model: "", spec: "", qty: "", unit: "Nos", note: "", isManual: false
   });
@@ -33,6 +33,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
 
   const fetchStore = async () => {
     try {
+      // Logic: Fetching items for the zone, ordered by ID desc for latest first
       const { data, error } = await supabase.from("inventory").select("*").eq("holder_unit", profile.unit).order("id", { ascending: false });
       if (error) throw error;
       if (data) setMyItems(data);
@@ -123,7 +124,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
       const { error } = await supabase.from("inventory").insert([payload]);
       if (!error) {
         await supabase.from("profiles").update({ item_count: (profile.item_count || 0) + 1 }).eq('id', profile.id);
-        alert("Material Stored Successfully!");
+        alert("Material Stored!");
         resetForm(); await fetchStore(); if(fetchProfile) fetchProfile();
       } else alert(error.message);
     } catch (e) { alert("Save Error"); }
@@ -138,7 +139,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
         consumer_uid: profile.id, item_name: consumeItem.item, category: consumeItem.cat,
         qty_consumed: q, timestamp: Date.now().toString(), purpose: consumeForm.note
       }]);
-      setConsumeItem(null); setConsumeForm({ qty: "", note: "" }); await fetchStore(); alert("Usage Recorded!");
+      setConsumeItem(null); setConsumeForm({ qty: "", note: "" }); await fetchStore(); alert("Usage Logged!");
     } catch (e) { alert("Error"); }
   };
 
@@ -156,46 +157,46 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
 
   const exportCSV = () => {
     const headers = "Category,Sub-Cat,Item Detail,Spec,Qty,Unit,By,Date,Note\n";
-    const rows = filteredList.flatMap((i: any) => i.records.map((r: any) => `"${r.cat}","${r.sub}","${r.item}","${r.spec}","${r.qty}","${r.unit}","${r.holder_name}","${new Date(r.created_at).toLocaleDateString()}","${r.note || ''}"`)).join("\n");
+    const rows = filteredList.flatMap((i: any) => i.records.map((r: any) => `"${r.cat}","${r.sub}","${r.item}","${r.spec}","${r.qty}","${r.unit}","${r.holder_name}","${r.timestamp ? new Date(Number(r.timestamp)).toLocaleDateString() : ''}","${r.note || ''}"`)).join("\n");
     const blob = new Blob([headers + rows], { type: 'text/csv' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `LocalStore_Audit.csv`; a.click();
   };
 
   return (
     <div className="animate-fade-in space-y-6 pb-20 font-roboto font-bold uppercase">
-      {/* Header Panel */}
-      <div className="bg-white p-6 rounded-xl border shadow-sm">
-        <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest leading-none">My Local Store</h2>
-        <p className="text-[10px] font-black bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-2 inline-block uppercase tracking-widest">ZONE: {profile?.unit}</p>
+      {/* Header */}
+      <div className="bg-white p-6 rounded-xl border shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+        <div><h2 className="text-xl font-black text-slate-800 uppercase tracking-widest leading-none">My Local Store</h2><p className="text-[10px] font-black bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-2 inline-block tracking-widest uppercase">ZONE: {profile?.unit}</p></div>
+        {/* Point 2: SINGLE LINE TOOLBAR (Integrated in layout below) */}
       </div>
 
-      {/* Point 2: RESTORED Action Required Banner (Orange Bold Type) */}
+      {/* RESTORED Action Required Banner */}
       {outOfStockCount > 0 && (
         <section className="bg-white rounded-xl border-t-4 border-orange-500 shadow-xl overflow-hidden animate-fade-in">
            <div className="p-4 bg-orange-50/50 flex justify-between items-center border-b">
-              <div className="flex items-center gap-3 text-orange-900 font-black uppercase text-[11px] tracking-widest">
+              <div className="flex items-center gap-3 text-orange-900 font-black uppercase text-[11px] tracking-widest leading-tight">
                  <i className="fa-solid fa-triangle-exclamation animate-pulse text-lg text-orange-600"></i> 
                  <span>Action Required: {outOfStockCount} Items are out of stock. use out of stock filter to check items</span>
               </div>
-              <span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px] shadow-sm">CRITICAL</span>
+              <span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px]">CRITICAL</span>
            </div>
         </section>
       )}
 
-      {/* FEATURE 2: SINGLE LINE TOOLBAR */}
+      {/* TOOLBAR: Search + 3 Buttons in ONE LINE */}
       <div className="flex flex-col lg:flex-row gap-4 bg-white p-4 rounded-xl border shadow-sm items-center">
         <div className="relative flex-1 w-full">
             <i className="fa-solid fa-search absolute left-3 top-3.5 text-slate-400"></i>
             <input type="text" placeholder="Search master material name or specification..." className="w-full pl-10 pr-4 py-3 border-2 border-slate-100 rounded-xl text-xs outline-none focus:border-orange-400 font-bold uppercase shadow-inner transition-all" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <div className="flex gap-2 w-full lg:w-auto">
-            <button onClick={exportCSV} className="bg-emerald-600 text-white px-4 py-3 rounded-xl text-[10px] font-black shadow-md flex items-center justify-center gap-2 flex-1 lg:flex-none uppercase tracking-widest hover:bg-emerald-700 transition-all"><i className="fa-solid fa-file-csv"></i> Export Sheet</button>
-            <button onClick={() => setShowSummary(true)} className="bg-indigo-600 text-white px-4 py-3 rounded-xl text-[10px] font-black shadow-md flex items-center justify-center gap-2 flex-1 lg:flex-none uppercase tracking-widest hover:bg-indigo-700 transition-all"><i className="fa-solid fa-chart-bar"></i> Stock Summary</button>
+            <button onClick={exportCSV} className="bg-emerald-600 text-white px-4 py-3 rounded-xl text-[10px] font-black shadow-md flex items-center justify-center gap-2 flex-1 lg:flex-none uppercase tracking-widest"><i className="fa-solid fa-file-csv"></i> Export Sheet</button>
+            <button onClick={() => setShowSummary(true)} className="bg-indigo-600 text-white px-4 py-3 rounded-xl text-[10px] font-black shadow-md flex items-center justify-center gap-2 flex-1 lg:flex-none uppercase tracking-widest"><i className="fa-solid fa-chart-bar"></i> Stock Summary</button>
             <button onClick={() => { resetForm(); setShowAddModal(true); }} className="iocl-btn text-white px-5 py-3 rounded-xl text-[10px] font-black shadow-md flex items-center justify-center gap-2 flex-1 lg:flex-none uppercase tracking-widest"><i className="fa-solid fa-plus"></i> Add Stock</button>
         </div>
       </div>
 
-      {/* Reordered Filters */}
+      {/* Filters */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50/50 p-4 rounded-xl border shadow-sm">
         <select className="border-2 border-white rounded-lg text-[10px] p-3 bg-white font-bold uppercase shadow-sm cursor-pointer" value={selCat} onChange={e => { setSelCat(e.target.value); setSelSub("all"); }}>
             <option value="all">Category: All</option>
@@ -209,7 +210,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
         </select>
       </div>
 
-      {/* Main Aggregated Table */}
+      {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
         <div className="overflow-x-auto"><table className="w-full text-left tracking-tight">
           <thead className="bg-slate-50 text-slate-500 text-[10px] font-black border-b tracking-widest uppercase"><tr><th className="p-5 pl-8">Material Detail</th><th className="p-5">Spec</th><th className="p-5 text-center">Total Qty</th><th className="p-5 text-center">Action</th></tr></thead>
@@ -223,24 +224,24 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
                 </td>
                 <td className="p-5 font-mono"><span className="bg-white border px-2 py-1 rounded-[4px] text-[10.5px] text-slate-600 font-bold shadow-sm">{i.spec}</span></td>
                 <td className={`p-5 font-bold text-center text-[16px] whitespace-nowrap ${i.totalQty === 0 ? 'text-red-600 animate-pulse' : 'text-slate-800'}`}>{i.totalQty === 0 ? "ZERO STOCK" : `${i.totalQty} ${i.unit}`}</td>
-                <td className="p-5 text-center"><button className="bg-indigo-50 text-indigo-700 px-4 py-1.5 rounded-lg text-[10px] font-black border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-all uppercase shadow-sm tracking-tighter">View Split</button></td>
+                <td className="p-5 text-center"><button className="bg-indigo-50 text-indigo-700 px-4 py-1.5 rounded-lg text-[10px] font-black border border-indigo-100 uppercase tracking-tighter shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all">View Split</button></td>
               </tr>
             )) : <tr><td colSpan={4} className="p-20 text-center text-slate-300 font-black tracking-[0.2em]">NO INVENTORY DATA FOUND</td></tr>}
           </tbody>
         </table></div>
         <div className="p-4 bg-slate-50 border-t flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
           <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 hover:bg-slate-50">Prev</button>
-          <span className="text-slate-400">Page {currentPage} of {totalPages}</span>
+          <span>Page {currentPage} of {totalPages}</span>
           <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 hover:bg-slate-50">Next</button>
         </div>
       </div>
 
-      {/* MODAL: BIFURCATION (Point 3 Fix: Detail Name & Date) */}
+      {/* MODAL: BIFURCATION (Fixed Date & Time) */}
       {bifurcationItem && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-scale-in uppercase font-bold">
             <div className="p-6 border-b bg-slate-50 flex justify-between items-center">
-                <div><h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Material Split-up</h3><p className="text-[10px] text-slate-400">Ref: {bifurcationItem.item} | {bifurcationItem.spec}</p></div>
+                <div><h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Material Split-up</h3><p className="text-[10px] text-slate-400">Spec: {bifurcationItem.item} | {bifurcationItem.spec}</p></div>
                 <button onClick={() => setBifurcationItem(null)} className="text-slate-400 hover:text-red-500 transition-colors"><i className="fa-solid fa-xmark text-xl"></i></button>
             </div>
             <div className="p-0 max-h-[60vh] overflow-y-auto">
@@ -254,7 +255,8 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
                                     {r.note && <p className="text-[8px] text-slate-400 lowercase italic truncate max-w-[150px]">note: {r.note}</p>}
                                 </td>
                                 <td className="p-4 text-[10px] text-slate-500 font-medium">
-                                    {r.created_at ? new Date(r.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : '--'}
+                                    {/* FIX: Using 'timestamp' instead of 'created_at' */}
+                                    {r.timestamp ? new Date(Number(r.timestamp)).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : '--'}
                                 </td>
                                 <td className="p-4 text-center font-black text-slate-800 text-[14px]">{r.qty} {r.unit}</td>
                                 <td className="p-4 text-center flex justify-center gap-2">
@@ -271,7 +273,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
         </div>
       )}
 
-      {/* MODAL: ADD MATERIAL (Complete with Note) */}
+      {/* MODAL: ADD MATERIAL */}
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-scale-in uppercase font-bold">
@@ -279,40 +281,40 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
             <div className="p-6 space-y-4 font-bold">
               {!editItem && (
                 <div className="flex justify-between items-center bg-orange-50 p-4 rounded-xl border-2 border-dashed border-orange-200 mb-2 shadow-inner">
-                  <div className="flex flex-col"><span className="text-[10px] text-orange-800 font-black uppercase tracking-tight">ITEM NOT IN LIST? (Manual Mode)</span><span className="text-[8.5px] text-orange-600 font-medium lowercase">toggle to type name & custom spec</span></div>
+                  <div className="flex flex-col"><span className="text-[10px] text-orange-800 font-black tracking-tight uppercase tracking-widest leading-none">ITEM NOT IN LIST? (Manual Mode)</span><span className="text-[8.5px] text-orange-600 font-medium lowercase mt-1">toggle manual mode to enter details</span></div>
                   <button onClick={() => setForm({ ...form, isManual: !form.isManual, cat: "", sub: "", make: "", model: "", spec: "" })} className={`w-12 h-6 rounded-full relative transition-colors ${form.isManual ? 'bg-orange-500' : 'bg-slate-300'}`}><div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${form.isManual ? 'left-7' : 'left-1'}`}></div></button>
                 </div>
               )}
               <div className="space-y-3">
                 <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest">Category</label>
-                  {form.isManual ? <input type="text" disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold" placeholder="e.g. Electrical" value={form.cat} onChange={e => setForm({ ...form, cat: e.target.value })} />
-                    : <select disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold uppercase shadow-sm cursor-pointer" value={form.cat} onChange={e => setForm({ ...form, cat: e.target.value, sub: "", make: "", model: "", spec: "" })}><option value="">-- Choose Category --</option>{uniqueCats.map((c:any) => <option key={c} value={c}>{c}</option>)}</select>}
+                  {form.isManual ? <input type="text" disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold shadow-sm" placeholder="e.g. Electrical" value={form.cat} onChange={e => setForm({ ...form, cat: e.target.value })} />
+                    : <select disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold uppercase cursor-pointer shadow-sm" value={form.cat} onChange={e => setForm({ ...form, cat: e.target.value, sub: "", make: "", model: "", spec: "" })}><option value="">-- Choose --</option>{uniqueCats.map((c:any) => <option key={c} value={c}>{c}</option>)}</select>}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest">Sub-Cat</label>
-                    {form.isManual ? <input type="text" disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold" placeholder="e.g. Pumps" value={form.sub} onChange={e => setForm({ ...form, sub: e.target.value })} />
+                    {form.isManual ? <input type="text" disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold shadow-sm" placeholder="e.g. Pumps" value={form.sub} onChange={e => setForm({ ...form, sub: e.target.value })} />
                       : <select disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold uppercase cursor-pointer shadow-sm" value={form.sub} onChange={e => setForm({ ...form, sub: e.target.value, make: "", model: "", spec: "" })}><option value="">-- Select --</option>{availableSubs.map((s:any) => <option key={s} value={s}>{s}</option>)}</select>}
                   </div>
                   <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest">Make</label>
-                    {form.isManual ? <input type="text" disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold" placeholder="e.g. SKF" value={form.make} onChange={e => setForm({ ...form, make: e.target.value, model: "", spec: "" })} />
-                      : <select disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold uppercase cursor-pointer shadow-sm" value={form.make} onChange={e => setForm({ ...form, make: e.target.value, model: "", spec: "" })}><option value="">-- Select --</option>{availableMakes.map((m:any) => <option key={m} value={m}>{m}</option>)}</select>}
+                    {form.isManual ? <input type="text" disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold shadow-sm" placeholder="e.g. SKF" value={form.make} onChange={e => setForm({ ...form, make: e.target.value, model: "", spec: "" })} />
+                      : <select disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold uppercase shadow-sm cursor-pointer" value={form.make} onChange={e => setForm({ ...form, make: e.target.value, model: "", spec: "" })}><option value="">-- Select --</option>{availableMakes.map((m:any) => <option key={m} value={m}>{m}</option>)}</select>}
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest">Model</label>
-                    {form.isManual ? <input type="text" disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold" placeholder="e.g. ML-2" value={form.model} onChange={e => setForm({ ...form, model: e.target.value, spec: "" })} />
-                      : <select disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold uppercase cursor-pointer shadow-sm" value={form.model} onChange={e => setForm({ ...form, model: e.target.value, spec: "" })}><option value="">-- Select --</option>{availableModels.map((m:any) => <option key={m} value={m}>{m}</option>)}</select>}
+                    {form.isManual ? <input type="text" disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold shadow-sm" placeholder="e.g. ML-2" value={form.model} onChange={e => setForm({ ...form, model: e.target.value, spec: "" })} />
+                      : <select disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold uppercase shadow-sm cursor-pointer" value={form.model} onChange={e => setForm({ ...form, model: e.target.value, spec: "" })}><option value="">-- Select --</option>{availableModels.map((m:any) => <option key={m} value={m}>{m}</option>)}</select>}
                   </div>
                   <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest">Spec</label>
-                    {form.isManual ? <input type="text" disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold" placeholder="e.g. 240V" value={form.spec} onChange={e => setForm({ ...form, spec: e.target.value })} />
+                    {form.isManual ? <input type="text" disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold shadow-sm" placeholder="e.g. 240V" value={form.spec} onChange={e => setForm({ ...form, spec: e.target.value })} />
                       : <select disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold uppercase shadow-sm cursor-pointer" value={form.spec} onChange={e => setForm({ ...form, spec: e.target.value })}><option value="">-- Select --</option>{availableSpecs.map((s:any) => <option key={s} value={s}>{s}</option>)}</select>}
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3 pt-2">
                   <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest">Quantity</label><input type="number" className="w-full p-3 border-2 border-slate-100 rounded-xl text-lg font-black text-indigo-600 focus:border-indigo-400 outline-none shadow-sm" value={form.qty} onChange={e => setForm({ ...form, qty: e.target.value })} /></div>
-                  <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest">Unit</label><select className="w-full p-3 border-2 border-slate-100 rounded-xl text-xs uppercase font-black cursor-pointer shadow-sm" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })}><option value="Nos">Nos</option><option value="Sets">Sets</option><option value="Mtrs">Mtrs</option></select></div>
+                  <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest">Unit</label><select className="w-full p-3 border-2 border-slate-100 rounded-xl text-xs uppercase font-black" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })}><option value="Nos">Nos</option><option value="Sets">Sets</option><option value="Mtrs">Mtrs</option></select></div>
                 </div>
-                <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest">Note (Optional)</label><textarea placeholder="Specify maintenance job or reason..." className="w-full p-3 border-2 border-slate-100 rounded-xl text-[10px] h-16 font-bold uppercase focus:border-orange-300 outline-none" value={form.note} onChange={e => setForm({ ...form, note: e.target.value })}></textarea></div>
+                <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest">Note (Optional)</label><textarea placeholder="Specify extra details if any..." className="w-full p-3 border-2 border-slate-100 rounded-xl text-[10px] h-16 font-bold uppercase focus:border-orange-300 outline-none" value={form.note} onChange={e => setForm({ ...form, note: e.target.value })}></textarea></div>
               </div>
               <div className="flex gap-2 pt-2">
                 {editItem && <button onClick={()=>handleDeleteItem(editItem.id)} className="flex-1 py-4 bg-red-50 text-red-600 rounded-2xl shadow-sm hover:bg-red-100 uppercase tracking-widest font-black text-[10px] border border-red-100 transition-all"><i className="fa-solid fa-trash mr-2"></i>Delete</button>}
@@ -335,7 +337,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
               <p className="text-[9px] text-green-600 mt-2 tracking-widest uppercase font-black">Personal Sub-Balance: {consumeItem.qty} {consumeItem.unit}</p>
             </div>
             <div className="space-y-4">
-              <div><label className="text-[10px] text-slate-500 font-black uppercase mb-1 tracking-widest">Qty to use</label><input type="number" className="w-full p-4 border-2 border-slate-100 rounded-2xl font-black text-xl text-center focus:border-orange-500 outline-none shadow-sm" value={consumeForm.qty} onChange={e => setConsumeForm({ ...consumeForm, qty: e.target.value })} /></div>
+              <div><label className="text-[10px] text-slate-500 font-black uppercase mb-1 tracking-widest">Qty used</label><input type="number" className="w-full p-4 border-2 border-slate-100 rounded-2xl font-black text-xl text-center focus:border-orange-500 outline-none shadow-sm" value={consumeForm.qty} onChange={e => setConsumeForm({ ...consumeForm, qty: e.target.value })} /></div>
               <div><label className="text-[10px] text-slate-500 font-black uppercase mb-1 tracking-widest">Purpose / Note</label><textarea placeholder="Description..." className="w-full p-4 border-2 border-slate-100 rounded-2xl font-bold h-24 focus:border-orange-500 outline-none text-xs shadow-sm" value={consumeForm.note} onChange={e => setConsumeForm({ ...consumeForm, note: e.target.value })}></textarea></div>
               <button onClick={handleConsume} className="w-full py-4 bg-slate-900 text-white rounded-2xl shadow-xl font-black tracking-widest uppercase hover:bg-black transition-all">Confirm Usage</button>
             </div>
@@ -343,11 +345,11 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
         </div>
       )}
 
-      {/* Modal: Summary */}
+      {/* MODAL: SUMMARY */}
       {showSummary && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-scale-in uppercase font-bold">
-            <div className="p-6 border-b bg-indigo-50 flex justify-between items-center"><h3 className="font-black text-indigo-900 text-lg tracking-tight uppercase"><i className="fa-solid fa-boxes-stacked mr-2"></i> Aggregated Zone Balance</h3><button onClick={() => setShowSummary(false)} className="text-slate-400 hover:text-red-500"><i className="fa-solid fa-xmark text-xl"></i></button></div>
+            <div className="p-6 border-b bg-indigo-50 flex justify-between items-center"><h3 className="font-black text-indigo-900 text-lg tracking-tight uppercase"><i className="fa-solid fa-boxes-stacked mr-2"></i> Inventory Split Status</h3><button onClick={() => setShowSummary(false)} className="text-slate-400 hover:text-red-500"><i className="fa-solid fa-xmark text-xl"></i></button></div>
             <div className="p-6 max-h-[60vh] overflow-y-auto">
               <table className="w-full text-left text-xs font-bold uppercase">
                 <thead className="border-b text-slate-400 uppercase tracking-widest"><tr><th className="pb-3 text-[10px]">Category &gt; Sub-Category</th><th className="pb-3 text-right text-[10px]">Total Balance</th></tr></thead>
@@ -356,7 +358,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
                 ))}</tbody>
               </table>
             </div>
-            <div className="p-4 bg-slate-50 text-center"><button onClick={() => setShowSummary(false)} className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-600 transition-all">Close Summary</button></div>
+            <div className="p-4 bg-slate-50 text-center"><button onClick={() => setShowSummary(false)} className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-600 transition-all">Close</button></div>
           </div>
         </div>
       )}
