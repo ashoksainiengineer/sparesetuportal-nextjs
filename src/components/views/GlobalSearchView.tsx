@@ -37,8 +37,9 @@ export default function GlobalSearchView({ profile }: any) {
 
   return (
     <div className="space-y-6 animate-fade-in font-roboto font-bold uppercase">
+      {/* Top Contributors Banner */}
       <section className="bg-white p-4 rounded-xl border flex flex-wrap items-center gap-4 shadow-sm">
-         <h2 className="text-sm font-bold uppercase text-slate-700 tracking-tight font-roboto"><i className="fa-solid fa-trophy text-yellow-500 mr-2"></i> Top Contributors</h2>
+         <h2 className="text-sm font-bold uppercase text-slate-700 tracking-tight"><i className="fa-solid fa-trophy text-yellow-500 mr-2"></i> Top Contributors</h2>
          <div className="flex gap-3 overflow-x-auto flex-1 pb-1">
            {contributors.map((c, idx) => (
              <div key={idx} className="bg-slate-50 p-2 rounded-lg border flex items-center gap-3 min-w-[180px] shadow-sm">
@@ -49,18 +50,19 @@ export default function GlobalSearchView({ profile }: any) {
          </div>
       </section>
 
+      {/* Search and Table */}
       <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b bg-slate-50/80 flex flex-wrap items-center gap-2">
-             <div className="relative flex-grow md:w-80 font-bold"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Global Inventory Search..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none focus:ring-1 font-bold uppercase font-roboto" onChange={e=>setSearch(e.target.value)} /></div>
-             <select className="border rounded-md text-xs font-bold p-2 bg-white uppercase font-roboto" onChange={e=>setSelCat(e.target.value)}>
+             <div className="relative flex-grow md:w-80 font-bold"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Global Inventory Search..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none focus:ring-1 font-bold uppercase" onChange={e=>setSearch(e.target.value)} /></div>
+             <select className="border rounded-md text-xs font-bold p-2 bg-white uppercase" onChange={e=>setSelCat(e.target.value)}>
                <option value="all">Category: All</option>
                {[...new Set(items.map(i => i.cat))].sort().map(c => <option key={c} value={c}>{c}</option>)}
              </select>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left tracking-tight font-roboto font-bold uppercase">
+          <table className="w-full text-left tracking-tight font-bold uppercase">
             <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold border-b tracking-widest">
-              <tr><th className="p-4 pl-6 font-bold">Item Detail</th><th className="p-4 font-bold">Spec</th><th className="p-4 text-center font-bold">Qty</th><th className="p-4 text-center font-bold">Action</th></tr>
+              <tr><th className="p-4 pl-6">Item Detail</th><th className="p-4">Spec</th><th className="p-4 text-center">Qty</th><th className="p-4 text-center">Action</th></tr>
             </thead>
             <tbody className="divide-y text-sm">
               {filtered.map((i: any, idx: number) => (
@@ -83,6 +85,7 @@ export default function GlobalSearchView({ profile }: any) {
         </div>
       </section>
 
+      {/* Request Modal */}
       {requestItem && (
         <div className="fixed top-0 left-0 w-full h-full bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
