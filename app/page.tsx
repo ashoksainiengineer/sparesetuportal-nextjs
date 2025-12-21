@@ -10,16 +10,19 @@ export default function SpareSetuApp() {
   const [loading, setLoading] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
 
+  // GLOBAL MODAL STATES (FOR FULL SCREEN BLUR)
+  const [requestItem, setRequestItem] = useState<any>(null);
+  const [actionModal, setActionModal] = useState<any>(null);
+  const [modalForm, setModalForm] = useState({ qty: "", comment: "" });
+  const [submitting, setSubmitting] = useState(false);
+
   useEffect(() => {
     const getSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) { setUser(session.user); fetchProfile(session.user.id); }
         setLoading(false);
-      } catch (err) {
-        console.error("Session Error:", err);
-        setLoading(false);
-      }
+      } catch (err) { setLoading(false); }
     };
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) { setUser(session.user); fetchProfile(session.user.id); }
@@ -38,24 +41,73 @@ export default function SpareSetuApp() {
             const { count: incoming } = await supabase.from("requests").select("*", { count: 'exact', head: true }).eq("to_unit", profile.unit).in("status", ["pending", "return_requested"]);
             const { count: updates } = await supabase.from("requests").select("*", { count: 'exact', head: true }).eq("from_uid", profile.id).eq("viewed_by_requester", false).in("status", ["approved", "rejected", "returned"]);
             setPendingCount((incoming || 0) + (updates || 0));
-        } catch (err) { console.error("Notif Error:", err); }
+        } catch (err) {}
     };
     fetchAllCounts();
-    const channel = supabase.channel('sparesetu-global-sync-vfinal-v2').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAllCounts(); }).subscribe();
+    const channel = supabase.channel('global-sync').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAllCounts(); }).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [profile]);
-
-  useEffect(() => {
-    if (activeTab === 'returns' && profile?.id) {
-        supabase.from("requests").update({ viewed_by_requester: true }).eq("from_uid", profile.id).eq("viewed_by_requester", false).then(() => {});
-    }
-  }, [activeTab, profile]);
 
   const fetchProfile = async (uid: string) => {
     try {
         const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
         if (data) setProfile(data);
-    } catch (err) { console.error("Profile Fetch Error:", err); }
+    } catch (err) {}
+  };
+
+  const formatTS = (ts: any) => new Date(Number(ts)).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+
+  // --- GLOBAL MODAL HANDLERS ---
+  const handleGlobalRequest = async () => {
+    if (!modalForm.qty || Number(modalForm.qty) <= 0 || Number(modalForm.qty) > requestItem.qty) { alert("Invalid quantity!"); return; }
+    setSubmitting(true);
+    try {
+        const { error } = await supabase.from("requests").insert([{
+            item_id: requestItem.id, item_name: requestItem.item, item_spec: requestItem.spec, item_unit: requestItem.unit, req_qty: Number(modalForm.qty), req_comment: modalForm.comment, from_name: profile.name, from_uid: profile.id, from_unit: profile.unit, to_name: requestItem.holder_name, to_uid: requestItem.holder_uid, to_unit: requestItem.holder_unit, status: 'pending', viewed_by_requester: false
+        }]);
+        if (!error) { alert("Request Sent!"); setRequestItem(null); setModalForm({ qty: "", comment: "" }); } else alert(error.message);
+    } catch (err) { alert("Connection Error"); }
+    setSubmitting(false);
+  };
+
+  const handleGlobalProcess = async () => {
+    const { type, data } = actionModal;
+    const actionQty = Number(modalForm.qty || data.req_qty);
+    if (!modalForm.comment.trim()) { alert("Provide a comment!"); return; }
+    if (actionQty <= 0 || actionQty > data.req_qty) { alert("Invalid Qty!"); return; }
+
+    try {
+        if (type === 'approve') {
+            const newTxnId = `#TXN-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 99)}`;
+            const { error } = await supabase.from("requests").update({ status: 'approved', approve_comment: modalForm.comment, txn_id: newTxnId, to_uid: profile.id, to_name: profile.name, req_qty: actionQty, viewed_by_requester: false }).eq("id", data.id);
+            if (!error) {
+                const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
+                if (inv) await supabase.from("inventory").update({ qty: inv.qty - actionQty }).eq("id", data.item_id);
+            }
+        } 
+        else if (type === 'reject') {
+            await supabase.from("requests").update({ status: 'rejected', approve_comment: modalForm.comment, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
+        }
+        else if (type === 'return') {
+            await supabase.from("requests").insert([{ 
+                item_id: data.item_id, item_name: data.item_name, item_spec: data.item_spec, item_unit: data.item_unit, req_qty: actionQty, status: 'return_requested', return_comment: modalForm.comment, from_uid: profile.id, from_name: profile.name, from_unit: profile.unit, to_uid: data.to_uid, to_name: data.to_name, to_unit: data.to_unit, viewed_by_requester: false, 
+                approve_comment: `VERIFY_LINK_ID:${data.id}`, txn_id: data.txn_id 
+            }]);
+            alert("Return Sent!");
+        }
+        else if (type === 'verify') {
+            const parentId = data.approve_comment?.match(/VERIFY_LINK_ID:(\d+)/)?.[1];
+            if (parentId) {
+                const { data: parent } = await supabase.from("requests").select("req_qty").eq("id", parentId).single();
+                if (parent && parent.req_qty - data.req_qty <= 0) await supabase.from("requests").delete().eq("id", parentId);
+                else if (parent) await supabase.from("requests").update({ req_qty: parent.req_qty - data.req_qty }).eq("id", parentId);
+            }
+            await supabase.from("requests").update({ status: 'returned', approve_comment: `Verified: ${modalForm.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
+            const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
+            if (inv) await supabase.from("inventory").update({ qty: inv.qty + data.req_qty }).eq("id", data.item_id);
+        }
+    } catch(e) { alert("Failed"); }
+    setActionModal(null); setModalForm({comment:"", qty:""});
   };
 
   if (loading) return (
@@ -70,7 +122,7 @@ export default function SpareSetuApp() {
   if (!user) return <AuthView />;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#f1f5f9] font-roboto font-bold uppercase">
+    <div className="flex h-screen overflow-hidden bg-[#f1f5f9] font-roboto font-bold uppercase relative">
       <aside className="w-64 bg-white hidden md:flex flex-col flex-shrink-0 z-20 shadow-xl border-r border-slate-200 font-bold uppercase">
         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
           <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-orange-600"><i className="fa-solid fa-layer-group"></i></div>
@@ -78,10 +130,10 @@ export default function SpareSetuApp() {
         </div>
         <nav className="flex-1 px-3 space-y-1 mt-4 overflow-y-auto">
           {[
-            { id: 'search', label: 'Global Search', icon: 'fa-globe', badge: 0 },
-            { id: 'mystore', label: 'My Local Store', icon: 'fa-warehouse', badge: 0 },
-            { id: 'analysis', label: 'Monthly Analysis', icon: 'fa-chart-pie', badge: 0 },
-            { id: 'usage', label: 'My Usage History', icon: 'fa-clock-rotate-left', badge: 0 },
+            { id: 'search', label: 'Global Search', icon: 'fa-globe' },
+            { id: 'mystore', label: 'My Local Store', icon: 'fa-warehouse' },
+            { id: 'analysis', label: 'Monthly Analysis', icon: 'fa-chart-pie' },
+            { id: 'usage', label: 'My Usage History', icon: 'fa-clock-rotate-left' },
             { id: 'returns', label: 'Returns & Udhaari', icon: 'fa-hand-holding-hand', badge: pendingCount }
           ].map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`nav-item w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-bold relative ${activeTab === tab.id ? 'active-nav' : 'text-slate-600 hover:bg-slate-50'}`}>
@@ -92,10 +144,6 @@ export default function SpareSetuApp() {
           ))}
         </nav>
         <div className="p-4 border-t border-slate-100 bg-slate-50 font-bold uppercase">
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-white border mb-2 shadow-sm">
-            <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-white font-bold text-xs">{profile?.name?.charAt(0)}</div>
-            <div className="overflow-hidden"><p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Logged in</p><div className="text-xs font-bold text-slate-700 truncate">{profile?.name}</div></div>
-          </div>
           <button onClick={() => supabase.auth.signOut().then(()=>window.location.reload())} className="w-full py-2 text-xs text-red-500 hover:bg-red-50 font-bold rounded-lg transition border border-red-100 text-center block uppercase">Logout</button>
         </div>
       </aside>
@@ -107,25 +155,69 @@ export default function SpareSetuApp() {
               <div className="iocl-logo-container hidden md:flex" style={{ fontSize: '10px' }}>
                 <div className="iocl-circle"><div className="iocl-band"><span className="iocl-hindi-text">इंडियनऑयल</span></div></div>
                 <div className="iocl-english-text" style={{ color: 'white' }}>IndianOil</div>
-                <div className="font-script text-orange-400 text-[10px] mt-1 whitespace-nowrap font-bold uppercase">The Energy of India</div>
               </div>
-              <div className="flex flex-col items-center text-center font-bold"> 
-                <h1 className="text-2xl md:text-3xl uppercase tracking-wider leading-none">Gujarat Refinery</h1>
-                <p className="font-hindi text-blue-400 text-xs font-bold tracking-wide mt-1">जहाँ प्रगति ही जीवन सार है</p>
-              </div>
+              <h1 className="text-2xl md:text-3xl uppercase tracking-wider leading-none">Gujarat Refinery</h1>
             </div>
             <h2 className="text-xl text-orange-500 tracking-[0.1em] font-bold uppercase hidden md:block">SPARE SETU PORTAL</h2>
           </div>
         </header>
 
         <div className="p-4 md:p-10 max-w-7xl mx-auto w-full space-y-8">
-          {activeTab === "search" && <GlobalSearchView profile={profile} />}
+          {activeTab === "search" && <GlobalSearchView profile={profile} setRequestItem={setRequestItem} />}
           {activeTab === "mystore" && <MyStoreView profile={profile} fetchProfile={()=>fetchProfile(user.id)} />}
           {activeTab === "usage" && <UsageHistoryView profile={profile} />}
           {activeTab === "analysis" && <MonthlyAnalysisView profile={profile} />}
-          {activeTab === "returns" && <ReturnsLedgerView profile={profile} />}
+          {activeTab === "returns" && <ReturnsLedgerView profile={profile} setActionModal={setActionModal} formatTS={formatTS} />}
         </div>
       </main>
+
+      {/* GLOBAL REQUEST MODAL - FIXED BLUR */}
+      {requestItem && (
+        <div className="fixed inset-0 w-full h-full bg-slate-900/60 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
+            <div className="p-6 border-b bg-slate-50 flex justify-between items-center">
+              <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Raise Request</h3>
+              <button onClick={()=>setRequestItem(null)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark"></i></button>
+            </div>
+            <div className="p-6 space-y-4 font-bold uppercase">
+              <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
+                <p className="text-[10px] text-orange-600 font-black uppercase mb-1 tracking-widest">Material: {requestItem.item}</p>
+                <p className="text-[10px] text-slate-400 mt-1 uppercase">Spec: {requestItem.spec}</p>
+              </div>
+              <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Qty (Max: {requestItem.qty})</label><input type="number" className="w-full mt-1 p-3 border rounded-lg font-bold" onChange={e=>setModalForm({...modalForm, qty:e.target.value})} /></div>
+              <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Log Comment</label><textarea className="w-full mt-1 p-3 border rounded-lg h-24 text-xs font-bold uppercase" onChange={e=>setModalForm({...modalForm, comment:e.target.value})}></textarea></div>
+              <button onClick={handleGlobalRequest} disabled={submitting} className="w-full py-3 bg-[#ff6b00] text-white font-black rounded-xl shadow-lg uppercase tracking-widest disabled:opacity-50">{submitting ? "Sending..." : "Submit Request"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* GLOBAL ACTION MODAL - FIXED BLUR */}
+      {actionModal && (
+        <div className="fixed inset-0 w-full h-full bg-slate-900/60 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
+            <div className="p-6 border-b bg-slate-50 flex justify-between items-center">
+              <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">{actionModal.type === 'approve' ? 'Issue Spare' : 'Initiate Return'}</h3>
+              <button onClick={()=>setActionModal(null)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark"></i></button>
+            </div>
+            <div className="p-6 space-y-4 font-bold uppercase">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <p className="text-[13px] font-bold text-slate-800">{actionModal.data.item_name}</p>
+                <p className="text-[10px] text-slate-400 uppercase mt-1">Spec: {actionModal.data.item_spec}</p>
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quantity (Available: {actionModal.data.req_qty})</label>
+                <input type="number" defaultValue={actionModal.data.req_qty} className="w-full mt-1 p-3 border-2 rounded-lg font-black text-slate-800" onChange={e=>setModalForm({...modalForm, qty:e.target.value})} />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Log / Reason</label>
+                <textarea className="w-full mt-1 p-3 border-2 rounded-lg h-24 text-xs font-bold uppercase" onChange={e=>setModalForm({...modalForm, comment:e.target.value})}></textarea>
+              </div>
+              <button onClick={handleGlobalProcess} className="w-full py-3 bg-[#ff6b00] text-white font-black rounded-xl shadow-lg uppercase tracking-widest">Confirm Transaction</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -135,7 +227,6 @@ function AuthView() {
   const [view, setView] = useState<"login" | "register" | "otp" | "forgot">("login");
   const [form, setForm] = useState({ email: "", pass: "", name: "", unit: "", enteredOtp: "", generatedOtp: "" });
   const [authLoading, setAuthLoading] = useState(false);
-
   const handleAuth = async () => {
     setAuthLoading(true);
     try {
@@ -145,65 +236,42 @@ function AuthView() {
         } else if (view === "register") {
           if (!form.name || !form.unit || !form.email || !form.pass) { alert("Details bhariye!"); setAuthLoading(false); return; }
           const { data: allowed } = await supabase.from('allowed_users').select('*').eq('email', form.email).eq('unit', form.unit).single();
-          if (!allowed) { alert("Email access not allowed for this zone!"); setAuthLoading(false); return; }
+          if (!allowed) { alert("Access Denied!"); setAuthLoading(false); return; }
           const otp = Math.floor(100000 + Math.random() * 900000).toString();
           setForm({ ...form, generatedOtp: otp });
           const res = await fetch('/api/send-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.name, email: form.email, otp }) });
-          if (res.ok) { alert("OTP sent!"); setView("otp"); } else alert("OTP Send Failed");
+          if (res.ok) { alert("OTP sent!"); setView("otp"); } else alert("Failed");
         } else if (view === "otp") {
           if (form.enteredOtp === form.generatedOtp) {
             const { error } = await supabase.auth.signUp({ email: form.email, password: form.pass, options: { data: { name: form.name, unit: form.unit } } });
             if (error) alert(error.message); else setView("login");
           } else alert("Wrong OTP");
-        } else if (view === "forgot") {
-          const { error } = await supabase.auth.resetPasswordForEmail(form.email);
-          if (error) alert(error.message); else alert("Reset link sent to your email!");
         }
-    } catch (err) { alert("Network Connection Error"); }
+    } catch (err) { alert("Network Error"); }
     setAuthLoading(false);
   };
-
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 login-bg">
-      <div className="w-full max-w-md login-card rounded-2xl shadow-2xl p-8 border-t-4 border-orange-500 text-center relative animate-fade-in font-roboto font-bold uppercase">
+      <div className="w-full max-w-md login-card rounded-2xl shadow-2xl p-8 border-t-4 border-orange-500 text-center relative font-roboto font-bold uppercase">
         <div className="mb-8">
-            <div className="flex justify-center mb-4 font-bold uppercase">
-              <div className="iocl-logo-container" style={{ fontSize: '14px' }}>
-                <div className="iocl-circle"><div className="iocl-band"><span className="iocl-hindi-text">इंडियनऑयल</span></div></div>
-                <div className="iocl-english-text" style={{ color: 'white' }}>IndianOil</div>
-                <div className="font-script text-orange-400 text-[10px] mt-1 whitespace-nowrap">The Energy of India</div>
-              </div>
-            </div>
-            <h1 className="text-2xl font-bold text-white uppercase tracking-wider leading-tight">Gujarat Refinery</h1>
-            <p className="font-hindi text-blue-400 text-sm font-bold mt-1 tracking-wide">जहाँ प्रगति ही जीवन सार है</p>
+            <h1 className="text-2xl font-bold text-white uppercase tracking-wider">Gujarat Refinery</h1>
             <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-4">Spare Setu Portal</p>
         </div>
         <div className="space-y-4">
           {(view === "register") && (
             <>
-              <div className="relative font-bold uppercase"><i className="fa-solid fa-user absolute left-4 top-3.5 text-slate-400"></i><input type="text" placeholder="Engineer Full Name" className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold font-roboto" onChange={e=>setForm({...form, name:e.target.value})} /></div>
-              <div className="relative font-bold uppercase"><i className="fa-solid fa-building absolute left-4 top-3.5 text-slate-400"></i><select className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm bg-slate-900 text-slate-300 font-bold font-roboto" onChange={e=>setForm({...form, unit:e.target.value})}><option value="">Select Your Zone</option>{["RUP - South Block", "RUP - North Block", "LAB", "MSQU", "AU-5", "BS-VI", "GR-II & NBA", "GR-I", "OM&S", "OLD SRU & CETP", "Electrical Planning", "Electrical Testing", "Electrical Workshop", "FCC", "GRE", "CGP-I", "CGP-II & TPS", "Water Block & Bitumen", "Township - Estate Office", "AC Section", "GHC", "DHUMAD"].map(z=><option key={z} value={z}>{z}</option>)}</select></div>
+              <input type="text" placeholder="Engineer Name" className="w-full p-3 rounded-lg login-input font-bold" onChange={e=>setForm({...form, name:e.target.value})} />
+              <select className="w-full p-3 rounded-lg login-input bg-slate-900 text-slate-300 font-bold" onChange={e=>setForm({...form, unit:e.target.value})}><option value="">Zone</option>{["RUP - South Block", "RUP - North Block", "LAB", "MSQU", "AU-5", "BS-VI", "GR-II & NBA", "GR-I", "OM&S", "OLD SRU & CETP", "Electrical Planning", "Electrical Testing", "Electrical Workshop", "FCC", "GRE", "CGP-I", "CGP-II & TPS", "Water Block & Bitumen", "Township - Estate Office", "AC Section", "GHC", "DHUMAD"].map(z=><option key={z} value={z}>{z}</option>)}</select>
             </>
           )}
           {view === "otp" ? (
-             <div className="relative font-bold uppercase"><i className="fa-solid fa-key absolute left-4 top-3.5 text-slate-400"></i><input type="text" placeholder="######" maxLength={6} className="w-full p-3 rounded-lg login-input text-center text-2xl tracking-[0.5em] font-bold text-white outline-none font-mono" onChange={e=>setForm({...form, enteredOtp:e.target.value})} /></div>
+             <input type="text" placeholder="OTP" className="w-full p-3 rounded-lg login-input text-center text-2xl font-bold" onChange={e=>setForm({...form, enteredOtp:e.target.value})} />
           ) : (
-             <div className="relative font-bold uppercase"><i className="fa-solid fa-envelope absolute left-4 top-3.5 text-slate-400"></i><input type="email" value={form.email} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold font-roboto" placeholder="Official Email ID" onChange={e=>setForm({...form, email:e.target.value})} /></div>
+             <input type="email" placeholder="Official Email" className="w-full p-3 rounded-lg login-input font-bold" onChange={e=>setForm({...form, email:e.target.value})} />
           )}
-          {(view === "login" || view === "register") && <div className="relative font-bold uppercase"><i className="fa-solid fa-lock absolute left-4 top-3.5 text-slate-400"></i><input type="password" placeholder="Password" className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold font-roboto" onChange={e=>setForm({...form, pass:e.target.value})} /></div>}
-          {view === "login" && (
-            <div className="text-right font-roboto font-bold uppercase"><button onClick={()=>setView('forgot')} className="text-xs text-orange-500 hover:text-orange-400 font-bold transition font-roboto">Forgot Password?</button></div>
-          )}
-          <button onClick={handleAuth} disabled={authLoading} className="w-full h-12 mt-4 iocl-btn text-white font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 uppercase tracking-widest text-sm font-roboto">
-            {authLoading ? "Processing..." : view === 'login' ? "Secure Login →" : view === 'register' ? "Create Account" : view === 'otp' ? "Verify & Register" : "Send Reset Link"}
-          </button>
-          <div className="mt-6 text-center border-t border-white/10 pt-4 font-roboto font-bold uppercase">
-            <p className="text-xs text-slate-400 font-roboto">{view==='login' ? "New User? " : "Already have an account? "}<button onClick={()=>setView(view==='login'?'register':'login')} className="text-white hover:text-orange-500 font-bold underline ml-1">{view==='login' ? "Create Account" : "Back to Login"}</button></p>
-          </div>
-          <div className="mt-8 pt-6 border-t border-white/10 text-center font-roboto font-bold uppercase">
-            <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider mb-1">Developed By Engineers</p>
-            <p className="text-[11px] text-slate-300 font-bold font-hindi">अशोक सैनी • दीपक चौहान • दिव्यांक सिंह राजपूत</p>
-          </div>
+          {(view === "login" || view === "register") && <input type="password" placeholder="Password" className="w-full p-3 rounded-lg login-input font-bold" onChange={e=>setForm({...form, pass:e.target.value})} />}
+          <button onClick={handleAuth} disabled={authLoading} className="w-full py-3 iocl-btn text-white font-bold rounded-lg uppercase tracking-widest">{authLoading ? "..." : "Login →"}</button>
+          <button onClick={()=>setView(view==='login'?'register':'login')} className="text-white text-xs underline mt-4">{view==='login'?'Create Account':'Back to Login'}</button>
         </div>
       </div>
     </div>
@@ -211,90 +279,31 @@ function AuthView() {
 }
 
 // --- GLOBAL SEARCH VIEW ---
-function GlobalSearchView({ profile }: any) {
+function GlobalSearchView({ profile, setRequestItem }: any) {
   const [items, setItems] = useState<any[]>([]);
-  const [contributors, setContributors] = useState<any[]>([]);
   const [search, setSearch] = useState(""); 
   const [selCat, setSelCat] = useState("all");
-  const [requestItem, setRequestItem] = useState<any>(null);
-  const [reqForm, setReqForm] = useState({ qty: "", comment: "" });
-  const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => { fetchAll(); lead(); }, []);
-  const fetchAll = async () => { try { const { data } = await supabase.from("inventory").select("*"); if (data) setItems(data); } catch(e){} };
-  const lead = async () => { try { const { data } = await supabase.from("profiles").select("name, unit, item_count").order("item_count", { ascending: false }).limit(3); if (data) setContributors(data); } catch(e){} };
-
-  const handleSendRequest = async () => {
-    if (!reqForm.qty || Number(reqForm.qty) <= 0 || Number(reqForm.qty) > requestItem.qty) { alert("Invalid quantity!"); return; }
-    setSubmitting(true);
-    try {
-        const { error } = await supabase.from("requests").insert([{
-            item_id: requestItem.id, item_name: requestItem.item, item_spec: requestItem.spec, item_unit: requestItem.unit, req_qty: Number(reqForm.qty), req_comment: reqForm.comment, from_name: profile.name, from_uid: profile.id, from_unit: profile.unit, to_name: requestItem.holder_name, to_uid: requestItem.holder_uid, to_unit: requestItem.holder_unit, status: 'pending', viewed_by_requester: false
-        }]);
-        if (!error) { alert("Request Sent!"); setRequestItem(null); setReqForm({ qty: "", comment: "" }); } else alert(error.message);
-    } catch (err) { alert("Check your internet connection!"); }
-    setSubmitting(false);
-  };
-
+  useEffect(() => { const f = async () => { const { data } = await supabase.from("inventory").select("*"); if (data) setItems(data); }; f(); }, []);
   const filtered = items.filter((i: any) => (i.item.toLowerCase().includes(search.toLowerCase()) || i.spec.toLowerCase().includes(search.toLowerCase())) && (selCat === "all" ? true : i.cat === selCat));
-
   return (
-    <div className="space-y-6 animate-fade-in font-roboto font-bold uppercase">
-      <section className="bg-white p-4 rounded-xl border flex flex-wrap items-center gap-4 shadow-sm">
-         <h2 className="text-sm font-bold uppercase text-slate-700 tracking-tight font-roboto"><i className="fa-solid fa-trophy text-yellow-500 mr-2"></i> Top Contributors</h2>
-         <div className="flex gap-3 overflow-x-auto flex-1 pb-1">{contributors.map((c, idx) => (<div key={idx} className="bg-slate-50 p-2 rounded-lg border flex items-center gap-3 min-w-[180px] shadow-sm"><div className="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs border-2 border-orange-400">{c.name.charAt(0)}</div><div><p className="text-xs font-bold text-slate-800 truncate">{c.name}</p><p className="text-[9px] text-slate-400 uppercase tracking-tighter">{c.unit}</p><p className="text-[9px] font-bold text-green-600">{c.item_count || 0} Items</p></div></div>))}</div>
-      </section>
-
-      <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-4 border-b bg-slate-50/80 flex flex-wrap items-center gap-2">
-             <div className="relative flex-grow md:w-80 font-bold"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Global Inventory Search..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none focus:ring-1 font-bold uppercase font-roboto" onChange={e=>setSearch(e.target.value)} /></div>
-             <select className="border rounded-md text-xs font-bold p-2 bg-white uppercase font-roboto font-bold" onChange={e=>setSelCat(e.target.value)}><option value="all">Category: All</option>{[...new Set(items.map(i => i.cat))].sort().map(c => <option key={c} value={c}>{c}</option>)}</select>
+    <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden font-roboto font-bold uppercase">
+        <div className="p-4 border-b bg-slate-50/80 flex flex-wrap gap-2">
+             <input type="text" placeholder="Search..." className="flex-grow p-2 border rounded-md text-sm font-bold" onChange={e=>setSearch(e.target.value)} />
+             <select className="border rounded-md text-xs font-bold p-2 bg-white" onChange={e=>setSelCat(e.target.value)}><option value="all">Category: All</option>{[...new Set(items.map(i => i.cat))].sort().map(c => <option key={c} value={c}>{c}</option>)}</select>
         </div>
-        <div className="overflow-x-auto"><table className="w-full text-left tracking-tight font-roboto font-bold uppercase"><thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold border-b tracking-widest"><tr><th className="p-4 pl-6 font-bold">Item Detail</th><th className="p-4 font-bold">Spec</th><th className="p-4 text-center font-bold">Qty</th><th className="p-4 text-center font-bold">Action</th></tr></thead>
-          <tbody className="divide-y text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+          <tbody className="divide-y">
             {filtered.map((i: any, idx: number) => (
-              <tr key={idx} className={`hover:bg-slate-50 transition border-b border-slate-50 ${i.qty === 0 ? 'bg-red-50/20' : ''}`}>
-                <td className="p-4 pl-6 leading-tight">
-                  <div className="text-slate-800 font-bold text-[14px] tracking-tight uppercase font-roboto">{i.item}</div>
-                  <div className="text-[9.5px] text-slate-400 font-bold uppercase mt-1 tracking-wider font-roboto">{i.cat}</div>
-                </td>
-                <td className="p-4">
-                  <span className="bg-white border border-slate-200 px-2.5 py-1 rounded-[4px] text-[10.5px] font-bold text-slate-500 shadow-sm uppercase inline-block font-roboto">{i.spec}</span>
-                </td>
-                <td className="p-4 text-center font-bold whitespace-nowrap text-slate-800 text-[14px] font-roboto">{i.qty} {i.unit}</td>
-                <td className="p-4 text-center font-roboto font-bold uppercase">
-                    {i.holder_uid === profile?.id ? <span className="text-[10px] font-black text-green-600 italic tracking-tighter uppercase font-bold">MY STORE</span> : <button onClick={()=>setRequestItem(i)} className="bg-[#ff6b00] text-white px-4 py-1.5 rounded-[4px] text-[10.5px] font-black shadow-sm uppercase tracking-widest font-roboto">Request</button>}
-                </td>
+              <tr key={idx} className="hover:bg-slate-50 border-b">
+                <td className="p-4"><div className="text-slate-800 font-bold">{i.item}</div><div className="text-[9px] text-slate-400">{i.cat}</div></td>
+                <td className="p-4"><span className="border px-2 py-1 rounded text-[10px] text-slate-500">{i.spec}</span></td>
+                <td className="p-4 text-center font-bold">{i.qty} {i.unit}</td>
+                <td className="p-4 text-center">{i.holder_uid === profile?.id ? <span className="text-[10px] text-green-600">MY STORE</span> : <button onClick={()=>setRequestItem(i)} className="bg-[#ff6b00] text-white px-4 py-1 rounded text-[10px] font-black uppercase">Request</button>}</td>
               </tr>
             ))}
           </tbody>
         </table></div>
-      </section>
-
-      {/* REQUEST MODAL - FULL FIX FOR HEADER BLUR */}
-      {requestItem && (
-        <div className="fixed top-0 left-0 w-full h-full bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
-            <div className="p-6 border-b bg-slate-50 flex justify-between items-center">
-              <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Raise Request</h3>
-              <button onClick={()=>setRequestItem(null)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark"></i></button>
-            </div>
-            <div className="p-6 space-y-4 font-bold uppercase">
-              <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
-                <p className="text-[10px] text-orange-600 font-black uppercase mb-1 tracking-widest">Requesting Material</p>
-                <p className="text-sm font-bold text-slate-800">{requestItem.item}</p>
-                <p className="text-[10px] text-slate-400 mt-1 uppercase">{requestItem.spec}</p>
-              </div>
-              <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quantity (Available: {requestItem.qty})</label><input type="number" placeholder="Enter Qty" className="w-full mt-1 p-3 border rounded-lg outline-none font-bold text-slate-800" onChange={e=>setReqForm({...reqForm, qty:e.target.value})} /></div>
-              <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purpose / Log Comment</label><textarea placeholder="Why do you need this?" className="w-full mt-1 p-3 border rounded-lg outline-none font-bold text-xs h-24 text-slate-800" onChange={e=>setReqForm({...reqForm, comment:e.target.value})}></textarea></div>
-              <button onClick={handleSendRequest} disabled={submitting} className="w-full py-3 bg-[#ff6b00] text-white font-black rounded-xl shadow-lg uppercase tracking-widest disabled:opacity-50">
-                {submitting ? "Submitting..." : "Submit Request"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </section>
   );
 }
 
@@ -302,264 +311,127 @@ function GlobalSearchView({ profile }: any) {
 function MyStoreView({ profile, fetchProfile }: any) {
   const [myItems, setMyItems] = useState<any[]>([]); 
   const [showAddModal, setShowAddModal] = useState(false);
-  const [form, setForm] = useState({ cat: "", sub: "", make: "", model: "", spec: "", qty: "", isManual: false });
-
-  useEffect(() => { if (profile) fetch(); }, [profile]);
-  const fetch = async () => { try { const { data } = await supabase.from("inventory").select("*").eq("holder_uid", profile.id).order("id", { ascending: false }); if (data) setMyItems(data); } catch(e){} };
-
+  const [form, setForm] = useState({ cat: "", sub: "", make: "", model: "", spec: "", qty: "" });
+  useEffect(() => { const f = async () => { if(profile){const { data } = await supabase.from("inventory").select("*").eq("holder_uid", profile.id).order("id", { ascending: false }); if (data) setMyItems(data);} }; f(); }, [profile]);
   const handleSave = async () => {
-    if (!form.spec || !form.qty) return alert("Sari details bhariye!");
+    if (!form.spec || !form.qty) return alert("Details!");
     const itemName = `${form.make} ${form.sub} ${form.model}`.trim();
-    try {
-        const { error } = await supabase.from("inventory").insert([{ item: itemName, cat: form.cat, sub: form.sub, make: form.make, model: form.model, spec: form.spec, qty: parseInt(form.qty), unit: 'Nos', holder_unit: profile.unit, holder_uid: profile.id, holder_name: profile.name }]);
-        if (!error) { alert("Stock Inward Success!"); fetch(); setShowAddModal(false); setForm({ cat: "", sub: "", make: "", model: "", spec: "", qty: "", isManual: false }); await supabase.from("profiles").update({ item_count: (profile.item_count || 0) + 1 }).eq('id', profile.id); fetchProfile(); } else alert(error.message);
-    } catch(e){ alert("Database connection error"); }
+    const { error } = await supabase.from("inventory").insert([{ item: itemName, cat: form.cat, spec: form.spec, qty: parseInt(form.qty), unit: 'Nos', holder_unit: profile.unit, holder_uid: profile.id, holder_name: profile.name }]);
+    if (!error) { alert("Stock Added!"); setShowAddModal(false); fetchProfile(); }
   };
-
   return (
-    <div className="animate-fade-in space-y-6 pb-10 uppercase font-roboto font-bold">
-      <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl border shadow-sm font-roboto font-bold uppercase">
-        <div><h2 className="text-xl font-bold text-slate-800 uppercase tracking-widest leading-none font-black uppercase font-roboto">My Local Store</h2><p className="text-[10px] font-black bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-2 uppercase font-bold tracking-tighter font-roboto">ZONE: {profile?.unit}</p></div>
-        <button onClick={() => setShowAddModal(true)} className="iocl-btn text-white px-6 py-2.5 rounded-xl font-bold shadow-md flex items-center gap-2 font-roboto font-bold uppercase"><i className="fa-solid fa-plus"></i> Add New Stock</button>
+    <div className="space-y-6 font-roboto font-bold uppercase">
+      <div className="flex justify-between items-center bg-white p-6 rounded-xl border">
+        <h2 className="text-xl font-black">My Local Store</h2>
+        <button onClick={() => setShowAddModal(true)} className="iocl-btn text-white px-6 py-2 rounded-xl font-bold">+ Add Stock</button>
       </div>
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden font-bold font-roboto uppercase">
-        <div className="overflow-x-auto"><table className="w-full text-left tracking-tight font-roboto"><thead className="bg-slate-50 text-slate-500 text-[10px] font-bold border-b uppercase tracking-widest font-roboto"><tr><th className="p-5 pl-8 font-bold">Category</th><th className="p-5 font-bold">Item Name</th><th className="p-5 font-bold">Spec</th><th className="p-5 text-center font-bold">Qty</th></tr></thead>
-          <tbody className="divide-y text-sm">
-              {myItems.map(i => (<tr key={i.id} className="hover:bg-slate-50 transition border-b border-slate-50 font-bold uppercase font-roboto">
-                <td className="p-5 pl-8 text-[9.5px] font-bold text-slate-400 leading-none font-roboto">{i.cat}</td>
-                <td className="p-5 leading-tight uppercase font-roboto"><div className="text-slate-800 font-bold text-[14px] tracking-tight">{i.item}</div></td>
-                <td className="p-5 font-mono uppercase font-bold"><span className="bg-white border border-slate-200 px-2.5 py-1 rounded-[4px] text-[10.5px] font-bold text-slate-500 shadow-sm uppercase font-roboto">{i.spec}</span></td>
-                <td className="p-5 font-bold text-center font-mono uppercase whitespace-nowrap text-slate-800 text-[14px] font-roboto">{i.qty} {i.unit}</td>
-              </tr>))}
-          </tbody>
+      <div className="bg-white rounded-xl border overflow-hidden"><table className="w-full text-left text-sm">
+          <tbody className="divide-y">{myItems.map(i => (<tr key={i.id} className="hover:bg-slate-50 border-b">
+                <td className="p-4 text-slate-400 text-[9px]">{i.cat}</td>
+                <td className="p-4 font-bold">{i.item}</td>
+                <td className="p-4"><span className="border px-2 py-1 rounded text-[10px]">{i.spec}</span></td>
+                <td className="p-4 text-center font-bold">{i.qty} {i.unit}</td>
+              </tr>))}</tbody>
         </table></div>
-      </div>
     </div>
   );
 }
 
-// --- USAGE HISTORY & ANALYSIS ---
+// --- USAGE & ANALYSIS ---
 function UsageHistoryView({ profile }: any) {
   const [logs, setLogs] = useState<any[]>([]);
-  useEffect(() => { if (profile) fetch(); }, [profile]);
-  const fetch = async () => { try { const { data } = await supabase.from("usage_logs").select("*").eq("consumer_uid", profile.id).order("timestamp", { ascending: false }); if (data) setLogs(data); } catch(e){} };
-  return (<section className="bg-white rounded-xl border border-slate-200 shadow-sm font-roboto font-bold uppercase"><div className="p-5 border-b bg-slate-50/50 flex justify-between font-roboto"><h2 className="text-lg font-bold text-slate-800 uppercase tracking-wider font-roboto">Log: Usage Feed</h2></div><div className="overflow-x-auto font-roboto"><table className="w-full text-left text-xs font-mono font-bold uppercase font-roboto font-bold"><thead className="bg-slate-50 border-b text-[10px] font-black uppercase tracking-widest font-roboto"><tr><th className="p-4 pl-8 font-roboto">Date</th><th className="p-4 font-roboto">Details</th><th className="p-4 text-center font-roboto">Qty</th></tr></thead><tbody className="divide-y text-slate-600 font-roboto">{logs.map(l => (<tr key={l.id} className="hover:bg-slate-50 transition border-b border-slate-100 font-roboto"><td className="p-4 pl-8 uppercase font-mono font-roboto">{new Date(Number(l.timestamp)).toLocaleDateString()}</td><td className="p-4 font-bold uppercase leading-tight font-roboto font-bold"><div className="text-slate-800 font-bold text-[13px] tracking-tight uppercase font-roboto font-bold">{l.item_name}</div><div className="text-[9px] text-slate-400 uppercase mt-0.5 tracking-tighter uppercase font-roboto font-bold">{l.category}</div></td><td className="p-4 text-center font-black text-red-600 font-roboto">-{l.qty_consumed} Nos</td></tr>))}</tbody></table></div></section>);
+  useEffect(() => { const f = async () => { if(profile){const { data } = await supabase.from("usage_logs").select("*").eq("consumer_uid", profile.id).order("timestamp", { ascending: false }); if (data) setLogs(data);} }; f(); }, [profile]);
+  return (<section className="bg-white rounded-xl border shadow-sm font-roboto font-bold uppercase"><table className="w-full text-left text-xs"><tbody className="divide-y">{logs.map(l => (<tr key={l.id} className="hover:bg-slate-50 border-b"><td className="p-4">{new Date(Number(l.timestamp)).toLocaleDateString()}</td><td className="p-4 font-bold">{l.item_name}</td><td className="p-4 text-center text-red-600">-{l.qty_consumed} Nos</td></tr>))}</tbody></table></section>);
 }
 
 function MonthlyAnalysisView({ profile }: any) {
   const [analysis, setAnalysis] = useState<any[]>([]);
-  useEffect(() => { const f = async () => { try { const { data } = await supabase.from("usage_logs").select("*").eq("consumer_uid", profile.id); if (data) { const stats: any = {}; data.forEach((l: any) => { const month = new Date(Number(l.timestamp)).toLocaleString('default', { month: 'long', year: 'numeric' }); if (!stats[month]) stats[month] = { month, total: 0, count: 0 }; stats[month].total += Number(l.qty_consumed); stats[month].count += 1; }); setAnalysis(Object.values(stats)); } } catch(e){} }; if (profile) f(); }, [profile]);
-  return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-roboto uppercase tracking-tight font-bold font-roboto"><div className="col-span-3 pb-4 text-xs font-black text-slate-400 tracking-widest text-center border-b uppercase font-roboto">Analytical Summary</div>{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border shadow-sm text-center transition hover:shadow-md uppercase font-bold font-roboto font-bold"><div className="text-xs font-black text-slate-400 uppercase mb-4 tracking-[0.2em] font-roboto font-bold">{a.month}</div><div className="w-16 h-16 bg-blue-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner font-bold font-roboto font-bold"><i className="fa-solid fa-chart-line font-bold font-bold"></i></div><div className="text-3xl font-black text-slate-800 font-bold font-roboto font-bold">{a.total} <small className="text-[10px] text-slate-400 font-bold uppercase tracking-widest uppercase font-roboto font-bold">Nos</small></div><div className="text-[10px] font-bold text-emerald-500 mt-2 uppercase tracking-tighter uppercase font-bold font-roboto font-bold">{a.count} Logged Records</div></div>))}</div>);
+  useEffect(() => { const f = async () => { if(profile){const { data } = await supabase.from("usage_logs").select("*").eq("consumer_uid", profile.id); if (data) { const stats: any = {}; data.forEach((l: any) => { const month = new Date(Number(l.timestamp)).toLocaleString('default', { month: 'long', year: 'numeric' }); if (!stats[month]) stats[month] = { month, total: 0 }; stats[month].total += Number(l.qty_consumed); }); setAnalysis(Object.values(stats)); } } }; f(); }, [profile]);
+  return (<div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-roboto font-bold uppercase">{analysis.map((a, idx) => (<div key={idx} className="bg-white p-6 rounded-2xl border text-center font-bold"><div>{a.month}</div><div className="text-3xl font-black text-slate-800 mt-2">{a.total} Nos</div></div>))}</div>);
 }
 
-// --- RETURNS LEDGER (COLUMN SUPPORTED TXN ID & TIME) ---
-function ReturnsLedgerView({ profile, onAction }: any) { 
+// --- RETURNS LEDGER VIEW ---
+function ReturnsLedgerView({ profile, setActionModal, formatTS }: any) { 
     const [pending, setPending] = useState<any[]>([]);
     const [given, setGiven] = useState<any[]>([]);
     const [taken, setTaken] = useState<any[]>([]);
-    const [givenHistory, setGivenHistory] = useState<any[]>([]);
-    const [takenHistory, setTakenHistory] = useState<any[]>([]);
-    const [actionModal, setActionModal] = useState<any>(null); 
-    const [form, setForm] = useState({ comment: "", qty: "" });
+    const [history, setHistory] = useState<any[]>([]);
 
     const fetchAll = async () => {
-        try {
-            const { data: p } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).in("status", ["pending", "return_requested"]).order("id", { ascending: false });
-            const { data: g } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).eq("status", "approved").order("id", { ascending: false });
-            const { data: t = [] } = await supabase.from("requests").select("*").eq("from_unit", profile.unit).eq("status", "approved").order("id", { ascending: false });
-            const { data: gh } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).in("status", ["returned", "rejected"]).order("id", { ascending: false });
-            const { data: th = [] } = await supabase.from("requests").select("*").eq("from_unit", profile.unit).in("status", ["returned", "rejected"]).order("id", { ascending: false });
-            if (p) setPending(p); if (g) setGiven(g); if (t) setTaken(t);
-            if (gh) setGivenHistory(gh); if (th) setTakenHistory(th);
-        } catch(e){}
+        if(!profile) return;
+        const { data: p } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).in("status", ["pending", "return_requested"]).order("id", { ascending: false });
+        const { data: g } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).eq("status", "approved").order("id", { ascending: false });
+        const { data: t } = await supabase.from("requests").select("*").eq("from_unit", profile.unit).eq("status", "approved").order("id", { ascending: false });
+        const { data: gh } = await supabase.from("requests").select("*").or(`to_unit.eq."${profile.unit}",from_unit.eq."${profile.unit}"`).in("status", ["returned", "rejected"]).order("id", { ascending: false });
+        if (p) setPending(p); if (g) setGiven(g); if (t) setTaken(t); if (gh) setHistory(gh);
     };
 
     useEffect(() => {
-        if (!profile) return; fetchAll();
-        const channel = supabase.channel('sparesetu-sync-v-final-fixed').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { fetchAll(); if(onAction) onAction(); }).subscribe();
-        return () => { supabase.removeChannel(channel); };
+        fetchAll();
+        const ch = supabase.channel('ledger-sync').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => fetchAll()).subscribe();
+        return () => { supabase.removeChannel(ch); };
     }, [profile]);
-
-    const formatTS = (ts: any) => new Date(Number(ts)).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
-
-    const handleProcess = async () => {
-        const { type, data } = actionModal;
-        const actionQty = Number(form.qty || data.req_qty);
-
-        if (!form.comment.trim()) { alert("Provide a transaction log/reason!"); return; }
-        if (actionQty <= 0 || actionQty > data.req_qty) { alert(`Invalid Quantity! Range: 1 to ${data.req_qty}`); return; }
-
-        try {
-            if (type === 'approve') {
-                const newTxnId = `#TXN-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 99)}`;
-                const { error } = await supabase.from("requests").update({ status: 'approved', approve_comment: form.comment, txn_id: newTxnId, to_uid: profile.id, to_name: profile.name, req_qty: actionQty, viewed_by_requester: false }).eq("id", data.id);
-                if (!error) {
-                    const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
-                    if (inv) await supabase.from("inventory").update({ qty: inv.qty - actionQty }).eq("id", data.item_id);
-                }
-            } 
-            else if (type === 'reject') {
-                await supabase.from("requests").update({ status: 'rejected', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
-            }
-            else if (type === 'return') {
-                const { error } = await supabase.from("requests").insert([{ 
-                    item_id: data.item_id, item_name: data.item_name, item_spec: data.item_spec, item_unit: data.item_unit, req_qty: actionQty, status: 'return_requested', return_comment: form.comment, from_uid: profile.id, from_name: profile.name, from_unit: profile.unit, to_uid: data.to_uid, to_name: data.to_name, to_unit: data.to_unit, viewed_by_requester: false, 
-                    approve_comment: `VERIFY_LINK_ID:${data.id}`,
-                    txn_id: data.txn_id 
-                }]);
-                if (!error) alert("Return Request Sent!");
-            }
-            else if (type === 'verify') {
-                const parentId = data.approve_comment?.match(/VERIFY_LINK_ID:(\d+)/)?.[1];
-                if (parentId) {
-                    const { data: parent } = await supabase.from("requests").select("req_qty").eq("id", parentId).single();
-                    if (parent) {
-                        const newBal = parent.req_qty - data.req_qty;
-                        if (newBal <= 0) await supabase.from("requests").delete().eq("id", parentId);
-                        else await supabase.from("requests").update({ req_qty: newBal }).eq("id", parentId);
-                    }
-                }
-                await supabase.from("requests").update({ status: 'returned', approve_comment: `Verified: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
-                const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
-                if (inv) await supabase.from("inventory").update({ qty: inv.qty + data.req_qty }).eq("id", data.item_id);
-            }
-        } catch(e){ alert("Action failed."); }
-        setActionModal(null); setForm({comment:"", qty:""});
-    };
 
     return (
         <div className="space-y-10 animate-fade-in pb-20 font-roboto uppercase font-bold tracking-tight">
-            <h2 className="text-2xl font-bold text-slate-800 uppercase flex items-center gap-2"><i className="fa-solid fa-handshake-angle text-orange-500 font-bold uppercase"></i> Udhaari Dashboard</h2>
+            <h2 className="text-2xl font-bold text-slate-800"><i className="fa-solid fa-handshake-angle text-orange-500 mr-2"></i> Udhaari Dashboard</h2>
 
+            {/* ATTENTION REQUIRED */}
             <section className="bg-white rounded-xl border-t-4 border-orange-500 shadow-xl overflow-hidden">
-                <div className="p-4 bg-orange-50/50 flex justify-between border-b uppercase font-bold font-roboto"><div className="flex items-center gap-2 text-orange-900 font-black uppercase text-[10px] tracking-widest"><i className="fa-solid fa-bolt animate-pulse font-bold uppercase"></i> Attention Required</div><span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px] uppercase font-bold">{pending.length}</span></div>
-                <div className="overflow-x-auto"><table className="w-full text-left text-sm divide-y font-mono font-bold uppercase font-roboto font-bold"><thead className="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-roboto"><tr><th className="p-4 pl-6 font-roboto">Material Detail</th><th className="p-4 font-roboto">Counterparty</th><th className="p-4 text-center font-roboto">Qty</th><th className="p-4 text-center font-roboto font-bold">Action</th></tr></thead>
-                    <tbody className="divide-y text-slate-600 uppercase font-bold font-roboto">
+                <div className="p-4 bg-orange-50/50 flex justify-between border-b font-black text-[10px] tracking-widest text-orange-900 uppercase"><span><i className="fa-solid fa-bolt animate-pulse"></i> Attention Required</span><span>{pending.length}</span></div>
+                <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+                    <tbody className="divide-y">
                         {pending.map(r => (
-                            <tr key={r.id} className={`${r.status==='return_requested' ? 'bg-orange-50 animate-pulse font-bold font-roboto' : 'bg-white font-bold font-roboto'} transition border-b uppercase`}>
-                                <td className="p-4 pl-6 leading-tight uppercase font-bold">
-                                  <div className="text-slate-800 font-bold text-[14px] tracking-tight uppercase font-roboto">{r.item_name}</div>
-                                  <div className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter font-mono font-roboto font-bold">{r.item_spec}</div>
-                                  <div className="text-[8.5px] text-orange-600 font-black mt-1 font-mono font-roboto font-bold uppercase tracking-widest">{formatTS(r.timestamp)}</div>
-                                </td>
-                                <td className="p-4 font-bold text-slate-700 uppercase font-roboto leading-tight font-bold">{r.from_name}<div className="text-[10px] text-slate-400 font-normal uppercase font-mono font-roboto font-bold">{r.from_unit}</div></td>
-                                <td className="p-4 text-center font-black text-orange-600 text-[14px] font-mono whitespace-nowrap font-roboto font-bold">{r.req_qty} {r.item_unit}</td>
-                                <td className="p-4 flex gap-2 justify-center font-roboto font-bold uppercase"><button onClick={()=>setActionModal({type: r.status==='pending' ? 'approve' : 'verify', data:r})} className="bg-[#ff6b00] text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md hover:bg-orange-600 tracking-widest font-roboto font-bold uppercase font-bold"> {r.status==='pending' ? 'Issue' : 'Verify'} </button><button onClick={()=>setActionModal({type: 'reject', data:r})} className="bg-slate-100 text-slate-500 px-4 py-2 rounded-lg text-[9px] font-black transition tracking-widest uppercase font-roboto font-bold font-bold uppercase">Reject</button></td>
+                            <tr key={r.id} className={`${r.status==='return_requested' ? 'bg-orange-50 animate-pulse' : 'bg-white'} border-b`}>
+                                <td className="p-4"><div className="font-bold text-[14px]">{r.item_name}</div><div className="text-[10px] text-slate-400">{r.item_spec}</div><div className="text-[8.5px] text-orange-600 mt-1">{formatTS(r.timestamp)}</div></td>
+                                <td className="p-4 font-bold text-slate-700">{r.from_name}<div className="text-[10px] text-slate-400 font-normal">{r.from_unit}</div></td>
+                                <td className="p-4 text-center font-black text-orange-600">{r.req_qty} {r.item_unit}</td>
+                                <td className="p-4 flex gap-2 justify-center"><button onClick={()=>setActionModal({type: r.status==='pending' ? 'approve' : 'verify', data:r})} className="bg-[#ff6b00] text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md">{r.status==='pending' ? 'Issue' : 'Verify'}</button></td>
                             </tr>
                         ))}
                     </tbody>
                 </table></div>
             </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 font-roboto font-bold uppercase">
-                <section className="bg-white rounded-2xl border-t-4 border-blue-600 shadow-lg overflow-hidden font-mono uppercase font-bold">
-                    <div className="p-5 border-b bg-blue-50/30 flex items-center gap-3 uppercase text-xs font-black text-blue-900 tracking-widest font-roboto font-bold"><i className="fa-solid fa-arrow-up-from-bracket text-blue-600 font-bold uppercase"></i> Active Ledger (Items Given)</div>
-                    <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto font-roboto font-bold">
-                        {given.map(r => (
-                            <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative shadow-sm uppercase font-bold font-roboto font-bold">
-                                <div className="text-slate-800 font-bold text-[14px] tracking-tight mb-1 font-roboto font-bold">{r.item_name}</div>
-                                <div className="text-[10px] text-slate-400 mb-3 uppercase tracking-tighter font-roboto font-bold">{r.item_spec}</div>
-                                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg mb-3 font-roboto font-bold"><div><p className="text-[9px] font-bold text-slate-400 uppercase font-roboto font-bold uppercase">Receiver</p><p className="text-[12.5px] font-black text-slate-700 uppercase tracking-tighter font-roboto font-bold">{r.from_name} ({r.from_unit})</p></div><div className="text-right font-black text-blue-600 font-mono text-[14px] font-roboto font-bold uppercase">{r.req_qty} {r.item_unit}</div></div>
-                                <div className="text-[9px] font-mono text-slate-400 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed tracking-tighter font-roboto font-bold uppercase">
-                                    <p><span className="font-black text-blue-600/70 uppercase">TXN:</span> {r.txn_id || '--'}</p>
-                                    <p><span className="font-black text-blue-600/70 uppercase">ISSUED BY:</span> {r.to_name}</p>
-                                    <p><span className="font-black text-blue-600/70 uppercase">ISSUED ON:</span> {formatTS(r.timestamp)}</p>
-                                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <section className="bg-white rounded-2xl border-t-4 border-blue-600 shadow-lg overflow-hidden">
+                    <div className="p-5 border-b bg-blue-50/30 text-xs font-black text-blue-900 tracking-widest uppercase">Items Given</div>
+                    <div className="p-4 space-y-4 max-h-[400px] overflow-y-auto">{given.map(r => (
+                            <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative">
+                                <div className="font-bold text-[14px]">{r.item_name}</div>
+                                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg mt-2"><div><p className="text-[9px] text-slate-400">Receiver</p><p className="text-[12px] font-black">{r.from_name} ({r.from_unit})</p></div><div className="text-blue-600 font-black text-[14px]">{r.req_qty} Nos</div></div>
+                                <div className="text-[9px] text-slate-400 mt-3 border-t pt-2 uppercase"><p>TXN: {r.txn_id}</p><p>DATE: {formatTS(r.timestamp)}</p></div>
                             </div>
-                        ))}
-                    </div>
+                        ))}</div>
                 </section>
 
-                <section className="bg-white rounded-2xl border-t-4 border-red-600 shadow-lg overflow-hidden font-mono uppercase font-bold font-roboto font-bold">
-                    <div className="p-5 border-b bg-red-50/30 flex items-center gap-3 uppercase text-xs font-black text-red-900 tracking-widest font-roboto font-bold font-bold"><i className="fa-solid fa-arrow-down-long text-red-600 font-bold font-bold font-bold"></i> Active Ledger (Items Taken)</div>
-                    <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto font-roboto font-bold font-bold">
-                        {taken.map(r => (
-                            <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative uppercase font-bold font-roboto font-bold font-bold">
-                                <div className="text-slate-800 font-bold text-[14px] tracking-tight mb-1 font-roboto font-bold font-bold">{r.item_name}</div>
-                                <div className="text-[10px] text-slate-400 mb-3 uppercase tracking-tighter font-roboto font-bold font-bold">{r.item_spec}</div>
-                                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg mb-3 font-bold font-roboto font-bold font-bold"><div><p className="text-[9px] font-bold text-slate-400 uppercase font-roboto font-bold font-bold uppercase">Source</p><p className="text-[12.5px] font-black text-slate-700 uppercase tracking-tighter font-roboto font-bold font-bold">{r.to_unit} ({r.to_name})</p></div><div className="text-right font-black text-red-600 font-mono text-[14px] font-roboto font-bold font-bold">{r.req_qty} {r.item_unit}</div></div>
-                                <div className="text-[9px] font-mono text-slate-400 mb-3 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed tracking-tighter font-roboto font-bold font-bold">
-                                    <p><span className="font-black text-red-600/70 uppercase">TXN:</span> {r.txn_id || '--'}</p>
-                                    <p><span className="font-black text-red-600/70 uppercase">TAKEN BY:</span> {r.from_name}</p>
-                                    <p><span className="font-black text-red-600/70 uppercase">TAKEN ON:</span> {formatTS(r.timestamp)}</p>
-                                </div>
-                                <button onClick={()=>setActionModal({type:'return', data:r})} className="w-full py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow-md font-roboto font-bold font-bold hover:bg-slate-800 transition">Initiate Return</button>
+                <section className="bg-white rounded-2xl border-t-4 border-red-600 shadow-lg overflow-hidden">
+                    <div className="p-5 border-b bg-red-50/30 text-xs font-black text-red-900 tracking-widest uppercase">Items Taken</div>
+                    <div className="p-4 space-y-4 max-h-[400px] overflow-y-auto">{taken.map(r => (
+                            <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative">
+                                <div className="font-bold text-[14px]">{r.item_name}</div>
+                                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg mt-2"><div><p className="text-[9px] text-slate-400">Source</p><p className="text-[12px] font-black">{r.to_name} ({r.to_unit})</p></div><div className="text-red-600 font-black text-[14px]">{r.req_qty} Nos</div></div>
+                                <div className="text-[9px] text-slate-400 mt-3 border-t pt-2 uppercase"><p>TXN: {r.txn_id}</p><p>DATE: {formatTS(r.timestamp)}</p></div>
+                                <button onClick={()=>setActionModal({type:'return', data:r})} className="w-full py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl mt-4">Initiate Return</button>
                             </div>
-                        ))}
-                    </div>
+                        ))}</div>
                 </section>
             </div>
 
-            {/* ACTION MODAL - MAXIMUM Z-INDEX (z-[9999]) FOR FULL HEADER BLUR */}
-            {actionModal && (
-              <div className="fixed top-0 left-0 w-full h-full bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 font-roboto font-bold uppercase">
-                <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
-                  <div className="p-6 border-b bg-slate-50 flex justify-between items-center">
-                    <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">
-                      {actionModal.type === 'approve' ? 'Issue Spare' : actionModal.type === 'return' ? 'Initiate Return' : actionModal.type === 'verify' ? 'Verify Return' : 'Reject Action'}
-                    </h3>
-                    <button onClick={()=>setActionModal(null)} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark"></i></button>
-                  </div>
-                  <div className="p-6 space-y-4 font-roboto font-bold uppercase">
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                      <p className="text-[9px] text-slate-400 font-black uppercase mb-1 tracking-widest">Transaction Details</p>
-                      <p className="text-[13px] font-bold text-slate-800">{actionModal.data.item_name}</p>
-                      <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-tighter">{actionModal.data.item_spec}</p>
-                    </div>
-                    {(actionModal.type === 'approve' || actionModal.type === 'return') && (
-                      <div>
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quantity {actionModal.type === 'return' ? '(Borrowed:' : '(Requested:'} {actionModal.data.req_qty})</label>
-                        <input type="number" defaultValue={actionModal.data.req_qty} className="w-full mt-1 p-3 border-2 rounded-lg outline-none font-black text-slate-800 focus:border-orange-500 transition-all font-roboto font-bold" onChange={e=>setForm({...form, qty:e.target.value})} />
-                      </div>
-                    )}
-                    <div>
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Log / Comment</label>
-                        <textarea placeholder="Reason/Log Details..." className="w-full mt-1 p-3 border-2 rounded-lg outline-none font-bold text-xs h-24 text-slate-800 focus:border-orange-500 transition-all uppercase font-roboto" onChange={e=>setForm({...form, comment:e.target.value})}></textarea>
-                    </div>
-                    <button onClick={handleProcess} className={`w-full py-3 ${actionModal.type === 'reject' ? 'bg-red-600' : 'bg-[#ff6b00]'} text-white font-black rounded-xl shadow-lg uppercase tracking-widest text-sm hover:opacity-90 transition-opacity font-roboto font-bold`}>
-                        {actionModal.type === 'return' ? 'Send Return Request' : 'Confirm Transaction'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="pt-10 space-y-10 font-roboto font-bold uppercase">
-                <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden font-roboto font-bold uppercase">
-                    <div className="p-6 bg-slate-800 text-white flex flex-col items-center justify-center font-roboto">
-                      <span className="text-[20px] font-bold tracking-widest uppercase font-roboto">Digital Archive Logs</span>
-                      <span className="text-[10px] opacity-80 font-black tracking-[0.2em] uppercase mt-1 font-roboto">(UDH: UDHAARI • RET: RETURNED)</span>
-                    </div>
-                    <div className="overflow-x-auto font-roboto font-bold uppercase"><table className="w-full text-left text-[9px] divide-y divide-slate-100 font-mono font-bold uppercase font-roboto">
-                        <thead className="bg-slate-50 text-[8.5px] font-black text-slate-400 tracking-widest font-roboto"><tr><th className="p-4 font-roboto">Txn ID</th><th className="p-4 font-roboto">Material Details</th><th className="p-4 text-center font-roboto">Qty</th><th className="p-4 font-roboto">Info</th><th className="p-4 font-roboto">Audit Log</th><th className="p-4 text-center font-roboto">Status</th></tr></thead>
-                        <tbody className="divide-y text-slate-600 font-roboto">
-                            {[...givenHistory, ...takenHistory].sort((a,b)=>Number(b.timestamp)-Number(a.timestamp)).map(h => (
-                                <tr key={h.id} className="hover:bg-slate-50 transition border-b uppercase font-roboto">
-                                    <td className="p-4 font-roboto font-bold uppercase text-slate-800 whitespace-nowrap tracking-tighter">
-                                        <span className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{h.txn_id || '--'}</span>
-                                    </td>
-                                    <td className="p-4 leading-tight uppercase font-roboto">
-                                      <p className="text-slate-800 font-bold text-[12.5px] tracking-tight font-roboto uppercase">{h.item_name}</p>
-                                      <p className="text-[8.5px] text-slate-400 mt-1.5 font-roboto uppercase font-bold">SPEC: {h.item_spec}</p>
-                                    </td>
-                                    <td className="p-4 text-center font-black whitespace-nowrap font-roboto uppercase">
-                                      <div className="flex flex-col items-center gap-1 leading-none font-roboto">
-                                        <span className="text-[9.5px] text-blue-600/80 font-bold tracking-tighter uppercase">UDH: {h.req_qty} {h.item_unit}</span>
-                                        <span className={`text-[9.5px] font-black tracking-tighter uppercase ${h.status === 'returned' ? 'text-green-600' : 'text-slate-300'}`}>RET: {h.status === 'returned' ? h.req_qty : 0} {h.item_unit}</span>
-                                      </div>
-                                    </td>
-                                    <td className="p-4 leading-tight font-roboto uppercase font-bold"><p className="text-blue-500 font-bold uppercase">BORR: {h.from_name}</p><p className="text-red-500 font-bold mt-1 uppercase">LEND: {h.to_name}</p></td>
-                                    <td className="p-4 leading-none space-y-1.5 font-bold tracking-tighter text-[8px] font-roboto uppercase">
-                                        <p><span className="opacity-50">1. REQUEST BY:</span> {h.from_name} ({h.from_unit}) on {formatTS(h.timestamp)}</p>
-                                        <p><span className="opacity-50">2. APPROVED BY:</span> {h.to_name} on {formatTS(h.timestamp)}</p>
-                                        <p><span className="opacity-50">3. RETURN BY:</span> {h.from_name} on {formatTS(h.timestamp)}</p>
-                                        <p><span className="opacity-50 font-black text-green-600">4. FINAL VERIFY:</span> {h.to_name} on {formatTS(h.timestamp)}</p>
-                                    </td>
-                                    <td className="p-4 text-center font-roboto font-bold uppercase"><span className={`px-2.5 py-1 rounded-full text-[8.5px] font-black uppercase tracking-widest ${h.status==='returned' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{h.status}</span></td>
-                                </tr>
-                            ))}
-                        </tbody></table></div>
-                </div>
+            {/* DIGITAL ARCHIVE LOGS */}
+            <div className="bg-white rounded-2xl shadow-md border overflow-hidden mt-10">
+                <div className="p-6 bg-slate-800 text-white text-center"><span className="text-[20px] font-bold tracking-widest">Digital Archive Logs</span></div>
+                <div className="overflow-x-auto"><table className="w-full text-left text-[9px]">
+                    <thead className="bg-slate-50 font-black text-slate-400 tracking-widest"><tr><th className="p-4">Txn ID</th><th className="p-4">Material Details</th><th className="p-4 text-center">Qty</th><th className="p-4">Life-Cycle Audit Log</th><th className="p-4 text-center">Status</th></tr></thead>
+                    <tbody className="divide-y">{history.map(h => (
+                            <tr key={h.id} className="hover:bg-slate-50 border-b">
+                                <td className="p-4 font-bold text-slate-800">{h.txn_id || '--'}</td>
+                                <td className="p-4 leading-tight"><p className="font-bold text-[12px]">{h.item_name}</p><p className="text-slate-400">SPEC: {h.item_spec}</p></td>
+                                <td className="p-4 text-center font-black leading-none"><div>UDH: {h.req_qty}</div><div className={h.status==='returned'?'text-green-600':'text-slate-300'}>RET: {h.status==='returned'?h.req_qty:0}</div></td>
+                                <td className="p-4 text-[8px] space-y-1"><p>1. REQ BY: {h.from_name} on {formatTS(h.timestamp)}</p><p>2. ISS BY: {h.to_name} on {formatTS(h.timestamp)}</p><p>3. RET BY: {h.from_name} on {formatTS(h.timestamp)}</p><p className="text-green-600 font-bold">4. VERIFIED BY: {h.to_name} on {formatTS(h.timestamp)}</p></td>
+                                <td className="p-4 text-center"><span className={`px-2 py-1 rounded-full font-black ${h.status==='returned' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{h.status}</span></td>
+                            </tr>
+                        ))}</tbody></table></div>
             </div>
         </div>
     ); 
