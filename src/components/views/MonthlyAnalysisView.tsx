@@ -10,10 +10,10 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { Bar } from "react-v-final-fixed-charts-2"; // Note: Standard Bar import from react-chartjs-2
-import { Bar as BarChart } from "react-chartjs-2";
+import { Bar } from "react-chartjs-2"; // Fixed: Correct library name
 import ChartDataLabels from "chartjs-plugin-datalabels";
 
+// Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ChartDataLabels);
 
 export default function MonthlyAnalysisView({ profile }: any) {
@@ -51,7 +51,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
         const cat = log.cat || 'Others';
         const sub = log.sub || 'General';
         
-        // Creating a full descriptive name including Make, Model, Spec
+        // Creating full identity (Make Model Spec)
         const make = log.make && log.make !== '-' ? log.make : '';
         const model = log.model && log.model !== '-' ? log.model : '';
         const spec = log.spec && log.spec !== '-' ? log.spec : '';
@@ -69,7 +69,6 @@ export default function MonthlyAnalysisView({ profile }: any) {
 
         report[cat][sub].total += qty;
         
-        // Unique key for item breakdown to store qty and unit
         const itemKey = `${fullDesc}||${unit}`;
         if (!report[cat][sub].items[itemKey]) {
             report[cat][sub].items[itemKey] = 0;
@@ -82,12 +81,11 @@ export default function MonthlyAnalysisView({ profile }: any) {
         const labels = Object.keys(subDataMap).sort();
         const values = labels.map(l => subDataMap[l].total);
 
-        // Tooltip logic: extracting detailed item info
         const breakdownInfo = labels.map(l => {
             const itemsObj = subDataMap[l].items;
             return Object.entries(itemsObj)
                 .sort((a: any, b: any) => b[1] - a[1])
-                .slice(0, 8); // Showing top 8 items for better detail
+                .slice(0, 8);
         });
 
         return {
@@ -117,7 +115,6 @@ export default function MonthlyAnalysisView({ profile }: any) {
 
   return (
     <div className="animate-fade-in space-y-8 pb-20 font-roboto font-bold uppercase tracking-tight">
-      {/* Header */}
       <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl flex flex-col md:flex-row justify-between items-center gap-6 border-b-4 border-orange-500">
         <div>
           <h2 className="text-xl font-black uppercase tracking-widest leading-none">Refinery Resource Analysis</h2>
@@ -129,7 +126,6 @@ export default function MonthlyAnalysisView({ profile }: any) {
         </div>
       </div>
 
-      {/* Grid */}
       {loading ? (
         <div className="p-40 text-center animate-pulse">
             <p className="text-[10px] text-slate-400 font-black tracking-[0.4em]">Aggregating Data...</p>
@@ -148,7 +144,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
                 </div>
               </div>
               <div className="h-[300px]">
-                <BarChart 
+                <Bar 
                   data={cfg.data} 
                   options={{
                     responsive: true,
@@ -176,7 +172,8 @@ export default function MonthlyAnalysisView({ profile }: any) {
                           label: (context: any) => `Total Consumed: ${context.raw} units`,
                           afterBody: (context: any) => {
                             const dataIndex = context[0].dataIndex;
-                            const breakdown = context[0].dataset.itemBreakdown[dataIndex];
+                            const dataset = context[0].dataset;
+                            const breakdown = dataset.itemBreakdown[dataIndex];
                             let lines = ['\nTOP ITEMS (MAKE MODEL SPEC):'];
                             breakdown.forEach((entry: any) => {
                                 const [details, unit] = entry[0].split('||');
