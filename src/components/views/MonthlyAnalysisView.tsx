@@ -10,7 +10,8 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { Bar } from "react-chartjs-2";
+import { Bar } from "react-v-final-fixed-charts-2"; // Note: Standard Bar import from react-chartjs-2
+import { Bar as BarChart } from "react-chartjs-2";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ChartDataLabels);
@@ -45,11 +46,19 @@ export default function MonthlyAnalysisView({ profile }: any) {
       if (error) throw error;
 
       const report: any = {};
+
       logs?.forEach((log) => {
         const cat = log.cat || 'Others';
         const sub = log.sub || 'General';
-        const item = log.item_name || 'Unknown Item';
+        
+        // Creating a full descriptive name including Make, Model, Spec
+        const make = log.make && log.make !== '-' ? log.make : '';
+        const model = log.model && log.model !== '-' ? log.model : '';
+        const spec = log.spec && log.spec !== '-' ? log.spec : '';
+        const fullDesc = `${make} ${model} ${spec}`.trim() || log.item_name;
+        
         const qty = Number(log.qty_consumed || 0);
+        const unit = log.unit || 'Nos';
 
         if (cat === 'Manual Entry') return;
 
@@ -59,7 +68,13 @@ export default function MonthlyAnalysisView({ profile }: any) {
         }
 
         report[cat][sub].total += qty;
-        report[cat][sub].items[item] = (report[cat][sub].items[item] || 0) + qty;
+        
+        // Unique key for item breakdown to store qty and unit
+        const itemKey = `${fullDesc}||${unit}`;
+        if (!report[cat][sub].items[itemKey]) {
+            report[cat][sub].items[itemKey] = 0;
+        }
+        report[cat][sub].items[itemKey] += qty;
       });
 
       const charts = Object.keys(report).sort().map(catName => {
@@ -67,11 +82,12 @@ export default function MonthlyAnalysisView({ profile }: any) {
         const labels = Object.keys(subDataMap).sort();
         const values = labels.map(l => subDataMap[l].total);
 
+        // Tooltip logic: extracting detailed item info
         const breakdownInfo = labels.map(l => {
-            const items = subDataMap[l].items;
-            return Object.entries(items)
+            const itemsObj = subDataMap[l].items;
+            return Object.entries(itemsObj)
                 .sort((a: any, b: any) => b[1] - a[1])
-                .slice(0, 5);
+                .slice(0, 8); // Showing top 8 items for better detail
         });
 
         return {
@@ -80,7 +96,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
           data: {
             labels,
             datasets: [{
-              label: 'Used Qty',
+              label: 'Total Used',
               data: values,
               backgroundColor: labels.map((_, i) => `hsl(${210 + (i * 20)}, 75%, 50%)`),
               borderRadius: 6,
@@ -101,22 +117,22 @@ export default function MonthlyAnalysisView({ profile }: any) {
 
   return (
     <div className="animate-fade-in space-y-8 pb-20 font-roboto font-bold uppercase tracking-tight">
-      {/* Header Panel */}
+      {/* Header */}
       <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl flex flex-col md:flex-row justify-between items-center gap-6 border-b-4 border-orange-500">
         <div>
-          <h2 className="text-xl font-black uppercase tracking-widest leading-none">Global Consumption Analysis</h2>
-          <p className="text-[10px] text-slate-400 mt-2 tracking-[0.2em]">Refinery-Wide Audit Logs</p>
+          <h2 className="text-xl font-black uppercase tracking-widest leading-none">Refinery Resource Analysis</h2>
+          <p className="text-[10px] text-slate-400 mt-2 tracking-[0.2em]">Global Consumption & Itemized Breakdown</p>
         </div>
         <div className="flex items-center gap-4 bg-slate-800 p-3 rounded-xl border border-slate-700">
-          <span className="text-[9px] font-black text-orange-400">ANALYSIS MONTH:</span>
+          <span className="text-[9px] font-black text-orange-400 uppercase">Analysis Month</span>
           <input type="month" className="bg-transparent text-white outline-none font-black text-sm cursor-pointer" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} />
         </div>
       </div>
 
-      {/* Charts Grid */}
+      {/* Grid */}
       {loading ? (
         <div className="p-40 text-center animate-pulse">
-            <p className="text-[10px] text-slate-400 font-black tracking-[0.4em]">Aggregating Refinery Logs...</p>
+            <p className="text-[10px] text-slate-400 font-black tracking-[0.4em]">Aggregating Data...</p>
         </div>
       ) : chartConfigs.length > 0 ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -125,20 +141,19 @@ export default function MonthlyAnalysisView({ profile }: any) {
               <div className="flex justify-between items-center mb-6 border-b pb-4">
                 <div>
                     <h3 className="text-md font-black text-slate-800 leading-none">{cfg.category}</h3>
-                    <p className="text-[8px] text-slate-400 mt-1 font-bold tracking-widest uppercase">Usage Breakdown</p>
+                    <p className="text-[8px] text-slate-400 mt-1 font-bold tracking-widest uppercase">Usage Summary</p>
                 </div>
                 <div className="text-right">
                     <p className="text-[14px] font-black text-indigo-600 leading-none">{cfg.total} <span className="text-[9px] text-slate-400">Total</span></p>
                 </div>
               </div>
               <div className="h-[300px]">
-                <Bar 
+                <BarChart 
                   data={cfg.data} 
                   options={{
                     responsive: true,
                     maintainAspectRatio: false,
-                    // FIX: Layout padding for extra headroom
-                    layout: { padding: { top: 30 } },
+                    layout: { padding: { top: 35 } },
                     plugins: {
                       legend: { display: false },
                       datalabels: {
@@ -151,17 +166,22 @@ export default function MonthlyAnalysisView({ profile }: any) {
                       },
                       tooltip: {
                         backgroundColor: '#0f172a',
-                        padding: 12,
-                        titleFont: { size: 12, weight: 'bold' },
-                        bodyFont: { size: 11 },
+                        titleColor: '#fb923c',
+                        padding: 15,
+                        titleFont: { size: 13, weight: 'bold' },
+                        bodyFont: { size: 11, weight: '500' },
+                        displayColors: false,
                         callbacks: {
-                          label: (context: any) => ` Total Used: ${context.raw}`,
+                          title: (context: any) => `SUB-CAT: ${context[0].label}`,
+                          label: (context: any) => `Total Consumed: ${context.raw} units`,
                           afterBody: (context: any) => {
                             const dataIndex = context[0].dataIndex;
                             const breakdown = context[0].dataset.itemBreakdown[dataIndex];
-                            let lines = ['\nTOP ITEMS USED:'];
-                            breakdown.forEach((item: any) => {
-                                lines.push(` • ${item[0]}: ${item[1]} Nos`);
+                            let lines = ['\nTOP ITEMS (MAKE MODEL SPEC):'];
+                            breakdown.forEach((entry: any) => {
+                                const [details, unit] = entry[0].split('||');
+                                const qty = entry[1];
+                                lines.push(`• ${details} : ${qty} ${unit}`);
                             });
                             return lines;
                           }
@@ -169,10 +189,9 @@ export default function MonthlyAnalysisView({ profile }: any) {
                       }
                     },
                     scales: {
-                      // FIX: Added 'grace' to add 15% extra headroom on Y-axis
                       y: { 
                         beginAtZero: true, 
-                        grace: '15%', 
+                        grace: '20%', 
                         grid: { color: '#f8fafc' }, 
                         ticks: { font: { size: 9, weight: 'bold' } } 
                       },
@@ -188,7 +207,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
           ))}
         </div>
       ) : (
-        <div className="bg-white border-2 border-dashed rounded-3xl p-32 text-center text-slate-300 font-black text-xs">NO DATA FOUND FOR THIS MONTH</div>
+        <div className="bg-white border-2 border-dashed rounded-3xl p-32 text-center text-slate-300 font-black text-xs">DATA UNAVAILABLE</div>
       )}
     </div>
   );
