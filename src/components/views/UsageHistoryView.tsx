@@ -4,8 +4,7 @@ import { supabase } from "@/lib/supabase";
 
 export default function UsageHistoryView({ profile }: any) {
   const [logs, setLogs] = useState<any[]>([]);
-  
-  // Pagination State (Same as My Local Store)
+  const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
@@ -14,8 +13,8 @@ export default function UsageHistoryView({ profile }: any) {
   }, [profile]);
 
   const fetchLogs = async () => {
+    setLoading(true);
     try {
-      // Fetching personal usage logs as per user's original code
       const { data, error } = await supabase
         .from("usage_logs")
         .select("*")
@@ -23,50 +22,46 @@ export default function UsageHistoryView({ profile }: any) {
         .order("timestamp", { ascending: false });
       
       if (error) throw error;
-      if (data) setLogs(data);
+      setLogs(data || []);
     } catch (e) { console.error("Fetch failed"); }
+    finally { setLoading(false); }
   };
 
   const deleteLog = async (id: number) => {
-    if (confirm("Delete this log entry?")) {
-      try {
-        await supabase.from("usage_logs").delete().eq("id", id);
-        fetchLogs();
-      } catch (e) { alert("Error deleting log"); }
-    }
+    if (!confirm("Delete this log entry?")) return;
+    try {
+      const { error } = await supabase.from("usage_logs").delete().eq("id", id);
+      if (error) throw error;
+      setLogs(prev => prev.filter(log => log.id !== id));
+      alert("Log entry removed.");
+    } catch (e: any) { alert("Delete failed: Check SQL Policies."); }
   };
 
-  // Pagination Logic
-  const totalPages = Math.ceil(logs.length / itemsPerPage) || 1;
   const currentLogs = logs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.ceil(logs.length / itemsPerPage) || 1;
 
   const exportCSV = () => {
-    const headers = "Date,Item,Qty,Unit,Purpose/Note\n";
+    const headers = "Date,Item,Qty,Unit,Purpose/Job\n";
     const rows = logs.map(l => {
-      const date = l.timestamp ? new Date(Number(l.timestamp)).toLocaleDateString('en-GB') : '';
+      const date = l.timestamp ? new Date(Number(l.timestamp)).toLocaleDateString('en-GB') : '--';
       return `"${date}","${l.item_name}","${l.qty_consumed}","${l.unit || 'Nos'}","${l.purpose || ''}"\n`;
     });
     const blob = new Blob([headers + rows.join("")], { type: 'text/csv' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `MyConsumption_Report.csv`;
-    a.click();
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `MyConsumption_Report.csv`; a.click();
   };
 
   return (
     <div className="animate-fade-in space-y-6 pb-20 font-roboto font-bold uppercase">
-      {/* Simple Header with Export Button */}
-      <div className="bg-white p-6 rounded-xl border shadow-sm flex justify-between items-center">
+      <div className="bg-white p-6 rounded-xl border shadow-sm flex justify-between items-center border-l-4 border-red-500">
         <div>
-          <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest leading-none">My Usage History</h2>
-          <p className="text-[10px] font-black bg-slate-100 text-slate-500 px-2 py-0.5 rounded mt-2 inline-block uppercase">Personal Logs</p>
+          <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest leading-none">My Consumption History</h2>
+          <p className="text-[10px] font-black bg-slate-100 text-slate-500 px-2 py-0.5 rounded mt-2 inline-block uppercase">Personal Audit</p>
         </div>
-        <button onClick={exportCSV} className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black shadow-md flex items-center gap-2 hover:bg-emerald-700 transition-all uppercase tracking-widest">
+        <button onClick={exportCSV} className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black shadow-md flex items-center gap-2 hover:bg-emerald-700 transition-all">
           <i className="fa-solid fa-file-csv"></i> Export Sheet
         </button>
       </div>
 
-      {/* Table Section (Matching Image Layout) */}
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
         <div className="p-4 border-b bg-slate-50/50 flex items-center gap-2">
             <i className="fa-solid fa-history text-slate-400"></i>
@@ -74,7 +69,7 @@ export default function UsageHistoryView({ profile }: any) {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left tracking-tight">
-            <thead className="bg-slate-50 text-slate-400 text-[10px] font-black border-b tracking-widest uppercase">
+            <thead className="bg-slate-50 text-slate-400 text-[10px] font-black border-b uppercase tracking-widest">
               <tr>
                 <th className="p-5 pl-8">DATE</th>
                 <th className="p-5">ITEM</th>
@@ -84,21 +79,23 @@ export default function UsageHistoryView({ profile }: any) {
               </tr>
             </thead>
             <tbody className="divide-y text-[11px] font-bold">
-              {currentLogs.length > 0 ? currentLogs.map((l: any) => (
+              {loading ? (
+                <tr><td colSpan={5} className="p-10 text-center animate-pulse">Loading Logs...</td></tr>
+              ) : currentLogs.length > 0 ? currentLogs.map((l: any) => (
                 <tr key={l.id} className="hover:bg-slate-50 transition border-b uppercase">
                   <td className="p-5 pl-8 leading-tight">
                     <div className="text-slate-800 font-bold">{l.timestamp ? new Date(Number(l.timestamp)).toLocaleDateString('en-GB') : '--'}</div>
-                    <div className="text-[9px] text-slate-400 font-medium mt-0.5">{l.timestamp ? new Date(Number(l.timestamp)).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '--'}</div>
+                    <div className="text-[9px] text-slate-400 font-medium mt-0.5">{l.timestamp ? new Date(Number(l.timestamp)).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--'}</div>
                   </td>
                   <td className="p-5 leading-tight">
                     <div className="text-slate-800 font-bold text-[13px] tracking-tight">{l.item_name}</div>
-                    <div className="text-[9px] text-slate-400 mt-1 uppercase font-medium">{l.category || 'General'} (You)</div>
+                    <div className="text-[9px] text-slate-400 mt-1">{l.cat || 'General'} (You)</div>
                   </td>
                   <td className="p-5 font-black text-center text-red-600 text-[14px] whitespace-nowrap">
                      -{l.qty_consumed} {l.unit || 'Nos'}
                   </td>
                   <td className="p-5">
-                    <div className="text-slate-600 italic lowercase font-medium tracking-tight">
+                    <div className="text-slate-600 italic lowercase font-medium">
                       {l.purpose ? `"${l.purpose}"` : '--'}
                     </div>
                   </td>
@@ -109,29 +106,16 @@ export default function UsageHistoryView({ profile }: any) {
                   </td>
                 </tr>
               )) : (
-                <tr><td colSpan={5} className="p-20 text-center text-slate-300 font-black tracking-[0.2em]">NO LOGS FOUND</td></tr>
+                <tr><td colSpan={5} className="p-20 text-center text-slate-300 font-black tracking-[0.2em]">NO RECORDS FOUND</td></tr>
               )}
             </tbody>
           </table>
         </div>
 
-        {/* Pagination Toolbar (Same as Local Store) */}
-        <div className="p-4 bg-slate-50 border-t flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-          <button 
-            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
-            disabled={currentPage === 1} 
-            className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 hover:bg-red-50 transition-all"
-          >
-            Prev
-          </button>
+        <div className="p-4 bg-slate-50 border-t flex justify-between items-center text-[10px] font-black uppercase">
+          <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30">Prev</button>
           <span className="text-slate-400">Page {currentPage} of {totalPages}</span>
-          <button 
-            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
-            disabled={currentPage === totalPages} 
-            className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 hover:bg-red-50 transition-all"
-          >
-            Next
-          </button>
+          <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30">Next</button>
         </div>
       </div>
     </div>
