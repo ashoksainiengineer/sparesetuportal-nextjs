@@ -47,7 +47,10 @@ export default function MonthlyAnalysisView({ profile }: any) {
       const report: any = {};
 
       logs?.forEach((log) => {
-        const cat = log.cat || 'Others';
+        // --- LOGIC: SKIP MANUAL ENTRIES ---
+        if (log.is_manual === true || log.cat === 'Manual Entry' || !log.cat) return;
+
+        const cat = log.cat;
         const sub = log.sub || 'General';
         
         const make = log.make && log.make !== '-' ? log.make : '';
@@ -58,16 +61,12 @@ export default function MonthlyAnalysisView({ profile }: any) {
         const qty = Number(log.qty_consumed || 0);
         const unit = log.unit || 'Nos';
 
-        if (cat === 'Manual Entry') return;
-
         if (!report[cat]) report[cat] = {};
         if (!report[cat][sub]) {
           report[cat][sub] = { total: 0, items: {}, units: {} };
         }
 
         report[cat][sub].total += qty;
-        
-        // Track units for datalabels
         report[cat][sub].units[unit] = (report[cat][sub].units[unit] || 0) + qty;
 
         const itemKey = `${fullDesc}||${unit}`;
@@ -82,10 +81,10 @@ export default function MonthlyAnalysisView({ profile }: any) {
         const labels = Object.keys(subDataMap).sort();
         const values = labels.map(l => subDataMap[l].total);
         
-        // Logic: Get the primary unit for each bar
         const barUnits = labels.map(l => {
             const units = subDataMap[l].units;
-            return Object.entries(units).sort((a:any, b:any) => b[1] - a[1])[0][0];
+            const topUnit = Object.entries(units).sort((a:any, b:any) => b[1] - a[1])[0];
+            return topUnit ? topUnit[0] : 'Nos';
         });
 
         const breakdownInfo = labels.map(l => {
@@ -96,17 +95,17 @@ export default function MonthlyAnalysisView({ profile }: any) {
         return {
           category: catName,
           total: values.reduce((a, b) => a + b, 0),
-          primaryUnit: barUnits[0] || 'Units', // Representative unit for header
+          primaryUnit: barUnits[0] || 'Nos',
           data: {
             labels,
             datasets: [{
               label: 'Total Used',
               data: values,
-              backgroundColor: labels.map((_, i) => `hsl(${210 + (i * 20)}, 75%, 50%)`),
+              backgroundColor: labels.map((_, i) => `hsl(${210 + (i * 15)}, 70%, 50%)`),
               borderRadius: 6,
               barPercentage: 0.6,
               itemBreakdown: breakdownInfo,
-              units: barUnits // Passing units to datalabels
+              units: barUnits
             }]
           }
         };
@@ -125,11 +124,11 @@ export default function MonthlyAnalysisView({ profile }: any) {
       <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl flex flex-col md:flex-row justify-between items-center gap-6 border-b-4 border-orange-500">
         <div>
           <h2 className="text-xl font-black uppercase tracking-widest leading-none">Monthly Consumption Data</h2>
-          <p className="text-[10px] text-slate-400 mt-2 tracking-[0.2em] lowercase">category & sub-category wise breakdown</p>
+          <p className="text-[10px] text-slate-400 mt-2 tracking-[0.2em] lowercase font-black">Catalog-only analysis (Manual entries excluded)</p>
         </div>
         <div className="flex items-center gap-4 bg-slate-800 p-3 rounded-xl border border-slate-700">
           <span className="text-[9px] font-black text-orange-400 uppercase">Analysis Month</span>
-          <input type="month" className="bg-transparent text-white outline-none font-black text-sm cursor-pointer" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} />
+          <input type="month" className="bg-transparent text-white outline-none font-black text-sm cursor-pointer border-none" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} />
         </div>
       </div>
 
@@ -144,10 +143,9 @@ export default function MonthlyAnalysisView({ profile }: any) {
               <div className="flex justify-between items-center mb-6 border-b pb-4">
                 <div>
                     <h3 className="text-md font-black text-slate-800 leading-none">{cfg.category}</h3>
-                    <p className="text-[8px] text-slate-400 mt-1 font-bold tracking-widest uppercase">Usage Summary</p>
+                    <p className="text-[8px] text-slate-400 mt-1 font-bold tracking-widest uppercase">Sub-Category Breakdown</p>
                 </div>
                 <div className="text-right">
-                    {/* Header Total with Unit */}
                     <p className="text-[14px] font-black text-indigo-600 leading-none">{cfg.total} <span className="text-[9px] text-slate-400 uppercase">{cfg.primaryUnit}</span></p>
                 </div>
               </div>
@@ -160,7 +158,6 @@ export default function MonthlyAnalysisView({ profile }: any) {
                     layout: { padding: { top: 35 } },
                     plugins: {
                       legend: { display: false },
-                      // FIXED: Datalabels now show value + unit
                       datalabels: {
                         color: '#1e293b',
                         font: { weight: 'bold', size: 10 },
@@ -181,7 +178,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
                         displayColors: false,
                         callbacks: {
                           title: (context: any) => `SUB-CAT: ${context[0].label}`,
-                          label: (context: any) => `Total Consumed: ${context.raw} units`,
+                          label: (context: any) => `Total Consumed: ${context.raw}`,
                           afterBody: (context: any) => {
                             const dataIndex = context[0].dataIndex;
                             const dataset = context[0].dataset;
@@ -208,7 +205,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
           ))}
         </div>
       ) : (
-        <div className="bg-white border-2 border-dashed rounded-3xl p-32 text-center text-slate-300 font-black text-xs">DATA UNAVAILABLE</div>
+        <div className="bg-white border-2 border-dashed rounded-3xl p-32 text-center text-slate-300 font-black text-xs uppercase tracking-widest">No Catalog Usage Found For {selectedMonth}</div>
       )}
     </div>
   );
