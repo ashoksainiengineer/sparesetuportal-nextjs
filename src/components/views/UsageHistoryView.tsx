@@ -41,10 +41,10 @@ export default function UsageHistoryView({ profile }: any) {
   const totalPages = Math.ceil(logs.length / itemsPerPage) || 1;
 
   const exportCSV = () => {
-    const headers = "Date,Item,Qty,Unit,Purpose/Job\n";
+    const headers = "Date,Item,Make,Model,Spec,Qty,Unit,Purpose/Job\n";
     const rows = logs.map(l => {
       const date = l.timestamp ? new Date(Number(l.timestamp)).toLocaleDateString('en-GB') : '--';
-      return `"${date}","${l.item_name}","${l.qty_consumed}","${l.unit || 'Nos'}","${l.purpose || ''}"\n`;
+      return `"${date}","${l.item_name}","${l.make || '-'}","${l.model || '-'}","${l.spec || '-'}","${l.qty_consumed}","${l.unit || 'Nos'}","${l.purpose || ''}"\n`;
     });
     const blob = new Blob([headers + rows.join("")], { type: 'text/csv' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `MyConsumption_Report.csv`; a.click();
@@ -72,7 +72,7 @@ export default function UsageHistoryView({ profile }: any) {
             <thead className="bg-slate-50 text-slate-400 text-[10px] font-black border-b uppercase tracking-widest">
               <tr>
                 <th className="p-5 pl-8">DATE</th>
-                <th className="p-5">ITEM</th>
+                <th className="p-5">ITEM DETAILS</th>
                 <th className="p-5 text-center">QTY USED</th>
                 <th className="p-5">NOTE/JOB</th>
                 <th className="p-5 text-center">ACTION</th>
@@ -80,7 +80,7 @@ export default function UsageHistoryView({ profile }: any) {
             </thead>
             <tbody className="divide-y text-[11px] font-bold">
               {loading ? (
-                <tr><td colSpan={5} className="p-10 text-center animate-pulse">Loading Logs...</td></tr>
+                <tr><td colSpan={5} className="p-10 text-center animate-pulse tracking-widest text-slate-400 uppercase">Loading Logs...</td></tr>
               ) : currentLogs.length > 0 ? currentLogs.map((l: any) => (
                 <tr key={l.id} className="hover:bg-slate-50 transition border-b uppercase">
                   <td className="p-5 pl-8 leading-tight">
@@ -88,14 +88,19 @@ export default function UsageHistoryView({ profile }: any) {
                     <div className="text-[9px] text-slate-400 font-medium mt-0.5">{l.timestamp ? new Date(Number(l.timestamp)).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--'}</div>
                   </td>
                   <td className="p-5 leading-tight">
-                    <div className="text-slate-800 font-bold text-[13px] tracking-tight">{l.item_name}</div>
-                    <div className="text-[9px] text-slate-400 mt-1">{l.cat || 'General'} (You)</div>
+                    <div className="text-slate-800 font-bold text-[13px] tracking-tight flex items-center gap-2">
+                      {l.item_name}
+                      {l.is_manual && <span className="bg-orange-100 text-orange-600 text-[7px] px-1 py-0.5 rounded font-black border border-orange-200">M</span>}
+                    </div>
+                    <div className="text-[9px] text-indigo-500 mt-1 uppercase">
+                       {l.make || '-'} | {l.model || '-'} | {l.spec || '-'}
+                    </div>
                   </td>
                   <td className="p-5 font-black text-center text-red-600 text-[14px] whitespace-nowrap">
-                     -{l.qty_consumed} {l.unit || 'Nos'}
+                    -{l.qty_consumed} {l.unit || 'Nos'}
                   </td>
                   <td className="p-5">
-                    <div className="text-slate-600 italic lowercase font-medium">
+                    <div className="text-slate-600 italic lowercase font-medium bg-slate-50 p-2 rounded border border-dashed border-slate-200">
                       {l.purpose ? `"${l.purpose}"` : '--'}
                     </div>
                   </td>
