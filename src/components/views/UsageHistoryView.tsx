@@ -8,9 +8,10 @@ export default function UsageHistoryView({ profile }: any) {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
+  // Tab pe click karte hi (mount hote hi) fetch karne ke liye
   useEffect(() => { 
     if (profile?.id) fetchLogs(); 
-  }, [profile]);
+  }, [profile?.id]);
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -55,7 +56,7 @@ export default function UsageHistoryView({ profile }: any) {
       <div className="bg-white p-6 rounded-xl border shadow-sm flex justify-between items-center border-l-4 border-red-500">
         <div>
           <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest leading-none">My Consumption History</h2>
-          <p className="text-[10px] font-black bg-slate-100 text-slate-500 px-2 py-0.5 rounded mt-2 inline-block uppercase">Personal Audit</p>
+          <p className="text-[10px] font-black bg-slate-100 text-slate-500 px-2 py-0.5 rounded mt-2 inline-block uppercase">Personal Audit Log</p>
         </div>
         <button onClick={exportCSV} className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black shadow-md flex items-center gap-2 hover:bg-emerald-700 transition-all">
           <i className="fa-solid fa-file-csv"></i> Export Sheet
@@ -65,7 +66,7 @@ export default function UsageHistoryView({ profile }: any) {
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
         <div className="p-4 border-b bg-slate-50/50 flex items-center gap-2">
             <i className="fa-solid fa-history text-slate-400"></i>
-            <h3 className="text-xs font-black text-slate-600 uppercase tracking-widest">Recent Consumption</h3>
+            <h3 className="text-xs font-black text-slate-600 uppercase tracking-widest">Recent Activity</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left tracking-tight">
@@ -80,7 +81,7 @@ export default function UsageHistoryView({ profile }: any) {
             </thead>
             <tbody className="divide-y text-[11px] font-bold">
               {loading ? (
-                <tr><td colSpan={5} className="p-10 text-center animate-pulse tracking-widest text-slate-400 uppercase">Loading Logs...</td></tr>
+                <tr><td colSpan={5} className="p-10 text-center animate-pulse tracking-widest text-slate-400 uppercase">Syncing Data...</td></tr>
               ) : currentLogs.length > 0 ? currentLogs.map((l: any) => (
                 <tr key={l.id} className="hover:bg-slate-50 transition border-b uppercase">
                   <td className="p-5 pl-8 leading-tight">
@@ -118,9 +119,9 @@ export default function UsageHistoryView({ profile }: any) {
         </div>
 
         <div className="p-4 bg-slate-50 border-t flex justify-between items-center text-[10px] font-black uppercase">
-          <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30">Prev</button>
+          <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 hover:bg-slate-50 transition-all">Prev</button>
           <span className="text-slate-400">Page {currentPage} of {totalPages}</span>
-          <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30">Next</button>
+          <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 hover:bg-slate-50 transition-all">Next</button>
         </div>
       </div>
     </div>
