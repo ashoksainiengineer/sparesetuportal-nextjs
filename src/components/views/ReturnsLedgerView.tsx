@@ -16,12 +16,10 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
 
     const fetchAll = async () => {
         try {
-            // Pending and Return Requests
             const { data: p } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).in("status", ["pending", "return_requested"]).order("id", { ascending: false });
-            // Active Ledgers
             const { data: g } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).eq("status", "approved").order("id", { ascending: false });
             const { data: t = [] } = await supabase.from("requests").select("*").eq("from_unit", profile.unit).eq("status", "approved").order("id", { ascending: false });
-            // Archive History
+            // Fetching Archive Logs
             const { data: gh } = await supabase.from("requests").select("*").eq("to_unit", profile.unit).in("status", ["returned", "rejected"]).order("id", { ascending: false });
             const { data: th = [] } = await supabase.from("requests").select("*").eq("from_unit", profile.unit).in("status", ["returned", "rejected"]).order("id", { ascending: false });
             
@@ -35,7 +33,7 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
 
     useEffect(() => {
         if (!profile) return; fetchAll();
-        const channel = supabase.channel('sparesetu-sync-v-final-height').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { 
+        const channel = supabase.channel('sparesetu-sync-v-fixed-height').on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => { 
             fetchAll(); 
             if(onAction) onAction(); 
         }).subscribe();
@@ -130,14 +128,14 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
                 </div>
             </section>
 
-            {/* SECTION 2: ACTIVE LEDGERS - HEIGHT INCREASED */}
+            {/* SECTION 2: ACTIVE LEDGERS - OPTIMIZED HEIGHT */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <section className="bg-white rounded-2xl border-t-4 border-blue-600 shadow-lg overflow-hidden flex flex-col">
                     <div className="p-5 border-b bg-blue-50/30 flex items-center gap-3 uppercase text-xs font-black text-blue-900 tracking-widest">
                         <i className="fa-solid fa-arrow-up-from-bracket text-blue-600"></i> UDHAARI DIYA (ITEMS GIVEN)
                     </div>
-                    {/* HEIGHT UPDATED TO h-[600px] FOR BETTER VISIBILITY */}
-                    <div className="p-4 space-y-4 h-[600px] overflow-y-auto bg-slate-50/20">
+                    {/* HEIGHT REDUCED TO 500px FOR BETTER VISIBILITY */}
+                    <div className="p-4 space-y-4 h-[500px] overflow-y-auto bg-slate-50/20">
                         {given.map(r => (
                             <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative shadow-sm hover:border-blue-100 transition-colors">
                                 <div className="text-slate-800 font-bold text-[14px] tracking-tight mb-1">{r.item_name}</div>
@@ -156,8 +154,8 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
                     <div className="p-5 border-b bg-red-50/30 flex items-center gap-3 uppercase text-xs font-black text-red-900 tracking-widest">
                         <i className="fa-solid fa-arrow-down-long text-red-600"></i> UDHAARI LIYA (ITEMS TAKEN)
                     </div>
-                    {/* HEIGHT UPDATED TO h-[600px] FOR BETTER VISIBILITY */}
-                    <div className="p-4 space-y-4 h-[600px] overflow-y-auto bg-slate-50/20">
+                    {/* HEIGHT REDUCED TO 500px FOR BETTER VISIBILITY */}
+                    <div className="p-4 space-y-4 h-[500px] overflow-y-auto bg-slate-50/20">
                         {taken.map(r => (
                             <div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative shadow-sm hover:border-red-100 transition-colors">
                                 <div className="text-slate-800 font-bold text-[14px] tracking-tight mb-1">{r.item_name}</div>
@@ -174,7 +172,7 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
                 </section>
             </div>
 
-            {/* SECTION 3: RETURN & UDHAARI LOGS */}
+            {/* SECTION 3: ARCHIVE LOGS */}
             <div className="pt-10 space-y-6">
                 <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
                     <div className="p-6 bg-slate-800 text-white flex flex-col items-center justify-center">
