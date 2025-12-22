@@ -47,27 +47,13 @@ export default function GlobalSearchView({ profile }: any) {
 
   const formatTS = (ts: any) => new Date(Number(ts)).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
 
-  // --- EXPORT TO SHEET LOGIC ---
   const exportToSheet = () => {
     const groupedForExport = getGroupedData(true); 
     const headers = ["Material", "Specification", "Make", "Model", "Total Qty", "Unit", "Category", "Sub-Category", "Mode"];
-    
     const rows = groupedForExport.map((i: any) => [
-      `"${i.item || ''}"`, 
-      `"${i.spec || ''}"`, 
-      `"${i.make || ''}"`, 
-      `"${i.model || ''}"`, 
-      i.totalQty, 
-      `"${i.unit || ''}"`, 
-      `"${i.cat || ''}"`, 
-      `"${i.sub || ''}"`,
-      i.is_manual ? "Manual" : "Catalog"
+      `"${i.item || ''}"`, `"${i.spec || ''}"`, `"${i.make || ''}"`, `"${i.model || ''}"`, i.totalQty, `"${i.unit || ''}"`, `"${i.cat || ''}"`, `"${i.sub || ''}"`, i.is_manual ? "Manual" : "Catalog"
     ]);
-
-    let csvContent = "data:text/csv;charset=utf-8," 
-      + headers.join(",") + "\n" 
-      + rows.map(e => e.join(",")).join("\n");
-
+    let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -77,13 +63,13 @@ export default function GlobalSearchView({ profile }: any) {
     document.body.removeChild(link);
   };
 
-  // --- 1. ENGINE: GROUPING FOR MAIN TABLE ---
   const getGroupedData = (ignoreStockFilter = false) => {
     const filtered = items.filter((i: any) => {
       const matchesSearch = (i.item.toLowerCase().includes(search.toLowerCase()) || i.spec.toLowerCase().includes(search.toLowerCase()));
       const matchesZone = (selZone === "all" || i.holder_unit === selZone);
       const matchesSub = (selSubCat === "all" || i.sub === selSubCat);
       let matchesCat = (selCat === "all" || i.cat === selCat);
+      if (selCat === "OUT_OF_STOCK") matchesCat = true; 
       return matchesSearch && matchesZone && matchesCat && matchesSub;
     });
 
@@ -95,21 +81,14 @@ export default function GlobalSearchView({ profile }: any) {
       }
       groups[key].totalQty += Number(item.qty);
       groups[key].occurrences.push(item);
-      
       const itemTS = Number(item.timestamp) || 0;
-      if (itemTS > groups[key].latestTS) {
-        groups[key].latestTS = itemTS;
-      }
+      if (itemTS > groups[key].latestTS) groups[key].latestTS = itemTS;
     });
 
     let result = Object.values(groups);
-
-    if (!ignoreStockFilter && selStock === "out") {
-      result = result.filter((g: any) => g.totalQty <= 0);
-    } else if (!ignoreStockFilter && selStock === "available") {
-      result = result.filter((g: any) => g.totalQty > 0);
-    }
-
+    if (selCat === "OUT_OF_STOCK") result = result.filter((g: any) => g.totalQty === 0);
+    else if (!ignoreStockFilter && selStock === "out") result = result.filter((g: any) => g.totalQty <= 0);
+    else if (!ignoreStockFilter && selStock === "available") result = result.filter((g: any) => g.totalQty > 0);
     return result.sort((a: any, b: any) => b.latestTS - a.latestTS);
   };
 
@@ -121,9 +100,7 @@ export default function GlobalSearchView({ profile }: any) {
     const summary: any = {};
     items.forEach(i => {
       const key = `${i.cat} > ${i.sub}`;
-      if (!summary[key]) {
-        summary[key] = { cat: i.cat, sub: i.sub, total: 0, unit: i.unit || 'Nos' };
-      }
+      if (!summary[key]) summary[key] = { cat: i.cat, sub: i.sub, total: 0, unit: i.unit || 'Nos' };
       summary[key].total += Number(i.qty);
     });
     return Object.values(summary).sort((a: any, b: any) => a.cat.localeCompare(b.cat));
@@ -173,30 +150,31 @@ export default function GlobalSearchView({ profile }: any) {
         </div>
       </section>
 
-      {/* SEARCH & FILTERS */}
+      {/* SEARCH & FILTERS - MATCHED DESIGN */}
       <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b bg-slate-50/80 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="relative flex-grow md:w-80"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Search Material..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none font-black uppercase" onChange={e=>setSearch(e.target.value)} /></div>
+            <div className="relative flex-grow md:w-80"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Search Material..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none font-black uppercase" value={search} onChange={e=>setSearch(e.target.value)} /></div>
             <div className="flex gap-2">
               <button onClick={() => setShowSummary(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md flex items-center gap-2 uppercase tracking-widest hover:bg-indigo-700 transition-all"><i className="fa-solid fa-chart-pie"></i> Stock Summary</button>
               <button onClick={exportToSheet} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md flex items-center gap-2 uppercase tracking-widest hover:bg-emerald-700 transition-all"><i className="fa-solid fa-file-excel"></i> Export to Sheet</button>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-            <select className="border rounded-md text-[10px] font-bold p-2 uppercase" onChange={e=>setSelZone(e.target.value)} value={selZone}>
+            <select className="border rounded-md text-[10px] font-bold p-2 uppercase bg-white cursor-pointer" onChange={e=>setSelZone(e.target.value)} value={selZone}>
                 <option value="all">All Zones</option>
                 {[...new Set(items.map(i => i.holder_unit))].sort().map(z => <option key={z} value={z}>{z}</option>)}
             </select>
-            <select className="border rounded-md text-[10px] font-bold p-2 uppercase" onChange={e=> {setSelCat(e.target.value); setSelSubCat("all");}} value={selCat}>
+            <select className="border rounded-md text-[10px] font-bold p-2 uppercase bg-white cursor-pointer" onChange={e=> {setSelCat(e.target.value); setSelSubCat("all");}} value={selCat}>
                 <option value="all">Category: All</option>
+                <option value="OUT_OF_STOCK" className="text-red-600 font-black">!!! OUT OF STOCK !!!</option>
                 {[...new Set(items.map(i => i.cat))].sort().map(c => <option key={c} value={c}>{c}</option>)}
             </select>
-            <select disabled={selCat === "all"} className="border rounded-md text-[10px] font-bold p-2 uppercase disabled:opacity-50" onChange={e=>setSelSubCat(e.target.value)} value={selSubCat}>
+            <select disabled={selCat === "all" || selCat === "OUT_OF_STOCK"} className="border rounded-md text-[10px] font-bold p-2 uppercase bg-white cursor-pointer disabled:opacity-50" onChange={e=>setSelSubCat(e.target.value)} value={selSubCat}>
                 <option value="all">Sub-Category: All</option>
                 {[...new Set(items.filter(i => i.cat === selCat).map(i => i.sub).filter(s => s))].sort().map(s => <option key={s} value={s}>{s}</option>)}
             </select>
-            <select className="border rounded-md text-[10px] font-bold p-2 uppercase bg-white" onChange={e=>setSelStock(e.target.value)} value={selStock}>
+            <select className="border rounded-md text-[10px] font-bold p-2 uppercase bg-white cursor-pointer" onChange={e=>setSelStock(e.target.value)} value={selStock}>
                 <option value="all">Stock: All Items</option>
                 <option value="available">Stock: Available Only</option>
                 <option value="out">Stock: Out of Stock</option>
@@ -211,7 +189,7 @@ export default function GlobalSearchView({ profile }: any) {
             </thead>
             <tbody className="divide-y text-sm">
               {currentItems.map((group: any, idx: number) => (
-                <tr key={idx} className="hover:bg-slate-50 transition border-b">
+                <tr key={idx} className={`hover:bg-slate-50 transition border-b group cursor-pointer ${group.totalQty === 0 ? 'bg-red-50/30' : ''}`} onClick={()=>{setBifurcateItem(group); setExpandedZone(null);}}>
                   <td className="p-4 pl-6 leading-tight">
                     <div className="text-slate-800 font-bold text-[14px] flex items-center gap-2">
                       {group.item}
@@ -219,14 +197,13 @@ export default function GlobalSearchView({ profile }: any) {
                     </div>
                     <div className="text-[10px] text-slate-400 mt-1 uppercase font-bold">{group.cat} &gt; {group.sub}</div>
                   </td>
-                  {/* NEW SPEC COLUMN WITH LOCAL STORE STYLING */}
                   <td className="p-4 font-mono">
                     <span className="bg-white border px-2 py-1 rounded-[4px] text-[10.5px] text-slate-600 font-bold shadow-sm inline-block">
                         {group.make} | {group.model} | {group.spec}
                     </span>
                   </td>
-                  <td className="p-4 text-center font-black text-[16px] text-indigo-600 leading-none">
-                    {group.totalQty} <span className="text-[9px] opacity-70">{group.unit}</span>
+                  <td className={`p-4 text-center font-bold text-[16px] whitespace-nowrap ${group.totalQty === 0 ? 'text-red-600 animate-pulse' : 'text-slate-800'}`}>
+                    {group.totalQty === 0 ? "ZERO STOCK" : `${group.totalQty} ${group.unit}`}
                   </td>
                   <td className="p-4 text-center">
                     <span className={`px-2 py-0.5 rounded text-[9px] font-black ${group.totalQty > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
@@ -234,7 +211,7 @@ export default function GlobalSearchView({ profile }: any) {
                     </span>
                   </td>
                   <td className="p-4 text-center">
-                      <button onClick={()=>{setBifurcateItem(group); setExpandedZone(null);}} className="bg-slate-900 text-white px-4 py-1.5 rounded-[4px] text-[10px] font-black uppercase tracking-widest hover:bg-slate-700 shadow-sm">Check Stock</button>
+                      <button className="bg-indigo-50 text-indigo-700 px-4 py-1.5 rounded-lg text-[10px] font-black border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-all uppercase shadow-sm">View Split</button>
                   </td>
                 </tr>
               ))}
@@ -258,7 +235,7 @@ export default function GlobalSearchView({ profile }: any) {
         </div>
       </section>
 
-      {/* --- DRILL-DOWN MODAL --- */}
+      {/* DRILL-DOWN MODAL - UNTOUCHED LOGIC & DESIGN */}
       {bifurcateItem && (
         <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden animate-scale-in border-t-8 border-indigo-600 uppercase">
@@ -284,7 +261,7 @@ export default function GlobalSearchView({ profile }: any) {
                         }, {})).map(([zoneName, zoneData]: any) => (
                             <div key={zoneName} className="border-2 border-slate-100 rounded-2xl overflow-hidden">
                                 <div 
-                                    onClick={() => setExpandedZone(expandedZone === zoneName ? null : zoneName)}
+                                    onClick={(e) => { e.stopPropagation(); setExpandedZone(expandedZone === zoneName ? null : zoneName); }}
                                     className={`p-4 flex justify-between items-center cursor-pointer transition-all ${expandedZone === zoneName ? 'bg-slate-900 text-white' : 'bg-white text-slate-800 hover:bg-slate-50'}`}
                                 >
                                     <div className="flex items-center gap-3">
@@ -320,7 +297,7 @@ export default function GlobalSearchView({ profile }: any) {
                                                         <td className="p-3 text-center">
                                                             {ent.holder_uid === profile?.id ? 
                                                                 <span className="text-[9px] text-green-600 font-black">MY ITEM</span> : 
-                                                                <button onClick={()=>setRequestItem(ent)} className="bg-[#ff6b00] text-white px-3 py-1 rounded-[4px] text-[9px] font-black tracking-widest shadow-md hover:bg-orange-600">Request</button>
+                                                                <button onClick={(e)=>{ e.stopPropagation(); setRequestItem(ent);}} className="bg-[#ff6b00] text-white px-3 py-1 rounded-[4px] text-[9px] font-black tracking-widest shadow-md hover:bg-orange-600">Request</button>
                                                             }
                                                         </td>
                                                     </tr>
@@ -381,8 +358,8 @@ export default function GlobalSearchView({ profile }: any) {
                 <p className="text-sm font-bold text-slate-800 leading-tight">{requestItem.item}</p>
                 <p className="text-[9px] text-slate-400 mt-1">SPEC: {requestItem.spec}</p>
               </div>
-              <div><label className="text-[10px] text-slate-500 mb-1 block">Requested Qty</label><input type="number" placeholder="Qty" className="w-full p-3 border-2 border-slate-100 rounded-xl font-black text-slate-800 focus:border-orange-500 outline-none" onChange={e=>setReqForm({...reqForm, qty:e.target.value})} /></div>
-              <div><label className="text-[10px] text-slate-500 mb-1 block">Comment / Purpose</label><textarea placeholder="..." className="w-full p-3 border-2 border-slate-100 rounded-xl font-bold text-xs h-24 text-slate-800 focus:border-orange-500 outline-none uppercase" onChange={e=>setReqForm({...reqForm, comment:e.target.value})}></textarea></div>
+              <div><label className="text-[10px] text-slate-500 mb-1 block">Requested Qty</label><input type="number" placeholder="Qty" className="w-full p-3 border-2 border-slate-100 rounded-xl font-black text-slate-800 focus:border-orange-500 outline-none" value={reqForm.qty} onChange={e=>setReqForm({...reqForm, qty:e.target.value})} /></div>
+              <div><label className="text-[10px] text-slate-500 mb-1 block">Comment / Purpose</label><textarea placeholder="..." className="w-full p-3 border-2 border-slate-100 rounded-xl font-bold text-xs h-24 text-slate-800 focus:border-orange-500 outline-none uppercase" value={reqForm.comment} onChange={e=>setReqForm({...reqForm, comment:e.target.value})}></textarea></div>
               <button onClick={handleSendRequest} disabled={submitting} className="w-full py-4 bg-[#ff6b00] text-white font-black rounded-2xl shadow-lg uppercase tracking-[0.2em] text-sm hover:bg-orange-600 transition-all disabled:opacity-50">
                 {submitting ? "Processing..." : "Submit Request"}
               </button>
