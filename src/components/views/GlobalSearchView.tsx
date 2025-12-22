@@ -11,6 +11,7 @@ export default function GlobalSearchView({ profile }: any) {
   const [selZone, setSelZone] = useState("all");
   const [selCat, setSelCat] = useState("all");
   const [selSubCat, setSelSubCat] = useState("all");
+  const [selStock, setSelStock] = useState("all"); // New State for Stock Filter
 
   // Pagination & Drill-down State
   const [currentPage, setCurrentPage] = useState(1);
@@ -23,7 +24,7 @@ export default function GlobalSearchView({ profile }: any) {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => { fetchAll(); lead(); }, []);
-  useEffect(() => { setCurrentPage(1); }, [search, selZone, selCat, selSubCat]);
+  useEffect(() => { setCurrentPage(1); }, [search, selZone, selCat, selSubCat, selStock]);
 
   const fetchAll = async () => { 
     try { 
@@ -46,8 +47,29 @@ export default function GlobalSearchView({ profile }: any) {
 
   const formatTS = (ts: any) => new Date(Number(ts)).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
 
+  // --- EXPORT TO SHEET LOGIC ---
+  const exportToSheet = () => {
+    const groupedForExport = getGroupedData(true); // Get all data without pagination
+    const headers = ["Material", "Specification", "Make", "Model", "Total Qty", "Unit", "Category", "Sub-Category"];
+    const rows = groupedForExport.map(i => [
+      i.item, i.spec, i.make, i.model, i.totalQty, i.unit, i.cat, i.sub
+    ]);
+
+    let csvContent = "data:text/csv;charset=utf-8," 
+      + headers.join(",") + "\n" 
+      + rows.map(e => e.join(",")).join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Refinery_Stock_${new Date().toLocaleDateString()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // --- 1. ENGINE: GROUPING FOR MAIN TABLE ---
-  const getGroupedData = () => {
+  const getGroupedData = (ignoreStockFilter = false) => {
     const filtered = items.filter((i: any) => {
       const matchesSearch = (i.item.toLowerCase().includes(search.toLowerCase()) || i.spec.toLowerCase().includes(search.toLowerCase()));
       const matchesZone = (selZone === "all" || i.holder_unit === selZone);
@@ -66,7 +88,16 @@ export default function GlobalSearchView({ profile }: any) {
       groups[key].occurrences.push(item);
     });
 
-    return Object.values(groups).sort((a: any, b: any) => b.totalQty - a.totalQty);
+    let result = Object.values(groups);
+
+    // Stock Status Filter Logic
+    if (!ignoreStockFilter && selStock === "out") {
+      result = result.filter((g: any) => g.totalQty <= 0);
+    } else if (!ignoreStockFilter && selStock === "available") {
+      result = result.filter((g: any) => g.totalQty > 0);
+    }
+
+    return result.sort((a: any, b: any) => b.totalQty - a.totalQty);
   };
 
   const groupedItems = getGroupedData();
@@ -135,9 +166,12 @@ export default function GlobalSearchView({ profile }: any) {
         <div className="p-4 border-b bg-slate-50/80 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="relative flex-grow md:w-80"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Search Material..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none font-black uppercase" onChange={e=>setSearch(e.target.value)} /></div>
-            <button onClick={() => setShowSummary(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md flex items-center gap-2 uppercase tracking-widest hover:bg-indigo-700 transition-all"><i className="fa-solid fa-chart-pie"></i> Stock Summary</button>
+            <div className="flex gap-2">
+              <button onClick={() => setShowSummary(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md flex items-center gap-2 uppercase tracking-widest hover:bg-indigo-700 transition-all"><i className="fa-solid fa-chart-pie"></i> Stock Summary</button>
+              <button onClick={exportToSheet} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md flex items-center gap-2 uppercase tracking-widest hover:bg-emerald-700 transition-all"><i className="fa-solid fa-file-excel"></i> Export to Sheet</button>
+            </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
             <select className="border rounded-md text-[10px] font-bold p-2 uppercase" onChange={e=>setSelZone(e.target.value)} value={selZone}>
                 <option value="all">All Zones</option>
                 {[...new Set(items.map(i => i.holder_unit))].sort().map(z => <option key={z} value={z}>{z}</option>)}
@@ -149,6 +183,12 @@ export default function GlobalSearchView({ profile }: any) {
             <select disabled={selCat === "all"} className="border rounded-md text-[10px] font-bold p-2 uppercase disabled:opacity-50" onChange={e=>setSelSubCat(e.target.value)} value={selSubCat}>
                 <option value="all">Sub-Category: All</option>
                 {[...new Set(items.filter(i => i.cat === selCat).map(i => i.sub).filter(s => s))].sort().map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            {/* New Stock Status Filter */}
+            <select className="border rounded-md text-[10px] font-bold p-2 uppercase bg-white" onChange={e=>setSelStock(e.target.value)} value={selStock}>
+                <option value="all">Stock: All Items</option>
+                <option value="available" className="text-green-600">Stock: Available Only</option>
+                <option value="out" className="text-red-600">Stock: Out of Stock</option>
             </select>
           </div>
         </div>
@@ -180,6 +220,9 @@ export default function GlobalSearchView({ profile }: any) {
               ))}
             </tbody>
           </table>
+          {currentItems.length === 0 && (
+            <div className="p-20 text-center text-slate-400 font-black uppercase tracking-widest">No Items Found Matching Your Filter</div>
+          )}
         </div>
 
         {/* PAGINATION */}
@@ -201,7 +244,6 @@ export default function GlobalSearchView({ profile }: any) {
             <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden animate-scale-in border-t-8 border-indigo-600 uppercase">
                 <div className="p-6 bg-slate-50 flex justify-between items-center border-b font-black">
                     <div>
-                        {/* HEADER: Fix - Adding Make, Model, Spec here */}
                         <h3 className="text-slate-800 text-lg tracking-tight">{bifurcateItem.item}</h3>
                         <p className="text-[10px] text-slate-500 tracking-widest mt-1">
                             MAKE: {bifurcateItem.make || '-'} | MODEL: {bifurcateItem.model || '-'} | SPEC: {bifurcateItem.spec || '-'}
@@ -214,7 +256,6 @@ export default function GlobalSearchView({ profile }: any) {
                     <div className="space-y-3">
                         <p className="text-[10px] text-slate-400 font-black mb-4 tracking-[0.2em]">ZONE-WISE STOCK (CLICK TO BIFURCATE HOLDERS)</p>
                         
-                        {/* Logic: Consolidate by Zone first */}
                         {Object.entries(bifurcateItem.occurrences.reduce((acc: any, curr: any) => {
                             if (!acc[curr.holder_unit]) acc[curr.holder_unit] = { total: 0, entries: [] };
                             acc[curr.holder_unit].total += Number(curr.qty);
