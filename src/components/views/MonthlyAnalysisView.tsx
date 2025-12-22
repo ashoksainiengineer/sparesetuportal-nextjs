@@ -138,14 +138,14 @@ export default function MonthlyAnalysisView({ profile }: any) {
                                 align: 'top',
                                 offset: 5,
                                 color: '#334155',
-                                // FIXED: weight 'black' changed to 'bold'
                                 font: { weight: 'bold', size: 11 },
                                 formatter: (val) => val
                             },
                             tooltip: {
                                 backgroundColor: '#1e293b',
                                 padding: 10,
-                                borderRadius: 8,
+                                // FIXED: borderRadius changed to cornerRadius
+                                cornerRadius: 8,
                                 displayColors: false
                             }
                         },
@@ -161,7 +161,6 @@ export default function MonthlyAnalysisView({ profile }: any) {
                                 grid: { display: false }, 
                                 border: { display: true, color: '#cbd5e1', width: 2 },
                                 ticks: { 
-                                    // FIXED: weight 'black' changed to 'bold'
                                     font: { size: 10, weight: 'bold' }, 
                                     color: '#64748b', 
                                     padding: 10
