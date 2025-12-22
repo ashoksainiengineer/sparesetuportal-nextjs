@@ -7,13 +7,11 @@ export default function GlobalSearchView({ profile }: any) {
   const [contributors, setContributors] = useState<any[]>([]);
   const [search, setSearch] = useState(""); 
   
-  // Filters State
   const [selZone, setSelZone] = useState("all");
   const [selCat, setSelCat] = useState("all");
   const [selSubCat, setSelSubCat] = useState("all");
   const [selStock, setSelStock] = useState("all");
 
-  // Pagination & Drill-down State
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
   const [bifurcateItem, setBifurcateItem] = useState<any>(null); 
@@ -131,8 +129,6 @@ export default function GlobalSearchView({ profile }: any) {
 
   return (
     <div className="space-y-6 animate-fade-in font-roboto font-bold uppercase tracking-tight">
-      
-      {/* ZONE LEADERBOARD */}
       <section className="bg-slate-900 py-4 px-6 rounded-2xl border-b-4 border-orange-500 shadow-2xl overflow-hidden text-white">
         <div className="relative z-10 flex flex-col lg:flex-row items-center gap-6">
             <h2 className="text-lg font-black tracking-widest leading-none shrink-0"><i className="fa-solid fa-trophy text-orange-400 mr-2"></i> ZONE LEADERBOARD</h2>
@@ -150,7 +146,6 @@ export default function GlobalSearchView({ profile }: any) {
         </div>
       </section>
 
-      {/* SEARCH & FILTERS - MATCHED DESIGN */}
       <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b bg-slate-50/80 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -222,7 +217,6 @@ export default function GlobalSearchView({ profile }: any) {
           )}
         </div>
 
-        {/* PAGINATION */}
         <div className="p-4 bg-slate-50 border-t flex justify-between items-center">
           <p className="text-[10px] text-slate-400 font-black">Showing {currentItems.length} Materials</p>
           <div className="flex items-center gap-1">
@@ -235,7 +229,6 @@ export default function GlobalSearchView({ profile }: any) {
         </div>
       </section>
 
-      {/* DRILL-DOWN MODAL - UNTOUCHED LOGIC & DESIGN */}
       {bifurcateItem && (
         <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden animate-scale-in border-t-8 border-indigo-600 uppercase">
@@ -252,8 +245,10 @@ export default function GlobalSearchView({ profile }: any) {
                 <div className="p-6 overflow-y-auto max-h-[70vh]">
                     <div className="space-y-3">
                         <p className="text-[10px] text-slate-400 font-black mb-4 tracking-[0.2em]">ZONE-WISE STOCK</p>
-                        
-                        {Object.entries(bifurcateItem.occurrences.reduce((acc: any, curr: any) => {
+                        {/* UPDATED: FILTER FOR NON-ZERO QUANTITIES */}
+                        {Object.entries(bifurcateItem.occurrences
+                          .filter((o: any) => Number(o.qty) > 0)
+                          .reduce((acc: any, curr: any) => {
                             if (!acc[curr.holder_unit]) acc[curr.holder_unit] = { total: 0, entries: [] };
                             acc[curr.holder_unit].total += Number(curr.qty);
                             acc[curr.holder_unit].entries.push(curr);
@@ -314,7 +309,6 @@ export default function GlobalSearchView({ profile }: any) {
         </div>
       )}
 
-      {/* STOCK SUMMARY MODAL */}
       {showSummary && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-scale-in uppercase font-bold">
@@ -344,7 +338,6 @@ export default function GlobalSearchView({ profile }: any) {
         </div>
       )}
 
-      {/* REQUEST MODAL */}
       {requestItem && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 uppercase font-black">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
