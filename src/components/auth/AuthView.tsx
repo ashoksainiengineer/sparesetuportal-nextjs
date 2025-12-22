@@ -10,49 +10,71 @@ export default function AuthView() {
 
   const handleAuth = async () => {
     setAuthLoading(true);
+    // Bulletproof Logic: Email consistency
+    const cleanEmail = form.email.trim().toLowerCase();
+
     try {
       if (view === "login") {
-        const { error } = await supabase.auth.signInWithPassword({ email: form.email, password: form.pass });
+        const { error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: form.pass });
         if (error) alert(error.message);
-      } else if (view === "register") {
-        if (!form.name || !form.unit || !form.email || !form.pass) { alert("Sari details bhariye!"); setAuthLoading(false); return; }
+      } 
+      else if (view === "register") {
+        if (!form.name || !form.unit || !cleanEmail || !form.pass) { alert("Sari details bhariye!"); setAuthLoading(false); return; }
+        if (form.pass.length < 6) { alert("Password kam se kam 6 characters ka hona chahiye!"); setAuthLoading(false); return; }
         
-        // Allowed users check
-        const { data: allowed } = await supabase.from('allowed_users').select('*').eq('email', form.email).eq('unit', form.unit).single();
+        const { data: allowed } = await supabase.from('allowed_users').select('*').eq('email', cleanEmail).eq('unit', form.unit).single();
         if (!allowed) { alert("Email access not allowed for this zone!"); setAuthLoading(false); return; }
         
-        // OTP Generation
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         setForm({ ...form, generatedOtp: otp });
 
-        // Naye API route (/api/send-otp) ko call karna
         const res = await fetch('/api/send-otp', { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' }, 
-          body: JSON.stringify({ name: form.name, email: form.email, otp }) 
+          body: JSON.stringify({ name: form.name, email: cleanEmail, otp }) 
         });
 
         if (res.ok) { alert("OTP sent to your email!"); setView("otp"); } else alert("OTP Send Failed");
-      } else if (view === "otp") {
+      } 
+      else if (view === "otp") {
         if (form.enteredOtp === form.generatedOtp) {
-          const { error } = await supabase.auth.signUp({ 
-            email: form.email, 
+          const { data: authData, error: authErr } = await supabase.auth.signUp({ 
+            email: cleanEmail, 
             password: form.pass, 
             options: { data: { name: form.name, unit: form.unit } } 
           });
-          if (error) alert(error.message); else setView("login");
+
+          if (authErr) { alert(authErr.message); } 
+          else if (authData.user) {
+            // Logic Fix: Auto profile creation
+            await supabase.from("profiles").insert([{
+                id: authData.user.id, name: form.name, unit: form.unit, email: cleanEmail, item_count: 0
+            }]);
+            alert("Registration Successful! Now please login.");
+            setView("login");
+          }
         } else alert("Invalid OTP! Check again.");
-      } else if (view === "forgot") {
-        const { error } = await supabase.auth.resetPasswordForEmail(form.email);
+      } 
+      else if (view === "forgot") {
+        const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail);
         if (error) alert(error.message); else alert("Reset link sent to your email!");
       }
     } catch (err) { alert("Network Connection Error"); }
     setAuthLoading(false);
   };
 
+  // ENTER KEY TRIGGER LOGIC
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleAuth();
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 login-bg">
       <div className="w-full max-w-md login-card rounded-2xl shadow-2xl p-8 border-t-4 border-orange-500 text-center relative animate-fade-in font-roboto font-bold uppercase">
+        
+        {/* REVERTED TO ORIGINAL BRANDING STYLE */}
         <div className="mb-8">
             <div className="flex justify-center mb-4 font-bold uppercase">
               <div className="iocl-logo-container" style={{ fontSize: '14px' }}>
@@ -71,7 +93,7 @@ export default function AuthView() {
             <>
               <div className="relative font-bold uppercase">
                 <i className="fa-solid fa-user absolute left-4 top-3.5 text-slate-400"></i>
-                <input type="text" placeholder="Engineer Full Name" className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold" onChange={e=>setForm({...form, name:e.target.value})} />
+                <input type="text" placeholder="Engineer Full Name" onKeyDown={handleKeyDown} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold" onChange={e=>setForm({...form, name:e.target.value})} />
               </div>
               <div className="relative font-bold uppercase">
                 <i className="fa-solid fa-building absolute left-4 top-3.5 text-slate-400"></i>
@@ -86,19 +108,19 @@ export default function AuthView() {
           {view === "otp" ? (
              <div className="relative font-bold uppercase">
                <i className="fa-solid fa-key absolute left-4 top-3.5 text-slate-400"></i>
-               <input type="text" placeholder="######" maxLength={6} className="w-full p-3 rounded-lg login-input text-center text-2xl tracking-[0.5em] font-bold text-white outline-none font-mono" onChange={e=>setForm({...form, enteredOtp:e.target.value})} />
+               <input type="text" placeholder="######" maxLength={6} onKeyDown={handleKeyDown} className="w-full p-3 rounded-lg login-input text-center text-2xl tracking-[0.5em] font-bold text-white outline-none font-mono" onChange={e=>setForm({...form, enteredOtp:e.target.value})} />
              </div>
           ) : (
              <div className="relative font-bold uppercase">
                <i className="fa-solid fa-envelope absolute left-4 top-3.5 text-slate-400"></i>
-               <input type="email" value={form.email} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold" placeholder="Official Email ID" onChange={e=>setForm({...form, email:e.target.value})} />
+               <input type="email" value={form.email} onKeyDown={handleKeyDown} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold" placeholder="Official Email ID" onChange={e=>setForm({...form, email:e.target.value})} />
              </div>
           )}
 
           {(view === "login" || view === "register") && (
             <div className="relative font-bold uppercase">
               <i className="fa-solid fa-lock absolute left-4 top-3.5 text-slate-400"></i>
-              <input type="password" placeholder="Password" className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold" onChange={e=>setForm({...form, pass:e.target.value})} />
+              <input type="password" placeholder="Password" onKeyDown={handleKeyDown} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold" onChange={e=>setForm({...form, pass:e.target.value})} />
             </div>
           )}
 
@@ -122,8 +144,9 @@ export default function AuthView() {
           </div>
           
           <div className="mt-8 pt-6 border-t border-white/10 text-center font-bold">
-            <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider mb-1">Developed By Engineers</p>
-            <p className="text-[11px] text-slate-300 font-bold font-hindi">अशोक सैनी • दीपक चौहान • दिव्यांक सिंह राजपूत</p>
+            <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider mb-1">Developed & Maintained By</p>
+            {/* UPDATED: LIGHT WHITE NAMES RESTORED */}
+            <p className="text-[11px] text-slate-200 font-black font-hindi">अशोक सैनी • दीपक चौहान • दिव्यांक सिंह राजपूत</p>
           </div>
         </div>
       </div>
