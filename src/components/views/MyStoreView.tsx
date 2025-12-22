@@ -199,37 +199,40 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
         </section>
       )}
 
-      {/* SINGLE LINE TOOLBAR */}
-      <div className="flex flex-col lg:flex-row gap-4 bg-white p-4 rounded-xl border shadow-sm items-center">
-        <div className="relative flex-1 w-full">
-            <i className="fa-solid fa-search absolute left-3 top-3.5 text-slate-400"></i>
-            <input type="text" placeholder="Search material name or specification..." className="w-full pl-10 pr-4 py-3 border-2 border-slate-100 rounded-xl text-xs outline-none focus:border-orange-400 font-bold uppercase shadow-inner transition-all" value={search} onChange={e => setSearch(e.target.value)} />
+      {/* SEARCH & FILTERS (MATCHED TO GLOBAL SEARCH) */}
+      <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="p-4 border-b bg-slate-50/80 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="relative flex-grow md:w-80">
+              <i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i>
+              <input type="text" placeholder="Search Material..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none font-black uppercase" value={search} onChange={e=>setSearch(e.target.value)} />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setShowSummary(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md flex items-center gap-2 uppercase tracking-widest hover:bg-indigo-700 transition-all"><i className="fa-solid fa-chart-pie"></i> Stock Summary</button>
+              <button onClick={exportCSV} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md flex items-center gap-2 uppercase tracking-widest hover:bg-emerald-700 transition-all"><i className="fa-solid fa-file-excel"></i> Export Sheet</button>
+              <button onClick={() => { resetForm(); setShowAddModal(true); }} className="iocl-btn text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md flex items-center gap-2 uppercase tracking-widest hover:opacity-90 transition-all"><i className="fa-solid fa-plus"></i> Add Stock</button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <select className="border rounded-md text-[10px] font-bold p-2 uppercase bg-white cursor-pointer" value={selCat} onChange={e => { setSelCat(e.target.value); setSelSub("all"); }}>
+                <option value="all">Category: All</option>
+                <option value="OUT_OF_STOCK" className="text-red-600 font-black">!!! OUT OF STOCK !!!</option>
+                {uniqueCats.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <select disabled={selCat === "all" || selCat === "OUT_OF_STOCK"} className="border rounded-md text-[10px] font-bold p-2 uppercase bg-white cursor-pointer disabled:opacity-50" value={selSub} onChange={e => setSelSub(e.target.value)}>
+                <option value="all">Sub-Category: All</option>
+                {filterSubCategories.map((s: any) => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <select className="border rounded-md text-[10px] font-bold p-2 uppercase bg-white cursor-pointer" value={selEngineer} onChange={e => setSelEngineer(e.target.value)}>
+                <option value="all">Engineer: Team View</option>
+                {filterEngineers.map((name: any) => <option key={name} value={name}>{name === profile?.name ? "Added By: You" : name}</option>)}
+            </select>
+          </div>
         </div>
-        <div className="flex gap-2 w-full lg:w-auto">
-            <button onClick={exportCSV} className="bg-emerald-600 text-white px-4 py-3 rounded-xl text-[10px] font-black shadow-md flex items-center justify-center gap-2 flex-1 lg:flex-none uppercase tracking-widest hover:bg-emerald-700 transition-all"><i className="fa-solid fa-file-csv"></i> Export Sheet</button>
-            <button onClick={() => setShowSummary(true)} className="bg-indigo-600 text-white px-4 py-3 rounded-xl text-[10px] font-black shadow-md flex items-center justify-center gap-2 flex-1 lg:flex-none uppercase tracking-widest hover:bg-indigo-700 transition-all"><i className="fa-solid fa-chart-bar"></i> Stock Summary</button>
-            <button onClick={() => { resetForm(); setShowAddModal(true); }} className="iocl-btn text-white px-5 py-3 rounded-xl text-[10px] font-black shadow-md flex items-center justify-center gap-2 flex-1 lg:flex-none uppercase tracking-widest"><i className="fa-solid fa-plus"></i> Add Stock</button>
-        </div>
-      </div>
 
-      {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50/50 p-4 rounded-xl border shadow-sm">
-        <select className="border-2 border-white rounded-lg text-[10px] p-3 bg-white font-bold uppercase shadow-sm cursor-pointer" value={selCat} onChange={e => { setSelCat(e.target.value); setSelSub("all"); }}>
-            <option value="all">Category: All</option>
-            <option value="OUT_OF_STOCK" className="text-red-600 font-black">!!! OUT OF STOCK !!!</option>
-            {uniqueCats.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <select disabled={selCat === "all" || selCat === "OUT_OF_STOCK"} className="border-2 border-white rounded-lg text-[10px] p-3 bg-white font-bold uppercase shadow-sm disabled:opacity-50" value={selSub} onChange={e => setSelSub(e.target.value)}><option value="all">Sub-Category: All</option>{filterSubCategories.map((s: any) => <option key={s} value={s}>{s}</option>)}</select>
-        <select className="border-2 border-white rounded-lg text-[10px] p-3 bg-white font-bold uppercase shadow-sm cursor-pointer" value={selEngineer} onChange={e => setSelEngineer(e.target.value)}>
-            <option value="all">Engineer: Team View</option>
-            {filterEngineers.map((name: any) => <option key={name} value={name}>{name === profile?.name ? "Added By: You" : name}</option>)}
-        </select>
-      </div>
-
-      {/* Aggregated Table */}
-      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+        {/* Aggregated Table */}
         <div className="overflow-x-auto"><table className="w-full text-left tracking-tight">
-          <thead className="bg-slate-50 text-slate-500 text-[10px] font-black border-b tracking-widest uppercase"><tr><th className="p-5 pl-8">Material Detail</th><th className="p-5">Spec</th><th className="p-5 text-center">Total Qty</th><th className="p-5 text-center">Action</th></tr></thead>
+          <thead className="bg-slate-50 text-slate-500 text-[10px] font-black border-b tracking-widest uppercase"><tr><th className="p-5 pl-8">Material Detail</th><th className="p-5">Spec Details</th><th className="p-5 text-center">Total Qty</th><th className="p-5 text-center">Action</th></tr></thead>
           <tbody className="divide-y text-sm">
             {currentItems.length > 0 ? currentItems.map((i: any) => (
               <tr key={`${i.item}-${i.spec}`} className={`hover:bg-blue-50/50 transition border-b uppercase group cursor-pointer ${i.totalQty === 0 ? 'bg-red-50/30' : ''}`} onClick={() => setBifurcationItem(i)}>
@@ -241,7 +244,11 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
                   <div className="text-[9px] text-slate-400 mt-1 uppercase font-bold">{i.cat} &gt; {i.sub}</div>
                   <div className="text-[8px] text-indigo-500 mt-1 font-black tracking-widest uppercase opacity-0 group-hover:opacity-100 transition-opacity">View split-up details →</div>
                 </td>
-                <td className="p-5 font-mono"><span className="bg-white border px-2 py-1 rounded-[4px] text-[10.5px] text-slate-600 font-bold shadow-sm">{i.spec}</span></td>
+                <td className="p-5 font-mono">
+                  <span className="bg-white border px-2 py-1 rounded-[4px] text-[10.5px] text-slate-600 font-bold shadow-sm inline-block">
+                    {i.make || '-'} | {i.model || '-'} | {i.spec}
+                  </span>
+                </td>
                 <td className={`p-5 font-bold text-center text-[16px] whitespace-nowrap ${i.totalQty === 0 ? 'text-red-600 animate-pulse' : 'text-slate-800'}`}>{i.totalQty === 0 ? "ZERO STOCK" : `${i.totalQty} ${i.unit}`}</td>
                 <td className="p-5 text-center"><button className="bg-indigo-50 text-indigo-700 px-4 py-1.5 rounded-lg text-[10px] font-black border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-all uppercase shadow-sm">View Split</button></td>
               </tr>
@@ -253,7 +260,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
           <span>Page {currentPage} of {totalPages}</span>
           <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 hover:bg-slate-50 transition-all">Next</button>
         </div>
-      </div>
+      </section>
 
       {/* BIFURCATION MODAL */}
       {bifurcationItem && (
@@ -329,7 +336,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
                   <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest font-black">Spec</label>
                     {form.isManual ? <input type="text" className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold" placeholder="e.g. 240V" value={form.spec} onChange={e => setForm({ ...form, spec: e.target.value })} />
                       : <select disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold uppercase cursor-pointer" value={form.spec} onChange={e => setForm({ ...form, spec: e.target.value })}><option value="">-- Select --</option>{availableSpecs.map((s:any) => <option key={s} value={s}>{s}</option>)}</select>}
-                  </div>
+                </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3 pt-2">
                   <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest font-black">Quantity</label><input type="number" className="w-full p-3 border-2 border-slate-100 rounded-xl text-lg font-black text-indigo-600 focus:border-indigo-400 outline-none shadow-sm" value={form.qty} onChange={e => setForm({ ...form, qty: e.target.value })} /></div>
