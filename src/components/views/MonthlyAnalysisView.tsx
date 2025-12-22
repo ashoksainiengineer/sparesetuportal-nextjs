@@ -53,7 +53,13 @@ export default function MonthlyAnalysisView({ profile }: any) {
             return sortedUnits.length > 0 ? sortedUnits[0][0] : 'Nos';
         });
 
-        const colors = ['#38bdf8', '#4f46e5', '#9333ea', '#ec4899', '#f43f5e'];
+        const colors = [
+          '#38bdf8', // Sky Blue
+          '#4f46e5', // Indigo
+          '#9333ea', // Purple
+          '#ec4899', // Pink
+          '#f43f5e', // Rose
+        ];
 
         return {
           category: catName, 
@@ -86,6 +92,8 @@ export default function MonthlyAnalysisView({ profile }: any) {
 
   return (
     <div className="animate-fade-in space-y-8 pb-20 font-roboto font-bold uppercase tracking-tight">
+      
+      {/* HEADER PANEL - UPDATED TAGLINE */}
       <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center border-t-4 border-orange-500">
         <div>
           <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest leading-none">Monthly Analysis</h2>
@@ -130,15 +138,13 @@ export default function MonthlyAnalysisView({ profile }: any) {
                                 align: 'top',
                                 offset: 5,
                                 color: '#334155',
-                                // FIXED: font weight 'bold'
-                                font: { weight: 'bold', size: 11 },
+                                font: { weight: 'black', size: 11 },
                                 formatter: (val) => val
                             },
                             tooltip: {
                                 backgroundColor: '#1e293b',
                                 padding: 10,
-                                // FIXED: cornerRadius property
-                                cornerRadius: 8,
+                                borderRadius: 8,
                                 displayColors: false
                             }
                         },
@@ -154,8 +160,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
                                 grid: { display: false }, 
                                 border: { display: true, color: '#cbd5e1', width: 2 },
                                 ticks: { 
-                                    // FIXED: font weight 'bold'
-                                    font: { size: 10, weight: 'bold' }, 
+                                    font: { size: 10, weight: 'black' }, 
                                     color: '#64748b', 
                                     padding: 10
                                 } 
