@@ -8,14 +8,17 @@ export default function UsageHistoryView({ profile }: any) {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
+  // 1. DATA FETCHING FUNCTION (PRO DEBUGGED)
   const fetchLogs = useCallback(async () => {
     if (!profile?.id) return;
+
     setLoading(true);
     try {
+      // Direct query to usage_logs
       const { data, error } = await supabase
         .from("usage_logs")
         .select("*")
-        .eq("consumer_uid", profile.id) 
+        .eq("consumer_uid", profile.id) // Aapki apni consumption dikhayega
         .order("timestamp", { ascending: false });
       
       if (error) throw error;
@@ -27,10 +30,12 @@ export default function UsageHistoryView({ profile }: any) {
     }
   }, [profile?.id]);
 
+  // 2. FETCH ON MOUNT
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
 
+  // 3. DELETE LOG FUNCTION
   const deleteLog = async (id: number) => {
     if (!confirm("Are you sure you want to remove this record?")) return;
     try {
@@ -58,6 +63,8 @@ export default function UsageHistoryView({ profile }: any) {
 
   return (
     <div className="animate-fade-in space-y-6 pb-20 font-roboto font-bold uppercase tracking-tight">
+      
+      {/* HEADER PANEL */}
       <div className="bg-white p-6 rounded-xl border shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center border-l-4 border-red-600 gap-4">
         <div>
           <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest leading-none">My Consumption History</h2>
@@ -76,6 +83,7 @@ export default function UsageHistoryView({ profile }: any) {
         </div>
       </div>
 
+      {/* ACTIVITY TABLE */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left tracking-tight">
@@ -98,10 +106,11 @@ export default function UsageHistoryView({ profile }: any) {
                     <div className="text-[9px] text-slate-400 mt-1 font-bold">{l.timestamp ? new Date(Number(l.timestamp)).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--'}</div>
                   </td>
                   <td className="p-5 leading-tight">
-                    <div className="text-slate-800 font-black text-[14px] mb-1">
+                    <div className="text-slate-800 font-black text-[13px] mb-1">
                       {l.item_name}
                       {l.is_manual && <span className="ml-2 bg-orange-100 text-orange-600 text-[7px] px-1 py-0.5 rounded border border-orange-200">M</span>}
                     </div>
+                    {/* MAKE | MODEL | SPEC ADDED HERE */}
                     <span className="bg-white border px-2 py-0.5 rounded-[4px] text-[9.5px] text-indigo-500 font-black shadow-sm inline-block">
                        {l.make || '-'} | {l.model || '-'} | {l.spec || '-'}
                     </span>
@@ -123,11 +132,25 @@ export default function UsageHistoryView({ profile }: any) {
                   </td>
                 </tr>
               )) : (
-                <tr><td colSpan={5} className="p-20 text-center text-slate-300 font-black uppercase">No Records Found in Audit Log</td></tr>
+                <tr>
+                  <td colSpan={5} className="p-20 text-center text-slate-300 font-black uppercase">
+                    <i className="fa-solid fa-inbox text-4xl mb-4 block opacity-20"></i>
+                    No Records Found in Audit Log
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
         </div>
+
+        {/* PAGINATION */}
+        {logs.length > itemsPerPage && (
+          <div className="p-4 bg-slate-50 border-t flex justify-between items-center text-[10px] font-black uppercase">
+            <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30">Prev</button>
+            <span className="text-slate-400 tracking-widest">Page {currentPage} of {totalPages}</span>
+            <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30">Next</button>
+          </div>
+        )}
       </div>
     </div>
   );
