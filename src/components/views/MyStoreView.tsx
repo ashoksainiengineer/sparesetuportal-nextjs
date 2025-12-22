@@ -42,7 +42,6 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
     const cats = [...new Set(masterCatalog.map(i => i.cat))].sort();
     if (cats.length === 1 && !form.cat) setForm(p => ({ ...p, cat: cats[0] }));
     if (form.cat) {
-      const subs = masterCatalog.filter(i => i.cat === form.cat).map(i => i.sub).filter((v, i, a) => a.indexOf(v) || a.indexOf(v) === i).sort();
       const uniqueSubs = Array.from(new Set(masterCatalog.filter(i => i.cat === form.cat).map(i => i.sub))).sort();
       if (uniqueSubs.length === 1 && !form.sub) setForm(p => ({ ...p, sub: uniqueSubs[0] }));
       
@@ -160,7 +159,6 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
     setForm({ cat: "", sub: "", make: "", model: "", spec: "", qty: "", unit: "Nos", note: "", isManual: false });
   };
 
-  // --- FIXED SUMMARY LOGIC WITH UNITS ---
   const getSummaryData = () => {
     const summary: any = {};
     filteredList.forEach((i: any) => {
@@ -348,10 +346,10 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
         </div>
       )}
 
-      {/* CONSUME MODAL */}
+      {/* CONSUME MODAL - NORMALIZED WIDTH */}
       {consumeItem && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[10001] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-md rounded-2xl shadow-2xl p-6 animate-scale-in uppercase font-bold relative">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 animate-scale-in uppercase font-bold relative">
             <button onClick={() => setConsumeItem(null)} className="absolute top-4 right-4 text-slate-400 hover:text-red-500 transition-colors"><i className="fa-solid fa-xmark text-xl"></i></button>
             <h3 className="text-xl font-black text-slate-800 uppercase mb-6 tracking-tight">Consume Material</h3>
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-6 shadow-inner">
