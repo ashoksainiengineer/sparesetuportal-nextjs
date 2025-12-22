@@ -1,15 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-} from "chart.js";
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from "chart.js";
 import { Bar } from "react-chartjs-2";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 
@@ -25,190 +17,166 @@ export default function MonthlyAnalysisView({ profile }: any) {
     setSelectedMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
   }, []);
 
-  useEffect(() => {
-    if (selectedMonth) fetchGlobalConsumption();
-  }, [selectedMonth]);
-
-  const fetchGlobalConsumption = async () => {
+  const fetchGlobalConsumption = useCallback(async () => {
+    if (!selectedMonth) return;
     setLoading(true);
     const [year, month] = selectedMonth.split("-");
     const startTs = new Date(parseInt(year), parseInt(month) - 1, 1).getTime();
     const endTs = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59).getTime();
 
     try {
-      const { data: logs, error } = await supabase
-        .from("usage_logs")
-        .select("*")
-        .gte("timestamp", startTs)
-        .lte("timestamp", endTs);
-
+      const { data: logs, error } = await supabase.from("usage_logs").select("*").gte("timestamp", startTs).lte("timestamp", endTs);
       if (error) throw error;
-
       const report: any = {};
 
       logs?.forEach((log) => {
-        const cat = log.cat || 'Others';
+        if (log.is_manual === true || log.cat === 'Manual Entry' || !log.cat) return;
+
+        const cat = log.cat;
         const sub = log.sub || 'General';
-        
-        const make = log.make && log.make !== '-' ? log.make : '';
-        const model = log.model && log.model !== '-' ? log.model : '';
-        const spec = log.spec && log.spec !== '-' ? log.spec : '';
-        const fullDesc = `${make} ${model} ${spec}`.trim() || log.item_name;
-        
         const qty = Number(log.qty_consumed || 0);
         const unit = log.unit || 'Nos';
 
-        if (cat === 'Manual Entry') return;
-
         if (!report[cat]) report[cat] = {};
-        if (!report[cat][sub]) {
-          report[cat][sub] = { total: 0, items: {}, units: {} };
-        }
+        if (!report[cat][sub]) report[cat][sub] = { total: 0, units: {} };
 
         report[cat][sub].total += qty;
-        
-        // Track units for datalabels
         report[cat][sub].units[unit] = (report[cat][sub].units[unit] || 0) + qty;
-
-        const itemKey = `${fullDesc}||${unit}`;
-        if (!report[cat][sub].items[itemKey]) {
-            report[cat][sub].items[itemKey] = 0;
-        }
-        report[cat][sub].items[itemKey] += qty;
       });
 
       const charts = Object.keys(report).sort().map(catName => {
         const subDataMap = report[catName];
         const labels = Object.keys(subDataMap).sort();
         const values = labels.map(l => subDataMap[l].total);
-        
-        // Logic: Get the primary unit for each bar
         const barUnits = labels.map(l => {
-            const units = subDataMap[l].units;
-            return Object.entries(units).sort((a:any, b:any) => b[1] - a[1])[0][0];
+            const sortedUnits = Object.entries(subDataMap[l].units).sort((a:any, b:any) => b[1] - a[1]);
+            return sortedUnits.length > 0 ? sortedUnits[0][0] : 'Nos';
         });
 
-        const breakdownInfo = labels.map(l => {
-            const itemsObj = subDataMap[l].items;
-            return Object.entries(itemsObj).sort((a: any, b: any) => b[1] - a[1]).slice(0, 8);
-        });
+        const colors = [
+          '#38bdf8', // Sky Blue
+          '#4f46e5', // Indigo
+          '#9333ea', // Purple
+          '#ec4899', // Pink
+          '#f43f5e', // Rose
+        ];
 
         return {
-          category: catName,
-          total: values.reduce((a, b) => a + b, 0),
-          primaryUnit: barUnits[0] || 'Units', // Representative unit for header
+          category: catName, 
+          total: values.reduce((a, b) => a + b, 0), 
+          primaryUnit: barUnits[0],
           data: {
             labels,
             datasets: [{
-              label: 'Total Used',
-              data: values,
-              backgroundColor: labels.map((_, i) => `hsl(${210 + (i * 20)}, 75%, 50%)`),
-              borderRadius: 6,
-              barPercentage: 0.6,
-              itemBreakdown: breakdownInfo,
-              units: barUnits // Passing units to datalabels
+              data: values, 
+              backgroundColor: labels.map((_, i) => colors[i % colors.length]),
+              borderRadius: 4, 
+              barPercentage: 0.5, 
+              categoryPercentage: 0.8,
+              units: barUnits
             }]
           }
         };
       });
-
       setChartConfigs(charts);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
+    } catch (e) { console.error(e); } finally { setLoading(false); }
+  }, [selectedMonth]);
+
+  useEffect(() => {
+    fetchGlobalConsumption();
+    const channel = supabase.channel('monthly_sync').on('postgres_changes', { event: '*', schema: 'public', table: 'usage_logs' }, () => {
+        fetchGlobalConsumption();
+    }).subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [selectedMonth, fetchGlobalConsumption]);
 
   return (
     <div className="animate-fade-in space-y-8 pb-20 font-roboto font-bold uppercase tracking-tight">
-      <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl flex flex-col md:flex-row justify-between items-center gap-6 border-b-4 border-orange-500">
+      
+      {/* HEADER PANEL - UPDATED TAGLINE */}
+      <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center border-t-4 border-orange-500">
         <div>
-          <h2 className="text-xl font-black uppercase tracking-widest leading-none">Monthly Consumption Data</h2>
-          <p className="text-[10px] text-slate-400 mt-2 tracking-[0.2em] lowercase">category & sub-category wise breakdown</p>
+          <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest leading-none">Monthly Analysis</h2>
+          <p className="text-[10px] text-slate-400 mt-2 lowercase font-black tracking-[0.1em]">Monthly Material Usage Across All Zones</p>
         </div>
-        <div className="flex items-center gap-4 bg-slate-800 p-3 rounded-xl border border-slate-700">
-          <span className="text-[9px] font-black text-orange-400 uppercase">Analysis Month</span>
-          <input type="month" className="bg-transparent text-white outline-none font-black text-sm cursor-pointer" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} />
+        <div className="flex items-center gap-3">
+            <button onClick={fetchGlobalConsumption} className="bg-slate-50 text-slate-400 p-2.5 rounded-xl hover:text-indigo-600 transition-all border border-slate-100">
+                <i className={`fa-solid fa-sync ${loading ? 'animate-spin' : ''}`}></i>
+            </button>
+            <input type="month" className="bg-slate-50 text-slate-800 p-2.5 rounded-xl outline-none font-black text-[11px] cursor-pointer border border-slate-200" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} />
         </div>
       </div>
 
       {loading ? (
-        <div className="p-40 text-center animate-pulse">
-            <p className="text-[10px] text-slate-400 font-black tracking-[0.4em]">Aggregating Data...</p>
-        </div>
+        <div className="p-40 text-center animate-pulse uppercase tracking-[0.4em] text-slate-300 font-black">Syncing Analytical Feed...</div>
       ) : chartConfigs.length > 0 ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {chartConfigs.map((cfg, i) => (
-            <div key={i} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-lg transition-all">
-              <div className="flex justify-between items-center mb-6 border-b pb-4">
-                <div>
-                    <h3 className="text-md font-black text-slate-800 leading-none">{cfg.category}</h3>
-                    <p className="text-[8px] text-slate-400 mt-1 font-bold tracking-widest uppercase">Usage Summary</p>
+            <div key={i} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm transition-all">
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-3">
+                    <i className="fa-solid fa-layer-group text-orange-500 text-sm"></i>
+                    <h3 className="text-[13px] font-black text-slate-700 tracking-tight uppercase">{cfg.category}</h3>
                 </div>
-                <div className="text-right">
-                    {/* Header Total with Unit */}
-                    <p className="text-[14px] font-black text-indigo-600 leading-none">{cfg.total} <span className="text-[9px] text-slate-400 uppercase">{cfg.primaryUnit}</span></p>
+                <div className="bg-slate-50 px-3 py-1 rounded-md border border-slate-100 flex items-center gap-2">
+                    <span className="text-[9px] text-slate-400 font-bold uppercase">Total:</span>
+                    <span className="text-[13px] font-black text-slate-600">{cfg.total}</span>
                 </div>
               </div>
-              <div className="h-[300px]">
+
+              <div className="h-[210px] w-full px-2">
                 <Bar 
-                  data={cfg.data} 
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    layout: { padding: { top: 35 } },
-                    plugins: {
-                      legend: { display: false },
-                      // FIXED: Datalabels now show value + unit
-                      datalabels: {
-                        color: '#1e293b',
-                        font: { weight: 'bold', size: 10 },
-                        anchor: 'end',
-                        align: 'top',
-                        offset: 4,
-                        formatter: (value, context) => {
-                          const unit = (context.dataset as any).units[context.dataIndex];
-                          return `${value} ${unit}`;
+                    data={cfg.data} 
+                    options={{ 
+                        responsive: true, 
+                        maintainAspectRatio: false, 
+                        layout: { padding: { top: 25, bottom: 5 } },
+                        plugins: { 
+                            legend: { display: false }, 
+                            datalabels: { 
+                                anchor: 'end',
+                                align: 'top',
+                                offset: 5,
+                                color: '#334155',
+                                font: { weight: 'black', size: 11 },
+                                formatter: (val) => val
+                            },
+                            tooltip: {
+                                backgroundColor: '#1e293b',
+                                padding: 10,
+                                borderRadius: 8,
+                                displayColors: false
+                            }
+                        },
+                        scales: {
+                            y: { 
+                                beginAtZero: true, 
+                                grace: '25%', 
+                                grid: { color: '#f1f5f9', drawTicks: true }, 
+                                border: { display: true, color: '#e2e8f0' },
+                                ticks: { font: { size: 10, weight: 'bold' }, color: '#94a3b8', padding: 8 } 
+                            },
+                            x: { 
+                                grid: { display: false }, 
+                                border: { display: true, color: '#cbd5e1', width: 2 },
+                                ticks: { 
+                                    font: { size: 10, weight: 'black' }, 
+                                    color: '#64748b', 
+                                    padding: 10
+                                } 
+                            }
                         }
-                      },
-                      tooltip: {
-                        backgroundColor: '#0f172a',
-                        titleColor: '#fb923c',
-                        padding: 15,
-                        titleFont: { size: 13, weight: 'bold' },
-                        bodyFont: { size: 11, weight: 'normal' },
-                        displayColors: false,
-                        callbacks: {
-                          title: (context: any) => `SUB-CAT: ${context[0].label}`,
-                          label: (context: any) => `Total Consumed: ${context.raw} units`,
-                          afterBody: (context: any) => {
-                            const dataIndex = context[0].dataIndex;
-                            const dataset = context[0].dataset;
-                            const breakdown = dataset.itemBreakdown[dataIndex];
-                            let lines = ['\nTOP ITEMS (MAKE MODEL SPEC):'];
-                            breakdown.forEach((entry: any) => {
-                                const [details, unit] = entry[0].split('||');
-                                const qty = entry[1];
-                                lines.push(`• ${details} : ${qty} ${unit}`);
-                            });
-                            return lines;
-                          }
-                        }
-                      }
-                    },
-                    scales: {
-                      y: { beginAtZero: true, grace: '20%', grid: { color: '#f8fafc' }, ticks: { font: { size: 9, weight: 'bold' } } },
-                      x: { grid: { display: false }, ticks: { font: { size: 9, weight: 'bold' }, color: '#64748b' } }
-                    }
-                  }} 
+                    }} 
                 />
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <div className="bg-white border-2 border-dashed rounded-3xl p-32 text-center text-slate-300 font-black text-xs">DATA UNAVAILABLE</div>
+        <div className="bg-white border border-slate-100 rounded-3xl p-32 text-center text-slate-200 font-black uppercase tracking-widest">
+            <i className="fa-solid fa-chart-simple text-6xl mb-6 block opacity-10"></i>
+            No consumption found for this period
+        </div>
       )}
     </div>
   );

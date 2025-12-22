@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { masterCatalog } from "@/lib/masterdata"; //
+import { masterCatalog } from "@/lib/masterdata";
 
 export default function MyStoreView({ profile, fetchProfile }: any) {
   const [myItems, setMyItems] = useState<any[]>([]);
@@ -42,17 +42,20 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
     const cats = [...new Set(masterCatalog.map(i => i.cat))].sort();
     if (cats.length === 1 && !form.cat) setForm(p => ({ ...p, cat: cats[0] }));
     if (form.cat) {
-      const subs = masterCatalog.filter(i => i.cat === form.cat).map(i => i.sub).filter((v, i, a) => a.indexOf(v) === i).sort();
-      if (subs.length === 1 && !form.sub) setForm(p => ({ ...p, sub: subs[0] }));
+      const uniqueSubs = Array.from(new Set(masterCatalog.filter(i => i.cat === form.cat).map(i => i.sub))).sort();
+      if (uniqueSubs.length === 1 && !form.sub) setForm(p => ({ ...p, sub: uniqueSubs[0] }));
+      
       if (form.sub) {
-        const makes = masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub).map(i => i.make).filter((v, i, a) => a.indexOf(v) === i).sort();
-        if (makes.length === 1 && !form.make) setForm(p => ({ ...p, make: makes[0] }));
+        const uniqueMakes = Array.from(new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub).map(i => i.make))).sort();
+        if (uniqueMakes.length === 1 && !form.make) setForm(p => ({ ...p, make: uniqueMakes[0] }));
+        
         if (form.make) {
-          const models = masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make).map(i => i.model).filter((v, i, a) => a.indexOf(v) === i).sort();
-          if (models.length === 1 && !form.model) setForm(p => ({ ...p, model: models[0] }));
+          const uniqueModels = Array.from(new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make).map(i => i.model))).sort();
+          if (uniqueModels.length === 1 && !form.model) setForm(p => ({ ...p, model: uniqueModels[0] }));
+          
           if (form.model) {
-            const specs = masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make && i.model === form.model).map(i => i.spec).filter((v, i, a) => a.indexOf(v) === i).sort();
-            if (specs.length === 1 && !form.spec) setForm(p => ({ ...p, spec: specs[0] }));
+            const uniqueSpecs = Array.from(new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make && i.model === form.model).map(i => i.spec))).sort();
+            if (uniqueSpecs.length === 1 && !form.spec) setForm(p => ({ ...p, spec: uniqueSpecs[0] }));
           }
         }
       }
@@ -90,27 +93,38 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
   const filterSubCategories = selCat !== "all" && selCat !== "OUT_OF_STOCK" ? [...new Set(masterCatalog.filter(i => i.cat === selCat).map(i => i.sub))].sort() : [];
   const filterEngineers = [...new Set(myItems.map(i => i.holder_name))].sort();
 
-  const availableSubs = masterCatalog.filter(i => i.cat === form.cat).map(i => i.sub).filter((v, i, a) => a.indexOf(v) === i).sort();
-  const availableMakes = masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub).map(i => i.make).filter((v, i, a) => a.indexOf(v) === i).sort();
-  const availableModels = masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make).map(i => i.model).filter((v, i, a) => a.indexOf(v) === i).sort();
-  const availableSpecs = masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make && i.model === form.model).map(i => i.spec).filter((v, i, a) => a.indexOf(v) === i).sort();
+  const availableSubs = Array.from(new Set(masterCatalog.filter(i => i.cat === form.cat).map(i => i.sub))).sort();
+  const availableMakes = Array.from(new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub).map(i => i.make))).sort();
+  const availableModels = Array.from(new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make).map(i => i.model))).sort();
+  const availableSpecs = Array.from(new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make && i.model === form.model).map(i => i.spec))).sort();
 
   // --- HANDLERS ---
   const handleSaveItem = async () => {
     if (!form.cat || !form.qty || !form.spec) return alert("Fill mandatory fields!");
     const itemName = form.isManual ? `${form.make} ${form.model} ${form.spec}`.trim() : `${form.make} ${form.sub} ${form.model}`.trim();
+    
     const payload = {
       item: itemName, cat: form.cat, sub: form.sub, make: form.make, model: form.model,
       spec: form.spec, qty: parseInt(form.qty), unit: form.unit, note: form.note,
-      is_manual: form.isManual, holder_unit: profile.unit, holder_uid: profile.id, holder_name: profile.name
+      is_manual: form.isManual, holder_unit: profile.unit, holder_uid: profile.id, holder_name: profile.name,
+      timestamp: editItem ? editItem.timestamp : Date.now()
     };
+
     try {
-      const { error } = await supabase.from("inventory").insert([payload]);
-      if (!error) {
-        await supabase.from("profiles").update({ item_count: (profile.item_count || 0) + 1 }).eq('id', profile.id);
-        alert("Material Stored Successfully!");
-        resetForm(); await fetchStore(); if(fetchProfile) fetchProfile();
-      } else alert(error.message);
+      if (editItem) {
+        const { error } = await supabase.from("inventory").update(payload).eq("id", editItem.id);
+        if (!error) {
+          alert("Entry Updated Successfully!");
+          resetForm(); await fetchStore();
+        } else alert(error.message);
+      } else {
+        const { error } = await supabase.from("inventory").insert([payload]);
+        if (!error) {
+          await supabase.from("profiles").update({ item_count: (profile.item_count || 0) + 1 }).eq('id', profile.id);
+          alert("Material Stored Successfully!");
+          resetForm(); await fetchStore(); if(fetchProfile) fetchProfile();
+        } else alert(error.message);
+      }
     } catch (e) { alert("Save Error"); }
   };
 
@@ -123,9 +137,13 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
         item_id: consumeItem.id, item_name: consumeItem.item, cat: consumeItem.cat, sub: consumeItem.sub, spec: consumeItem.spec,
         qty_consumed: q, unit: consumeItem.unit, purpose: consumeForm.note,
         consumer_uid: profile.id, consumer_name: profile.name, consumer_unit: profile.unit,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        make: consumeItem.make || '-',
+        model: consumeItem.model || '-',
       }]);
-      setConsumeItem(null); setConsumeForm({ qty: "", note: "" }); await fetchStore(); alert("Usage Logged!");
+      setConsumeItem(null); setConsumeForm({ qty: "", note: "" }); 
+      setBifurcationItem(null); 
+      await fetchStore(); alert("Usage Logged!");
     } catch (e) { alert("Error"); }
   };
 
@@ -145,7 +163,9 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
     const summary: any = {};
     filteredList.forEach((i: any) => {
       const key = `${i.cat} > ${i.sub}`;
-      if (!summary[key]) summary[key] = { cat: i.cat, sub: i.sub, total: 0 };
+      if (!summary[key]) {
+        summary[key] = { cat: i.cat, sub: i.sub, total: 0, unit: i.unit || 'Nos' };
+      }
       summary[key].total += Number(i.totalQty);
     });
     return Object.values(summary).sort((a: any, b: any) => a.cat.localeCompare(b.cat));
@@ -154,86 +174,97 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
   const exportCSV = () => {
     const headers = "Category,Sub-Cat,Item,Spec,Qty,Unit,By,Date,Note\n";
     const rows = filteredList.flatMap((i: any) => i.records.map((r: any) => `"${r.cat}","${r.sub}","${r.item}","${r.spec}","${r.qty}","${r.unit}","${r.holder_name}","${r.timestamp ? new Date(Number(r.timestamp)).toLocaleDateString() : ''}","${r.note || ''}"`)).join("\n");
-    const blob = new Blob([headers + rows], { type: 'text/csv' });
+    const blob = new Blob([headers + rows.join("")], { type: 'text/csv' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `LocalStore_Audit.csv`; a.click();
   };
 
   return (
-    <div className="animate-fade-in space-y-6 pb-20 font-roboto font-bold uppercase">
+    <div className="animate-fade-in space-y-6 pb-20 font-roboto font-bold uppercase tracking-tight">
       {/* Header Panel */}
-      <div className="bg-white p-6 rounded-xl border shadow-sm">
-        <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest leading-none">My Local Store</h2>
-        <p className="text-[10px] font-black bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-2 inline-block uppercase">ZONE: {profile?.unit}</p>
+      <div className="bg-white p-6 rounded-xl border shadow-sm flex justify-between items-center border-t-4 border-orange-500">
+        <div>
+           <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest leading-none">My Local Store</h2>
+           <p className="text-[10px] font-black bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-2 inline-block uppercase tracking-tighter">ZONE: {profile?.unit}</p>
+        </div>
       </div>
 
       {/* Action Required Banner */}
       {outOfStockCount > 0 && (
         <section className="bg-white rounded-xl border-t-4 border-orange-500 shadow-xl overflow-hidden animate-fade-in">
-           <div className="p-4 bg-orange-50/50 flex justify-between items-center border-b">
-              <div className="flex items-center gap-3 text-orange-900 font-black uppercase text-[11px] tracking-widest leading-tight">
-                 <i className="fa-solid fa-triangle-exclamation animate-pulse text-lg text-orange-600"></i> 
-                 <span>Action Required: {outOfStockCount} Items are out of stock. use out of stock filter to check items</span>
-              </div>
-              <span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px]">CRITICAL</span>
-           </div>
+            <div className="p-4 bg-orange-50/50 flex justify-between items-center border-b">
+               <div className="flex items-center gap-3 text-orange-900 font-black uppercase text-[11px] tracking-widest leading-tight">
+                  <i className="fa-solid fa-triangle-exclamation animate-pulse text-lg text-orange-600"></i> 
+                  <span>Action Required: {outOfStockCount} Items are out of stock.</span>
+               </div>
+               <span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px]">CRITICAL</span>
+            </div>
         </section>
       )}
 
-      {/* SINGLE LINE TOOLBAR */}
-      <div className="flex flex-col lg:flex-row gap-4 bg-white p-4 rounded-xl border shadow-sm items-center">
-        <div className="relative flex-1 w-full">
-            <i className="fa-solid fa-search absolute left-3 top-3.5 text-slate-400"></i>
-            <input type="text" placeholder="Search master material name or specification..." className="w-full pl-10 pr-4 py-3 border-2 border-slate-100 rounded-xl text-xs outline-none focus:border-orange-400 font-bold uppercase shadow-inner transition-all" value={search} onChange={e => setSearch(e.target.value)} />
+      {/* SEARCH & FILTERS */}
+      <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="p-4 border-b bg-slate-50/80 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="relative flex-grow md:w-80">
+              <i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i>
+              <input type="text" placeholder="Search Material..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none font-black uppercase" value={search} onChange={e=>setSearch(e.target.value)} />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setShowSummary(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md flex items-center gap-2 uppercase tracking-widest hover:bg-indigo-700 transition-all"><i className="fa-solid fa-chart-pie"></i> Stock Summary</button>
+              <button onClick={exportCSV} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md flex items-center gap-2 uppercase tracking-widest hover:bg-emerald-700 transition-all"><i className="fa-solid fa-file-excel"></i> Export Sheet</button>
+              <button onClick={() => { resetForm(); setShowAddModal(true); }} className="iocl-btn text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md flex items-center gap-2 uppercase tracking-widest hover:opacity-90 transition-all"><i className="fa-solid fa-plus"></i> Add Stock</button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <select className="border rounded-md text-[10px] font-bold p-2 uppercase bg-white cursor-pointer" value={selCat} onChange={e => { setSelCat(e.target.value); setSelSub("all"); }}>
+                <option value="all">Category: All</option>
+                <option value="OUT_OF_STOCK" className="text-red-600 font-black">!!! OUT OF STOCK !!!</option>
+                {uniqueCats.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <select disabled={selCat === "all" || selCat === "OUT_OF_STOCK"} className="border rounded-md text-[10px] font-bold p-2 uppercase bg-white cursor-pointer disabled:opacity-50" value={selSub} onChange={e => setSelSub(e.target.value)}>
+                <option value="all">Sub-Category: All</option>
+                {filterSubCategories.map((s: any) => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <select className="border rounded-md text-[10px] font-bold p-2 uppercase bg-white cursor-pointer" value={selEngineer} onChange={e => setSelEngineer(e.target.value)}>
+                <option value="all">Engineer: Team View</option>
+                {filterEngineers.map((name: any) => <option key={name} value={name}>{name === profile?.name ? "Added By: You" : name}</option>)}
+            </select>
+          </div>
         </div>
-        <div className="flex gap-2 w-full lg:w-auto">
-            <button onClick={exportCSV} className="bg-emerald-600 text-white px-4 py-3 rounded-xl text-[10px] font-black shadow-md flex items-center justify-center gap-2 flex-1 lg:flex-none uppercase tracking-widest hover:bg-emerald-700 transition-all"><i className="fa-solid fa-file-csv"></i> Export Sheet</button>
-            <button onClick={() => setShowSummary(true)} className="bg-indigo-600 text-white px-4 py-3 rounded-xl text-[10px] font-black shadow-md flex items-center justify-center gap-2 flex-1 lg:flex-none uppercase tracking-widest hover:bg-indigo-700 transition-all"><i className="fa-solid fa-chart-bar"></i> Stock Summary</button>
-            <button onClick={() => { resetForm(); setShowAddModal(true); }} className="iocl-btn text-white px-5 py-3 rounded-xl text-[10px] font-black shadow-md flex items-center justify-center gap-2 flex-1 lg:flex-none uppercase tracking-widest"><i className="fa-solid fa-plus"></i> Add Stock</button>
-        </div>
-      </div>
 
-      {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50/50 p-4 rounded-xl border shadow-sm">
-        <select className="border-2 border-white rounded-lg text-[10px] p-3 bg-white font-bold uppercase shadow-sm cursor-pointer" value={selCat} onChange={e => { setSelCat(e.target.value); setSelSub("all"); }}>
-            <option value="all">Category: All</option>
-            <option value="OUT_OF_STOCK" className="text-red-600 font-black">!!! OUT OF STOCK !!!</option>
-            {uniqueCats.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <select disabled={selCat === "all" || selCat === "OUT_OF_STOCK"} className="border-2 border-white rounded-lg text-[10px] p-3 bg-white font-bold uppercase shadow-sm disabled:opacity-50" value={selSub} onChange={e => setSelSub(e.target.value)}><option value="all">Sub-Category: All</option>{filterSubCategories.map((s: any) => <option key={s} value={s}>{s}</option>)}</select>
-        <select className="border-2 border-white rounded-lg text-[10px] p-3 bg-white font-bold uppercase shadow-sm cursor-pointer" value={selEngineer} onChange={e => setSelEngineer(e.target.value)}>
-            <option value="all">Engineer: Team View</option>
-            {filterEngineers.map((name: any) => <option key={name} value={name}>{name === profile?.name ? "Added By: You" : name}</option>)}
-        </select>
-      </div>
-
-      {/* Aggregated Table */}
-      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+        {/* Aggregated Table */}
         <div className="overflow-x-auto"><table className="w-full text-left tracking-tight">
-          <thead className="bg-slate-50 text-slate-500 text-[10px] font-black border-b tracking-widest uppercase"><tr><th className="p-5 pl-8">Material Detail</th><th className="p-5">Spec</th><th className="p-5 text-center">Total Qty</th><th className="p-5 text-center">Action</th></tr></thead>
+          <thead className="bg-slate-50 text-slate-500 text-[10px] font-black border-b tracking-widest uppercase"><tr><th className="p-5 pl-8">Material Detail</th><th className="p-5">Spec Details</th><th className="p-5 text-center">Total Qty</th><th className="p-5 text-center">Action</th></tr></thead>
           <tbody className="divide-y text-sm">
             {currentItems.length > 0 ? currentItems.map((i: any) => (
               <tr key={`${i.item}-${i.spec}`} className={`hover:bg-blue-50/50 transition border-b uppercase group cursor-pointer ${i.totalQty === 0 ? 'bg-red-50/30' : ''}`} onClick={() => setBifurcationItem(i)}>
                 <td className="p-5 pl-8 leading-tight">
-                  <div className="text-slate-800 font-bold text-[14px] flex items-center gap-2">{i.item}{i.is_manual && <span className="bg-orange-100 text-orange-600 text-[8px] px-1.5 py-0.5 rounded font-black border border-orange-200">M</span>}</div>
+                  <div className="text-slate-800 font-bold text-[14px] flex items-center gap-2">
+                    {i.item}
+                    {i.is_manual && <span className="bg-orange-100 text-orange-600 text-[8px] px-1.5 py-0.5 rounded font-black border border-orange-200">M</span>}
+                  </div>
                   <div className="text-[9px] text-slate-400 mt-1 uppercase font-bold">{i.cat} &gt; {i.sub}</div>
                   <div className="text-[8px] text-indigo-500 mt-1 font-black tracking-widest uppercase opacity-0 group-hover:opacity-100 transition-opacity">View split-up details →</div>
                 </td>
-                <td className="p-5 font-mono"><span className="bg-white border px-2 py-1 rounded-[4px] text-[10.5px] text-slate-600 font-bold shadow-sm">{i.spec}</span></td>
+                <td className="p-5 font-mono">
+                  <span className="bg-white border px-2 py-1 rounded-[4px] text-[10.5px] text-slate-600 font-bold shadow-sm inline-block">
+                    {i.make || '-'} | {i.model || '-'} | {i.spec}
+                  </span>
+                </td>
                 <td className={`p-5 font-bold text-center text-[16px] whitespace-nowrap ${i.totalQty === 0 ? 'text-red-600 animate-pulse' : 'text-slate-800'}`}>{i.totalQty === 0 ? "ZERO STOCK" : `${i.totalQty} ${i.unit}`}</td>
                 <td className="p-5 text-center"><button className="bg-indigo-50 text-indigo-700 px-4 py-1.5 rounded-lg text-[10px] font-black border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-all uppercase shadow-sm">View Split</button></td>
               </tr>
             )) : <tr><td colSpan={4} className="p-20 text-center text-slate-300 font-black tracking-[0.2em]">NO DATA FOUND</td></tr>}
           </tbody>
         </table></div>
-        {/* Pagination */}
         <div className="p-4 bg-slate-50 border-t flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
           <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 hover:bg-slate-50 transition-all">Prev</button>
           <span>Page {currentPage} of {totalPages}</span>
           <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 hover:bg-slate-50 transition-all">Next</button>
         </div>
-      </div>
+      </section>
 
-      {/* BIFURCATION MODAL (Updated logic for 0 qty records) */}
+      {/* BIFURCATION MODAL */}
       {bifurcationItem && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-scale-in uppercase font-bold">
@@ -245,11 +276,15 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
                 <table className="w-full text-left text-xs uppercase">
                     <thead className="bg-slate-50 border-b text-[10px] text-slate-400 tracking-widest font-black uppercase"><tr><th className="p-4 pl-6">Added By</th><th className="p-4">Date & Time</th><th className="p-4 text-center">Qty</th><th className="p-4 text-center">Action</th></tr></thead>
                     <tbody className="divide-y">
-                        {/* FEATURE UPDATE: Filtering out zero quantity lines */}
                         {bifurcationItem.records.filter((r:any) => r.qty > 0).map((r: any) => (
                             <tr key={r.id} className="hover:bg-slate-50 transition-colors">
                                 <td className="p-4 pl-6 leading-tight">
-                                    <span className={`px-2 py-1 rounded text-[10px] font-black block w-fit mb-1 ${r.holder_uid === profile?.id ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-slate-100 text-slate-600'}`}>{r.holder_uid === profile?.id ? "YOU" : r.holder_name}</span>
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className={`px-2 py-1 rounded text-[10px] font-black block w-fit ${r.holder_uid === profile?.id ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-slate-100 text-slate-600'}`}>
+                                        {r.holder_uid === profile?.id ? "YOU" : r.holder_name}
+                                      </span>
+                                      {r.is_manual && <span className="bg-orange-100 text-orange-600 text-[8px] px-1 py-0.5 rounded font-black border border-orange-200">M</span>}
+                                    </div>
                                     {r.note && <p className="text-[8px] text-slate-400 lowercase italic truncate max-w-[150px]">note: {r.note}</p>}
                                 </td>
                                 <td className="p-4 text-[10px] text-slate-500 font-medium">{r.timestamp ? new Date(Number(r.timestamp)).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : '--'}</td>
@@ -262,17 +297,13 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
                         ))}
                     </tbody>
                 </table>
-                {/* Visual feedback if everything in split is zero */}
-                {bifurcationItem.records.filter((r:any) => r.qty > 0).length === 0 && (
-                    <div className="p-10 text-center text-red-500 text-[10px] font-black tracking-widest uppercase">All components of this item are out of stock</div>
-                )}
             </div>
             <div className="p-4 bg-slate-50 text-center"><button onClick={() => setBifurcationItem(null)} className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-600">Close</button></div>
           </div>
         </div>
       )}
 
-      {/* ADD STOCK MODAL */}
+      {/* ADD/EDIT STOCK MODAL */}
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-scale-in uppercase font-bold">
@@ -307,7 +338,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
                   <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest font-black">Spec</label>
                     {form.isManual ? <input type="text" className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold" placeholder="e.g. 240V" value={form.spec} onChange={e => setForm({ ...form, spec: e.target.value })} />
                       : <select disabled={!!editItem} className="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs font-bold uppercase cursor-pointer" value={form.spec} onChange={e => setForm({ ...form, spec: e.target.value })}><option value="">-- Select --</option>{availableSpecs.map((s:any) => <option key={s} value={s}>{s}</option>)}</select>}
-                  </div>
+                </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3 pt-2">
                   <div><label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest font-black">Quantity</label><input type="number" className="w-full p-3 border-2 border-slate-100 rounded-xl text-lg font-black text-indigo-600 focus:border-indigo-400 outline-none shadow-sm" value={form.qty} onChange={e => setForm({ ...form, qty: e.target.value })} /></div>
@@ -324,7 +355,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
         </div>
       )}
 
-      {/* CONSUME MODAL */}
+      {/* CONSUME MODAL - UPDATED WITH MAKE MODEL SPEC */}
       {consumeItem && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[10001] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 animate-scale-in uppercase font-bold relative">
@@ -333,6 +364,14 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-6 shadow-inner">
               <p className="text-[10px] text-slate-400 font-black mb-1 uppercase tracking-widest">Detail</p>
               <p className="text-sm font-black text-slate-700 leading-tight">{consumeItem.item}</p>
+              
+              {/* UPDATED: MAKE | MODEL | SPEC ADDED HERE */}
+              <p className="text-[9px] text-slate-400 mt-1">
+                <span className="bg-white border px-2 py-0.5 rounded-[4px] text-indigo-600 font-black shadow-sm inline-block">
+                  {consumeItem.make || '-'} | {consumeItem.model || '-'} | {consumeItem.spec || '-'}
+                </span>
+              </p>
+
               <p className="text-[9px] text-green-600 mt-2 tracking-widest uppercase font-black">Sub-Balance: {consumeItem.qty} {consumeItem.unit}</p>
             </div>
             <div className="space-y-4">
@@ -353,7 +392,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
               <table className="w-full text-left text-xs font-bold uppercase">
                 <thead className="border-b text-slate-400 uppercase tracking-widest"><tr><th className="pb-3 text-[10px]">Category &gt; Sub-Category</th><th className="pb-3 text-right text-[10px]">Total Balance</th></tr></thead>
                 <tbody className="divide-y">{getSummaryData().map((s: any, idx: number) => (
-                  <tr key={idx} className="hover:bg-slate-50 transition border-b"><td className="py-4 text-slate-700 text-[11px]">{s.cat} <i className="fa-solid fa-chevron-right text-[8px] mx-1 opacity-40"></i> {s.sub}</td><td className="py-4 text-right font-black text-indigo-600 text-sm">{s.total} Nos</td></tr>
+                  <tr key={idx} className="hover:bg-slate-50 transition border-b"><td className="py-4 text-slate-700 text-[11px]">{s.cat} <i className="fa-solid fa-chevron-right text-[8px] mx-1 opacity-40"></i> {s.sub}</td><td className="py-4 text-right font-black text-indigo-600 text-sm">{s.total} {s.unit}</td></tr>
                 ))}</tbody>
               </table>
             </div>
