@@ -31,15 +31,12 @@ export default function MonthlyAnalysisView({ profile }: any) {
 
       logs?.forEach((log) => {
         if (log.is_manual === true || log.cat === 'Manual Entry' || !log.cat) return;
-
         const cat = log.cat;
         const sub = log.sub || 'General';
         const qty = Number(log.qty_consumed || 0);
         const unit = log.unit || 'Nos';
-
         if (!report[cat]) report[cat] = {};
         if (!report[cat][sub]) report[cat][sub] = { total: 0, units: {} };
-
         report[cat][sub].total += qty;
         report[cat][sub].units[unit] = (report[cat][sub].units[unit] || 0) + qty;
       });
@@ -49,12 +46,10 @@ export default function MonthlyAnalysisView({ profile }: any) {
         const labels = Object.keys(subDataMap).sort();
         const values = labels.map(l => subDataMap[l].total);
         const barUnits = labels.map(l => {
-            const sortedUnits = Object.entries(subDataMap[l].units).sort((a:any, b:any) => b[1] - a[1]);
+            const sortedUnits = Object.entries(subDataMap[l].units).sort((a:any, b:any) => (b[1] as number) - (a[1] as number));
             return sortedUnits.length > 0 ? sortedUnits[0][0] : 'Nos';
         });
-
         const colors = ['#38bdf8', '#4f46e5', '#9333ea', '#ec4899', '#f43f5e'];
-
         return {
           category: catName, 
           total: values.reduce((a, b) => a + b, 0), 
@@ -130,14 +125,14 @@ export default function MonthlyAnalysisView({ profile }: any) {
                                 align: 'top',
                                 offset: 5,
                                 color: '#334155',
-                                // FIXED: weight changed to 'bold' from 'black'
                                 font: { weight: 'bold', size: 11 },
                                 formatter: (val) => val
                             },
                             tooltip: {
                                 backgroundColor: '#1e293b',
                                 padding: 10,
-                                borderRadius: 8,
+                                // FIXED: changed borderRadius to cornerRadius for Chart.js Tooltip
+                                cornerRadius: 8,
                                 displayColors: false
                             }
                         },
@@ -152,12 +147,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
                             x: { 
                                 grid: { display: false }, 
                                 border: { display: true, color: '#cbd5e1', width: 2 },
-                                ticks: { 
-                                    // FIXED: weight changed to 'bold' from 'black'
-                                    font: { size: 10, weight: 'bold' }, 
-                                    color: '#64748b', 
-                                    padding: 10
-                                } 
+                                ticks: { font: { size: 10, weight: 'bold' }, color: '#64748b', padding: 10 } 
                             }
                         }
                     }} 
