@@ -25,6 +25,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
     setSelectedMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
   }, []);
 
+  // Jaise hi month badle ya tab pe click ho, data fetch ho jaye
   useEffect(() => {
     if (selectedMonth) fetchGlobalConsumption();
   }, [selectedMonth]);
@@ -47,7 +48,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
       const report: any = {};
 
       logs?.forEach((log) => {
-        // --- LOGIC: SKIP MANUAL ENTRIES ---
+        // --- STRICT FILTER: Manual entries aur bina category waale items ko skip karein ---
         if (log.is_manual === true || log.cat === 'Manual Entry' || !log.cat) return;
 
         const cat = log.cat;
@@ -83,8 +84,8 @@ export default function MonthlyAnalysisView({ profile }: any) {
         
         const barUnits = labels.map(l => {
             const units = subDataMap[l].units;
-            const topUnit = Object.entries(units).sort((a:any, b:any) => b[1] - a[1])[0];
-            return topUnit ? topUnit[0] : 'Nos';
+            const sortedUnits = Object.entries(units).sort((a:any, b:any) => b[1] - a[1]);
+            return sortedUnits.length > 0 ? sortedUnits[0][0] : 'Nos';
         });
 
         const breakdownInfo = labels.map(l => {
@@ -124,7 +125,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
       <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl flex flex-col md:flex-row justify-between items-center gap-6 border-b-4 border-orange-500">
         <div>
           <h2 className="text-xl font-black uppercase tracking-widest leading-none">Monthly Consumption Data</h2>
-          <p className="text-[10px] text-slate-400 mt-2 tracking-[0.2em] lowercase font-black">Catalog-only analysis (Manual entries excluded)</p>
+          <p className="text-[10px] text-slate-400 mt-2 tracking-[0.2em] font-black lowercase">Catalog-based usage analysis</p>
         </div>
         <div className="flex items-center gap-4 bg-slate-800 p-3 rounded-xl border border-slate-700">
           <span className="text-[9px] font-black text-orange-400 uppercase">Analysis Month</span>
@@ -143,7 +144,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
               <div className="flex justify-between items-center mb-6 border-b pb-4">
                 <div>
                     <h3 className="text-md font-black text-slate-800 leading-none">{cfg.category}</h3>
-                    <p className="text-[8px] text-slate-400 mt-1 font-bold tracking-widest uppercase">Sub-Category Breakdown</p>
+                    <p className="text-[8px] text-slate-400 mt-1 font-bold tracking-widest uppercase">Usage Summary</p>
                 </div>
                 <div className="text-right">
                     <p className="text-[14px] font-black text-indigo-600 leading-none">{cfg.total} <span className="text-[9px] text-slate-400 uppercase">{cfg.primaryUnit}</span></p>
@@ -205,7 +206,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
           ))}
         </div>
       ) : (
-        <div className="bg-white border-2 border-dashed rounded-3xl p-32 text-center text-slate-300 font-black text-xs uppercase tracking-widest">No Catalog Usage Found For {selectedMonth}</div>
+        <div className="bg-white border-2 border-dashed rounded-3xl p-32 text-center text-slate-300 font-black text-xs uppercase tracking-widest">No Records Found For {selectedMonth}</div>
       )}
     </div>
   );
