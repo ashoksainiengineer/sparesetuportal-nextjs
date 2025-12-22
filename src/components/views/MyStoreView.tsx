@@ -42,17 +42,21 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
     const cats = [...new Set(masterCatalog.map(i => i.cat))].sort();
     if (cats.length === 1 && !form.cat) setForm(p => ({ ...p, cat: cats[0] }));
     if (form.cat) {
-      const subs = masterCatalog.filter(i => i.cat === form.cat).map(i => i.sub).filter((v, i, a) => a.indexOf(v) === i).sort();
-      if (subs.length === 1 && !form.sub) setForm(p => ({ ...p, sub: subs[0] }));
+      const subs = masterCatalog.filter(i => i.cat === form.cat).map(i => i.sub).filter((v, i, a) => a.indexOf(v) || a.indexOf(v) === i).sort();
+      const uniqueSubs = Array.from(new Set(masterCatalog.filter(i => i.cat === form.cat).map(i => i.sub))).sort();
+      if (uniqueSubs.length === 1 && !form.sub) setForm(p => ({ ...p, sub: uniqueSubs[0] }));
+      
       if (form.sub) {
-        const makes = masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub).map(i => i.make).filter((v, i, a) => a.indexOf(v) === i).sort();
-        if (makes.length === 1 && !form.make) setForm(p => ({ ...p, make: makes[0] }));
+        const uniqueMakes = Array.from(new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub).map(i => i.make))).sort();
+        if (uniqueMakes.length === 1 && !form.make) setForm(p => ({ ...p, make: uniqueMakes[0] }));
+        
         if (form.make) {
-          const models = masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make).map(i => i.model).filter((v, i, a) => a.indexOf(v) === i).sort();
-          if (models.length === 1 && !form.model) setForm(p => ({ ...p, model: models[0] }));
+          const uniqueModels = Array.from(new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make).map(i => i.model))).sort();
+          if (uniqueModels.length === 1 && !form.model) setForm(p => ({ ...p, model: uniqueModels[0] }));
+          
           if (form.model) {
-            const specs = masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make && i.model === form.model).map(i => i.spec).filter((v, i, a) => a.indexOf(v) === i).sort();
-            if (specs.length === 1 && !form.spec) setForm(p => ({ ...p, spec: specs[0] }));
+            const uniqueSpecs = Array.from(new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make && i.model === form.model).map(i => i.spec))).sort();
+            if (uniqueSpecs.length === 1 && !form.spec) setForm(p => ({ ...p, spec: uniqueSpecs[0] }));
           }
         }
       }
@@ -90,10 +94,10 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
   const filterSubCategories = selCat !== "all" && selCat !== "OUT_OF_STOCK" ? [...new Set(masterCatalog.filter(i => i.cat === selCat).map(i => i.sub))].sort() : [];
   const filterEngineers = [...new Set(myItems.map(i => i.holder_name))].sort();
 
-  const availableSubs = masterCatalog.filter(i => i.cat === form.cat).map(i => i.sub).filter((v, i, a) => a.indexOf(v) === i).sort();
-  const availableMakes = masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub).map(i => i.make).filter((v, i, a) => a.indexOf(v) === i).sort();
-  const availableModels = masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make).map(i => i.model).filter((v, i, a) => a.indexOf(v) === i).sort();
-  const availableSpecs = masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make && i.model === form.model).map(i => i.spec).filter((v, i, a) => a.indexOf(v) === i).sort();
+  const availableSubs = Array.from(new Set(masterCatalog.filter(i => i.cat === form.cat).map(i => i.sub))).sort();
+  const availableMakes = Array.from(new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub).map(i => i.make))).sort();
+  const availableModels = Array.from(new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make).map(i => i.model))).sort();
+  const availableSpecs = Array.from(new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make && i.model === form.model).map(i => i.spec))).sort();
 
   // --- HANDLERS ---
   const handleSaveItem = async () => {
@@ -156,11 +160,14 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
     setForm({ cat: "", sub: "", make: "", model: "", spec: "", qty: "", unit: "Nos", note: "", isManual: false });
   };
 
+  // --- FIXED SUMMARY LOGIC WITH UNITS ---
   const getSummaryData = () => {
     const summary: any = {};
     filteredList.forEach((i: any) => {
       const key = `${i.cat} > ${i.sub}`;
-      if (!summary[key]) summary[key] = { cat: i.cat, sub: i.sub, total: 0 };
+      if (!summary[key]) {
+        summary[key] = { cat: i.cat, sub: i.sub, total: 0, unit: i.unit || 'Nos' };
+      }
       summary[key].total += Number(i.totalQty);
     });
     return Object.values(summary).sort((a: any, b: any) => a.cat.localeCompare(b.cat));
@@ -184,13 +191,13 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
       {/* Action Required Banner */}
       {outOfStockCount > 0 && (
         <section className="bg-white rounded-xl border-t-4 border-orange-500 shadow-xl overflow-hidden animate-fade-in">
-           <div className="p-4 bg-orange-50/50 flex justify-between items-center border-b">
-              <div className="flex items-center gap-3 text-orange-900 font-black uppercase text-[11px] tracking-widest leading-tight">
-                 <i className="fa-solid fa-triangle-exclamation animate-pulse text-lg text-orange-600"></i> 
-                 <span>Action Required: {outOfStockCount} Items are out of stock.</span>
-              </div>
-              <span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px]">CRITICAL</span>
-           </div>
+            <div className="p-4 bg-orange-50/50 flex justify-between items-center border-b">
+               <div className="flex items-center gap-3 text-orange-900 font-black uppercase text-[11px] tracking-widest leading-tight">
+                  <i className="fa-solid fa-triangle-exclamation animate-pulse text-lg text-orange-600"></i> 
+                  <span>Action Required: {outOfStockCount} Items are out of stock.</span>
+               </div>
+               <span className="bg-orange-600 text-white px-2.5 py-0.5 rounded-full font-black text-[10px]">CRITICAL</span>
+            </div>
         </section>
       )}
 
@@ -229,8 +236,10 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
             {currentItems.length > 0 ? currentItems.map((i: any) => (
               <tr key={`${i.item}-${i.spec}`} className={`hover:bg-blue-50/50 transition border-b uppercase group cursor-pointer ${i.totalQty === 0 ? 'bg-red-50/30' : ''}`} onClick={() => setBifurcationItem(i)}>
                 <td className="p-5 pl-8 leading-tight">
-                  <div className="text-slate-800 font-bold text-[14px] flex items-center gap-2">{i.item}{i.is_manual && <span className="bg-orange-100 text-orange-600 text-[8px] px-1.5 py-0.5 rounded font-black border border-orange-200">M</span>}</div>
-                  {/* FIXED ERROR BELOW: Used &gt; instead of raw > */}
+                  <div className="text-slate-800 font-bold text-[14px] flex items-center gap-2">
+                    {i.item}
+                    {i.is_manual && <span className="bg-orange-100 text-orange-600 text-[8px] px-1.5 py-0.5 rounded font-black border border-orange-200">M</span>}
+                  </div>
                   <div className="text-[9px] text-slate-400 mt-1 uppercase font-bold">{i.cat} &gt; {i.sub}</div>
                   <div className="text-[8px] text-indigo-500 mt-1 font-black tracking-widest uppercase opacity-0 group-hover:opacity-100 transition-opacity">View split-up details →</div>
                 </td>
@@ -263,7 +272,12 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
                         {bifurcationItem.records.filter((r:any) => r.qty > 0).map((r: any) => (
                             <tr key={r.id} className="hover:bg-slate-50 transition-colors">
                                 <td className="p-4 pl-6 leading-tight">
-                                    <span className={`px-2 py-1 rounded text-[10px] font-black block w-fit mb-1 ${r.holder_uid === profile?.id ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-slate-100 text-slate-600'}`}>{r.holder_uid === profile?.id ? "YOU" : r.holder_name}</span>
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className={`px-2 py-1 rounded text-[10px] font-black block w-fit ${r.holder_uid === profile?.id ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-slate-100 text-slate-600'}`}>
+                                        {r.holder_uid === profile?.id ? "YOU" : r.holder_name}
+                                      </span>
+                                      {r.is_manual && <span className="bg-orange-100 text-orange-600 text-[8px] px-1 py-0.5 rounded font-black border border-orange-200">M</span>}
+                                    </div>
                                     {r.note && <p className="text-[8px] text-slate-400 lowercase italic truncate max-w-[150px]">note: {r.note}</p>}
                                 </td>
                                 <td className="p-4 text-[10px] text-slate-500 font-medium">{r.timestamp ? new Date(Number(r.timestamp)).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : '--'}</td>
@@ -337,7 +351,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
       {/* CONSUME MODAL */}
       {consumeItem && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[10001] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 animate-scale-in uppercase font-bold relative">
+          <div className="bg-white w-full max-md rounded-2xl shadow-2xl p-6 animate-scale-in uppercase font-bold relative">
             <button onClick={() => setConsumeItem(null)} className="absolute top-4 right-4 text-slate-400 hover:text-red-500 transition-colors"><i className="fa-solid fa-xmark text-xl"></i></button>
             <h3 className="text-xl font-black text-slate-800 uppercase mb-6 tracking-tight">Consume Material</h3>
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-6 shadow-inner">
@@ -363,7 +377,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
               <table className="w-full text-left text-xs font-bold uppercase">
                 <thead className="border-b text-slate-400 uppercase tracking-widest"><tr><th className="pb-3 text-[10px]">Category &gt; Sub-Category</th><th className="pb-3 text-right text-[10px]">Total Balance</th></tr></thead>
                 <tbody className="divide-y">{getSummaryData().map((s: any, idx: number) => (
-                  <tr key={idx} className="hover:bg-slate-50 transition border-b"><td className="py-4 text-slate-700 text-[11px]">{s.cat} <i className="fa-solid fa-chevron-right text-[8px] mx-1 opacity-40"></i> {s.sub}</td><td className="py-4 text-right font-black text-indigo-600 text-sm">{s.total} Nos</td></tr>
+                  <tr key={idx} className="hover:bg-slate-50 transition border-b"><td className="py-4 text-slate-700 text-[11px]">{s.cat} <i className="fa-solid fa-chevron-right text-[8px] mx-1 opacity-40"></i> {s.sub}</td><td className="py-4 text-right font-black text-indigo-600 text-sm">{s.total} {s.unit}</td></tr>
                 ))}</tbody>
               </table>
             </div>
