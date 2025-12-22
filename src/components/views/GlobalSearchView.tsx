@@ -11,7 +11,7 @@ export default function GlobalSearchView({ profile }: any) {
   const [selZone, setSelZone] = useState("all");
   const [selCat, setSelCat] = useState("all");
   const [selSubCat, setSelSubCat] = useState("all");
-  const [selStock, setSelStock] = useState("all"); // New State for Stock Filter
+  const [selStock, setSelStock] = useState("all");
 
   // Pagination & Drill-down State
   const [currentPage, setCurrentPage] = useState(1);
@@ -49,10 +49,19 @@ export default function GlobalSearchView({ profile }: any) {
 
   // --- EXPORT TO SHEET LOGIC ---
   const exportToSheet = () => {
-    const groupedForExport = getGroupedData(true); // Get all data without pagination
+    const groupedForExport = getGroupedData(true); 
     const headers = ["Material", "Specification", "Make", "Model", "Total Qty", "Unit", "Category", "Sub-Category"];
-    const rows = groupedForExport.map(i => [
-      i.item, i.spec, i.make, i.model, i.totalQty, i.unit, i.cat, i.sub
+    
+    // FIX: Added (i: any) to prevent Vercel Type Error
+    const rows = groupedForExport.map((i: any) => [
+      `"${i.item || ''}"`, 
+      `"${i.spec || ''}"`, 
+      `"${i.make || ''}"`, 
+      `"${i.model || ''}"`, 
+      i.totalQty, 
+      `"${i.unit || ''}"`, 
+      `"${i.cat || ''}"`, 
+      `"${i.sub || ''}"`
     ]);
 
     let csvContent = "data:text/csv;charset=utf-8," 
@@ -62,7 +71,7 @@ export default function GlobalSearchView({ profile }: any) {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Refinery_Stock_${new Date().toLocaleDateString()}.csv`);
+    link.setAttribute("download", `Stock_Report_${new Date().toLocaleDateString()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -90,7 +99,6 @@ export default function GlobalSearchView({ profile }: any) {
 
     let result = Object.values(groups);
 
-    // Stock Status Filter Logic
     if (!ignoreStockFilter && selStock === "out") {
       result = result.filter((g: any) => g.totalQty <= 0);
     } else if (!ignoreStockFilter && selStock === "available") {
@@ -104,7 +112,6 @@ export default function GlobalSearchView({ profile }: any) {
   const totalPages = Math.ceil(groupedItems.length / itemsPerPage) || 1;
   const currentItems = groupedItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  // --- 2. ENGINE: SUMMARY WITH PROPER UNITS ---
   const getSummaryData = () => {
     const summary: any = {};
     items.forEach(i => {
@@ -184,11 +191,10 @@ export default function GlobalSearchView({ profile }: any) {
                 <option value="all">Sub-Category: All</option>
                 {[...new Set(items.filter(i => i.cat === selCat).map(i => i.sub).filter(s => s))].sort().map(s => <option key={s} value={s}>{s}</option>)}
             </select>
-            {/* New Stock Status Filter */}
             <select className="border rounded-md text-[10px] font-bold p-2 uppercase bg-white" onChange={e=>setSelStock(e.target.value)} value={selStock}>
                 <option value="all">Stock: All Items</option>
-                <option value="available" className="text-green-600">Stock: Available Only</option>
-                <option value="out" className="text-red-600">Stock: Out of Stock</option>
+                <option value="available">Stock: Available Only</option>
+                <option value="out">Stock: Out of Stock</option>
             </select>
           </div>
         </div>
@@ -238,7 +244,7 @@ export default function GlobalSearchView({ profile }: any) {
         </div>
       </section>
 
-      {/* --- DRILL-DOWN MODAL (Zone Consolidation Fix) --- */}
+      {/* --- DRILL-DOWN MODAL --- */}
       {bifurcateItem && (
         <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden animate-scale-in border-t-8 border-indigo-600 uppercase">
@@ -254,7 +260,7 @@ export default function GlobalSearchView({ profile }: any) {
                 
                 <div className="p-6 overflow-y-auto max-h-[70vh]">
                     <div className="space-y-3">
-                        <p className="text-[10px] text-slate-400 font-black mb-4 tracking-[0.2em]">ZONE-WISE STOCK (CLICK TO BIFURCATE HOLDERS)</p>
+                        <p className="text-[10px] text-slate-400 font-black mb-4 tracking-[0.2em]">ZONE-WISE STOCK</p>
                         
                         {Object.entries(bifurcateItem.occurrences.reduce((acc: any, curr: any) => {
                             if (!acc[curr.holder_unit]) acc[curr.holder_unit] = { total: 0, entries: [] };
@@ -312,7 +318,7 @@ export default function GlobalSearchView({ profile }: any) {
         </div>
       )}
 
-      {/* STOCK SUMMARY MODAL (Unit Fix) */}
+      {/* STOCK SUMMARY MODAL */}
       {showSummary && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-scale-in uppercase font-bold">
