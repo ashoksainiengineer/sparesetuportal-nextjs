@@ -174,16 +174,18 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
   const exportCSV = () => {
     const headers = "Category,Sub-Cat,Item,Spec,Qty,Unit,By,Date,Note\n";
     const rows = filteredList.flatMap((i: any) => i.records.map((r: any) => `"${r.cat}","${r.sub}","${r.item}","${r.spec}","${r.qty}","${r.unit}","${r.holder_name}","${r.timestamp ? new Date(Number(r.timestamp)).toLocaleDateString() : ''}","${r.note || ''}"`)).join("\n");
-    const blob = new Blob([headers + rows], { type: 'text/csv' });
+    const blob = new Blob([headers + rows.join("")], { type: 'text/csv' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `LocalStore_Audit.csv`; a.click();
   };
 
   return (
-    <div className="animate-fade-in space-y-6 pb-20 font-roboto font-bold uppercase">
+    <div className="animate-fade-in space-y-6 pb-20 font-roboto font-bold uppercase tracking-tight">
       {/* Header Panel */}
-      <div className="bg-white p-6 rounded-xl border shadow-sm">
-        <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest leading-none">My Local Store</h2>
-        <p className="text-[10px] font-black bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-2 inline-block uppercase">ZONE: {profile?.unit}</p>
+      <div className="bg-white p-6 rounded-xl border shadow-sm flex justify-between items-center border-t-4 border-orange-500">
+        <div>
+           <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest leading-none">My Local Store</h2>
+           <p className="text-[10px] font-black bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-2 inline-block uppercase tracking-tighter">ZONE: {profile?.unit}</p>
+        </div>
       </div>
 
       {/* Action Required Banner */}
@@ -199,7 +201,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
         </section>
       )}
 
-      {/* SEARCH & FILTERS (MATCHED TO GLOBAL SEARCH) */}
+      {/* SEARCH & FILTERS */}
       <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b bg-slate-50/80 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -353,7 +355,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
         </div>
       )}
 
-      {/* CONSUME MODAL - NORMALIZED WIDTH */}
+      {/* CONSUME MODAL - UPDATED WITH MAKE MODEL SPEC */}
       {consumeItem && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[10001] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 animate-scale-in uppercase font-bold relative">
@@ -362,6 +364,14 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-6 shadow-inner">
               <p className="text-[10px] text-slate-400 font-black mb-1 uppercase tracking-widest">Detail</p>
               <p className="text-sm font-black text-slate-700 leading-tight">{consumeItem.item}</p>
+              
+              {/* UPDATED: MAKE | MODEL | SPEC ADDED HERE */}
+              <p className="text-[9px] text-slate-400 mt-1">
+                <span className="bg-white border px-2 py-0.5 rounded-[4px] text-indigo-600 font-black shadow-sm inline-block">
+                  {consumeItem.make || '-'} | {consumeItem.model || '-'} | {consumeItem.spec || '-'}
+                </span>
+              </p>
+
               <p className="text-[9px] text-green-600 mt-2 tracking-widest uppercase font-black">Sub-Balance: {consumeItem.qty} {consumeItem.unit}</p>
             </div>
             <div className="space-y-4">
