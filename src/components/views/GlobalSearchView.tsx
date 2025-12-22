@@ -50,9 +50,8 @@ export default function GlobalSearchView({ profile }: any) {
   // --- EXPORT TO SHEET LOGIC ---
   const exportToSheet = () => {
     const groupedForExport = getGroupedData(true); 
-    const headers = ["Material", "Specification", "Make", "Model", "Total Qty", "Unit", "Category", "Sub-Category"];
+    const headers = ["Material", "Specification", "Make", "Model", "Total Qty", "Unit", "Category", "Sub-Category", "Mode"];
     
-    // FIX: Added (i: any) to prevent Vercel Type Error
     const rows = groupedForExport.map((i: any) => [
       `"${i.item || ''}"`, 
       `"${i.spec || ''}"`, 
@@ -61,7 +60,8 @@ export default function GlobalSearchView({ profile }: any) {
       i.totalQty, 
       `"${i.unit || ''}"`, 
       `"${i.cat || ''}"`, 
-      `"${i.sub || ''}"`
+      `"${i.sub || ''}"`,
+      i.is_manual ? "Manual" : "Catalog"
     ]);
 
     let csvContent = "data:text/csv;charset=utf-8," 
@@ -71,13 +71,13 @@ export default function GlobalSearchView({ profile }: any) {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Stock_Report_${new Date().toLocaleDateString()}.csv`);
+    link.setAttribute("download", `Global_Stock_Report_${new Date().toLocaleDateString()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  // --- 1. ENGINE: GROUPING FOR MAIN TABLE ---
+  // --- 1. ENGINE: GROUPING FOR MAIN TABLE (WITH LATEST SORTING) ---
   const getGroupedData = (ignoreStockFilter = false) => {
     const filtered = items.filter((i: any) => {
       const matchesSearch = (i.item.toLowerCase().includes(search.toLowerCase()) || i.spec.toLowerCase().includes(search.toLowerCase()));
@@ -91,21 +91,29 @@ export default function GlobalSearchView({ profile }: any) {
     filtered.forEach(item => {
       const key = `${item.item}-${item.spec}-${item.make}-${item.model}-${item.unit}`.toLowerCase();
       if (!groups[key]) {
-        groups[key] = { ...item, totalQty: 0, occurrences: [] };
+        groups[key] = { ...item, totalQty: 0, occurrences: [], latestTS: 0 };
       }
       groups[key].totalQty += Number(item.qty);
       groups[key].occurrences.push(item);
+      
+      // Tracking latest timestamp for sorting
+      const itemTS = Number(item.timestamp) || 0;
+      if (itemTS > groups[key].latestTS) {
+        groups[key].latestTS = itemTS;
+      }
     });
 
     let result = Object.values(groups);
 
+    // Filter Logic
     if (!ignoreStockFilter && selStock === "out") {
       result = result.filter((g: any) => g.totalQty <= 0);
     } else if (!ignoreStockFilter && selStock === "available") {
       result = result.filter((g: any) => g.totalQty > 0);
     }
 
-    return result.sort((a: any, b: any) => b.totalQty - a.totalQty);
+    // SORT BY LATEST TIMESTAMP FIRST
+    return result.sort((a: any, b: any) => b.latestTS - a.latestTS);
   };
 
   const groupedItems = getGroupedData();
@@ -208,7 +216,10 @@ export default function GlobalSearchView({ profile }: any) {
               {currentItems.map((group: any, idx: number) => (
                 <tr key={idx} className="hover:bg-slate-50 transition border-b">
                   <td className="p-4 pl-6 leading-tight">
-                    <div className="text-slate-800 font-bold text-[14px]">{group.item}</div>
+                    <div className="text-slate-800 font-bold text-[14px] flex items-center gap-2">
+                      {group.item}
+                      {group.is_manual && <span className="bg-orange-100 text-orange-600 text-[8px] px-1.5 py-0.5 rounded font-black border border-orange-200">M</span>}
+                    </div>
                     <div className="text-[10px] text-slate-400 mt-1 uppercase font-black">{group.make} | {group.model} | {group.spec}</div>
                   </td>
                   <td className="p-4 text-center font-black text-[16px] text-indigo-600 leading-none">
@@ -295,7 +306,12 @@ export default function GlobalSearchView({ profile }: any) {
                                             <tbody className="divide-y divide-slate-100">
                                                 {zoneData.entries.map((ent: any, i: number) => (
                                                     <tr key={i} className="hover:bg-white transition-colors">
-                                                        <td className="p-3 text-slate-700 font-black">{ent.holder_name}</td>
+                                                        <td className="p-3 text-slate-700 font-black">
+                                                          <div className="flex items-center gap-2">
+                                                            {ent.holder_name}
+                                                            {ent.is_manual && <span className="bg-orange-100 text-orange-600 text-[7px] px-1 py-0.5 rounded font-black border border-orange-200">M</span>}
+                                                          </div>
+                                                        </td>
                                                         <td className="p-3 text-slate-400 text-[9px]">{formatTS(ent.timestamp)}</td>
                                                         <td className="p-3 text-center font-black text-slate-900 text-xs">{ent.qty} {ent.unit}</td>
                                                         <td className="p-3 text-center">
