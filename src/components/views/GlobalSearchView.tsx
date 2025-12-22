@@ -77,7 +77,7 @@ export default function GlobalSearchView({ profile }: any) {
     document.body.removeChild(link);
   };
 
-  // --- 1. ENGINE: GROUPING FOR MAIN TABLE (WITH LATEST SORTING) ---
+  // --- 1. ENGINE: GROUPING FOR MAIN TABLE ---
   const getGroupedData = (ignoreStockFilter = false) => {
     const filtered = items.filter((i: any) => {
       const matchesSearch = (i.item.toLowerCase().includes(search.toLowerCase()) || i.spec.toLowerCase().includes(search.toLowerCase()));
@@ -96,7 +96,6 @@ export default function GlobalSearchView({ profile }: any) {
       groups[key].totalQty += Number(item.qty);
       groups[key].occurrences.push(item);
       
-      // Tracking latest timestamp for sorting
       const itemTS = Number(item.timestamp) || 0;
       if (itemTS > groups[key].latestTS) {
         groups[key].latestTS = itemTS;
@@ -105,14 +104,12 @@ export default function GlobalSearchView({ profile }: any) {
 
     let result = Object.values(groups);
 
-    // Filter Logic
     if (!ignoreStockFilter && selStock === "out") {
       result = result.filter((g: any) => g.totalQty <= 0);
     } else if (!ignoreStockFilter && selStock === "available") {
       result = result.filter((g: any) => g.totalQty > 0);
     }
 
-    // SORT BY LATEST TIMESTAMP FIRST
     return result.sort((a: any, b: any) => b.latestTS - a.latestTS);
   };
 
@@ -210,7 +207,7 @@ export default function GlobalSearchView({ profile }: any) {
         <div className="overflow-x-auto">
           <table className="w-full text-left font-bold uppercase tracking-tighter">
             <thead className="bg-slate-50 text-slate-500 text-[10px] border-b tracking-widest">
-              <tr><th className="p-4 pl-6">Material Detail</th><th className="p-4 text-center">Refinery Stock</th><th className="p-4 text-center">Status</th><th className="p-4 text-center">Action</th></tr>
+              <tr><th className="p-4 pl-6">Material Detail</th><th className="p-4">Spec Details</th><th className="p-4 text-center">Refinery Stock</th><th className="p-4 text-center">Status</th><th className="p-4 text-center">Action</th></tr>
             </thead>
             <tbody className="divide-y text-sm">
               {currentItems.map((group: any, idx: number) => (
@@ -220,7 +217,13 @@ export default function GlobalSearchView({ profile }: any) {
                       {group.item}
                       {group.is_manual && <span className="bg-orange-100 text-orange-600 text-[8px] px-1.5 py-0.5 rounded font-black border border-orange-200">M</span>}
                     </div>
-                    <div className="text-[10px] text-slate-400 mt-1 uppercase font-black">{group.make} | {group.model} | {group.spec}</div>
+                    <div className="text-[10px] text-slate-400 mt-1 uppercase font-bold">{group.cat} &gt; {group.sub}</div>
+                  </td>
+                  {/* NEW SPEC COLUMN WITH LOCAL STORE STYLING */}
+                  <td className="p-4 font-mono">
+                    <span className="bg-white border px-2 py-1 rounded-[4px] text-[10.5px] text-slate-600 font-bold shadow-sm inline-block">
+                        {group.make} | {group.model} | {group.spec}
+                    </span>
                   </td>
                   <td className="p-4 text-center font-black text-[16px] text-indigo-600 leading-none">
                     {group.totalQty} <span className="text-[9px] opacity-70">{group.unit}</span>
