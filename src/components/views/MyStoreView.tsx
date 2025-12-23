@@ -1,10 +1,12 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { masterCatalog } from "@/lib/masterdata";
 
 export default function MyStoreView({ profile, fetchProfile }: any) {
   const [myItems, setMyItems] = useState<any[]>([]);
+  const [totalCount, setTotalCount] = useState(0); 
+  const [loading, setLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [bifurcationItem, setBifurcationItem] = useState<any>(null); 
@@ -24,38 +26,54 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
   });
   const [consumeForm, setConsumeForm] = useState({ qty: "", note: "" });
 
-  useEffect(() => { 
-    if (profile?.unit) fetchStore(); 
-  }, [profile]);
-
-  const fetchStore = async () => {
+  // --- LOGIC: Server-side Paginated Fetching ---
+  const fetchStore = useCallback(async () => {
+    if (!profile?.unit) return;
+    setLoading(true);
     try {
-      const { data, error } = await supabase.from("inventory").select("*").eq("holder_unit", profile.unit).order("id", { ascending: false });
+      let query = supabase
+        .from("inventory")
+        .select("*", { count: "exact" })
+        .eq("holder_unit", profile.unit);
+
+      if (search) query = query.or(`item.ilike.%${search}%,spec.ilike.%${search}%`);
+      if (selCat !== "all" && selCat !== "OUT_OF_STOCK") query = query.eq("cat", selCat);
+      if (selCat === "OUT_OF_STOCK") query = query.eq("qty", 0);
+      if (selSub !== "all") query = query.eq("sub", selSub);
+      if (selEngineer !== "all") query = query.eq("holder_name", selEngineer);
+
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      const { data, count, error } = await query
+        .range(from, to)
+        .order("id", { ascending: false });
+
       if (error) throw error;
-      if (data) setMyItems(data);
+      setMyItems(data || []);
+      setTotalCount(count || 0);
     } catch (e) { console.error("Fetch failed", e); }
-  };
+    finally { setLoading(false); }
+  }, [profile?.unit, search, selCat, selSub, selEngineer, currentPage]);
+
+  useEffect(() => { fetchStore(); }, [fetchStore]);
 
   const formatTS = (ts: any) => new Date(Number(ts)).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
 
-  // --- RESTORED: FULL AUTO-SELECT DROPDOWN LOGIC ---
+  // --- AS-IS: AUTO-SELECT DROPDOWN LOGIC ---
   useEffect(() => {
     if (form.isManual) return;
     const cats = [...new Set(masterCatalog.map(i => i.cat))].sort();
     if (cats.length === 1 && !form.cat) setForm(p => ({ ...p, cat: cats[0] }));
-    
     if (form.cat) {
       const subs = [...new Set(masterCatalog.filter(i => i.cat === form.cat).map(i => i.sub))].sort();
       if (subs.length === 1 && !form.sub) setForm(p => ({ ...p, sub: subs[0] }));
-      
       if (form.sub) {
         const makes = [...new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub).map(i => i.make))].sort();
         if (makes.length === 1 && !form.make) setForm(p => ({ ...p, make: makes[0] }));
-        
         if (form.make) {
           const models = [...new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make).map(i => i.model))].sort();
           if (models.length === 1 && !form.model) setForm(p => ({ ...p, model: models[0] }));
-          
           if (form.model) {
             const specs = [...new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make && i.model === form.model).map(i => i.spec))].sort();
             if (specs.length === 1 && !form.spec) setForm(p => ({ ...p, spec: specs[0] }));
@@ -73,39 +91,24 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
     return acc;
   }, {});
 
-  // SORTING: ZERO STOCK AT THE BOTTOM
-  const filteredList = Object.values(groupedItems).filter((i: any) => {
-    const s = search.toLowerCase();
-    const matchSearch = (i.item || "").toLowerCase().includes(s) || (i.spec || "").toLowerCase().includes(s);
-    let matchCat = selCat === "all" || i.cat === selCat;
-    if (selCat === "OUT_OF_STOCK") matchCat = (i.totalQty === 0);
-    const matchSub = selSub === "all" || i.sub === selSub;
-    const matchEng = selEngineer === "all" || i.records.some((r: any) => r.holder_name === selEngineer);
-    return matchSearch && matchCat && matchSub && matchEng;
-  }).sort((a: any, b: any) => {
-    if (a.totalQty > 0 && b.totalQty === 0) return -1;
-    if (a.totalQty === 0 && b.totalQty > 0) return 1;
-    return 0;
-  });
-
   const outOfStockCount = Object.values(groupedItems).filter((i: any) => i.totalQty === 0).length;
-  const currentItems = filteredList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  const totalPages = Math.ceil(filteredList.length / itemsPerPage) || 1;
+  const currentItems = Object.values(groupedItems);
+  const totalPages = Math.ceil(totalCount / itemsPerPage) || 1;
 
   const uniqueCats = [...new Set(masterCatalog.map(i => i.cat))].sort();
   const filterSubCategories = selCat !== "all" && selCat !== "OUT_OF_STOCK" ? [...new Set(masterCatalog.filter(i => i.cat === selCat).map(i => i.sub))].sort() : [];
   const filterEngineers = [...new Set(myItems.map(i => i.holder_name))].sort();
 
-  // Modal Dropdown Helpers
   const availableSubs = [...new Set(masterCatalog.filter(i => i.cat === form.cat).map(i => i.sub))].sort();
   const availableMakes = [...new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub).map(i => i.make))].sort();
   const availableModels = [...new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make).map(i => i.model))].sort();
   const availableSpecs = [...new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make && i.model === form.model).map(i => i.spec))].sort();
 
   const handleSaveItem = async () => {
-    if (!form.cat || !form.qty || !form.spec) return alert("Fill mandatory fields!");
+    const quantity = parseInt(form.qty);
+    if (!form.cat || isNaN(quantity) || !form.spec) return alert("Kripya saari mandatory details sahi se bhariye!");
     const itemName = form.isManual ? `${form.make} ${form.model} ${form.spec}`.trim() : `${form.make} ${form.sub} ${form.model}`.trim();
-    const payload = { item: itemName, cat: form.cat, sub: form.sub, make: form.make, model: form.model, spec: form.spec, qty: parseInt(form.qty), unit: form.unit, note: form.note, is_manual: form.isManual, holder_unit: profile.unit, holder_uid: profile.id, holder_name: profile.name, timestamp: editItem ? editItem.timestamp : Date.now() };
+    const payload = { item: itemName, cat: form.cat, sub: form.sub, make: form.make, model: form.model, spec: form.spec, qty: quantity, unit: form.unit, note: form.note, is_manual: form.isManual, holder_unit: profile.unit, holder_uid: profile.id, holder_name: profile.name, timestamp: editItem ? editItem.timestamp : Date.now() };
     try {
       if (editItem) { await supabase.from("inventory").update(payload).eq("id", editItem.id); } 
       else { await supabase.from("inventory").insert([payload]); await supabase.from("profiles").update({ item_count: (profile.item_count || 0) + 1 }).eq('id', profile.id); }
@@ -115,10 +118,10 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
 
   const handleConsume = async () => {
     const q = parseInt(consumeForm.qty);
-    if (!q || q <= 0) return alert("Invalid Qty");
+    if (isNaN(q) || q <= 0) return alert("Invalid Quantity!");
     try {
       const { data: live } = await supabase.from("inventory").select("qty").eq("id", consumeItem.id).single();
-      if (!live || q > live.qty) return alert(`Stock shortage! Only ${live?.qty || 0} left.`);
+      if (!live || q > live.qty) return alert(`Stock kam hai! Sirf ${live?.qty || 0} bache hain.`);
       await supabase.from("inventory").update({ qty: live.qty - q }).eq("id", consumeItem.id);
       await supabase.from("usage_logs").insert([{ item_id: consumeItem.id, item_name: consumeItem.item, cat: consumeItem.cat, sub: consumeItem.sub, spec: consumeItem.spec, qty_consumed: q, unit: consumeItem.unit, purpose: consumeForm.note, consumer_uid: profile.id, consumer_name: profile.name, consumer_unit: profile.unit, timestamp: Date.now(), make: consumeItem.make || '-', model: consumeItem.model || '-' }]);
       setConsumeItem(null); setBifurcationItem(null); await fetchStore(); alert("Usage Logged!");
@@ -127,7 +130,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
 
   const handleDeleteItem = async (id: number) => {
     const { data: loans } = await supabase.from("requests").select("id").eq("item_id", id).eq("status", "approved");
-    if (loans && loans.length > 0) return alert("CANNOT DELETE: Active Udhaari records exist!");
+    if (loans && loans.length > 0) return alert("CANNOT DELETE: Is item par active Udhaari records hain!");
     if (confirm("Permanently delete?")) { await supabase.from("inventory").delete().eq("id", id); setBifurcationItem(null); await fetchStore(); if(fetchProfile) fetchProfile(); }
   };
 
@@ -135,19 +138,21 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
 
   const getSummaryData = () => {
     const summary: any = {};
-    Object.values(groupedItems).forEach((i: any) => {
-      if (Number(i.totalQty) > 0) {
+    myItems.forEach((i: any) => {
+      if (Number(i.qty) > 0) {
         const key = `${i.cat} > ${i.sub}`;
         if (!summary[key]) summary[key] = { cat: i.cat, sub: i.sub, total: 0, unit: i.unit || 'Nos' };
-        summary[key].total += Number(i.totalQty);
+        summary[key].total += Number(i.qty);
       }
     });
     return Object.values(summary).sort((a: any, b: any) => a.cat.localeCompare(b.cat));
   };
 
-  const exportCSV = () => {
+  const exportCSV = async () => {
+    const { data } = await supabase.from("inventory").select("*").eq("holder_unit", profile.unit);
+    if (!data) return;
     const headers = "Category,Sub-Cat,Item,Spec,Qty,Unit,By,Date,Note\n";
-    const rows = filteredList.flatMap((i: any) => i.records.map((r: any) => `"${r.cat}","${r.sub}","${r.item}","${r.spec}","${r.qty}","${r.unit}","${r.holder_name}","${r.timestamp ? new Date(Number(r.timestamp)).toLocaleDateString() : ''}","${r.note || ''}"`)).join("\n");
+    const rows = data.map((r: any) => `"${r.cat}","${r.sub}","${r.item}","${r.spec}","${r.qty}","${r.unit}","${r.holder_name}","${r.timestamp ? new Date(Number(r.timestamp)).toLocaleDateString() : ''}","${r.note || ''}"`).join("\n");
     const blob = new Blob([headers + rows], { type: 'text/csv' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `LocalStore_Audit.csv`; a.click();
   };
@@ -193,9 +198,22 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
             <select className="border rounded-md text-[10px] font-bold p-2 uppercase bg-white cursor-pointer" value={selEngineer} onChange={e => setSelEngineer(e.target.value)}><option value="all">Engineer: Team View</option>{filterEngineers.map((name: any) => <option key={name} value={name}>{name === profile?.name ? "Added By: You" : name}</option>)}</select>
           </div>
         </div>
-        <div className="overflow-x-auto"><table className="w-full text-left tracking-tight"><thead className="bg-slate-50 text-slate-500 text-[10px] font-black border-b tracking-widest uppercase"><tr><th className="p-5 pl-8">Material Detail</th><th className="p-5">Spec Details</th><th className="p-5 text-center">Total Qty</th><th className="p-5 text-center">Action</th></tr></thead><tbody className="divide-y text-sm">
-            {currentItems.map((i: any) => (<tr key={`${i.item}-${i.spec}`} className={`hover:bg-blue-50/50 transition border-b uppercase group cursor-pointer ${i.totalQty === 0 ? 'bg-red-50/30' : ''}`} onClick={() => setBifurcationItem(i)}><td className="p-5 pl-8 leading-tight"><div className="text-slate-800 font-bold text-[14px] flex items-center gap-2">{i.item}{i.is_manual && <span className="bg-orange-100 text-orange-600 text-[8px] px-1.5 py-0.5 rounded font-black border border-orange-200">M</span>}</div><div className="text-[9px] text-slate-400 mt-1 uppercase font-bold">{i.cat} &gt; {i.sub}</div><div className="text-[8px] text-indigo-500 mt-1 font-black tracking-widest uppercase opacity-0 group-hover:opacity-100 transition-opacity">View split-up details →</div></td><td className="p-5 font-mono"><span className="bg-white border px-2 py-0.5 rounded-[4px] text-[10.5px] text-slate-600 font-bold shadow-sm inline-block">{i.make || '-'} | {i.model || '-'} | {i.spec}</span></td><td className={`p-5 font-bold text-center text-[16px] whitespace-nowrap ${i.totalQty === 0 ? 'text-red-600 animate-pulse' : 'text-slate-800'}`}>{i.totalQty === 0 ? "ZERO STOCK" : `${i.totalQty} ${i.unit}`}</td><td className="p-5 text-center"><button className="bg-indigo-50 text-indigo-700 px-4 py-1.5 rounded-lg text-[10px] font-black border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-all uppercase shadow-sm">View Split</button></td></tr>))}
-          </tbody></table></div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left tracking-tight">
+            <thead className="bg-slate-50 text-slate-500 text-[10px] font-black border-b tracking-widest uppercase"><tr><th className="p-5 pl-8">Material Detail</th><th className="p-5">Spec Details</th><th className="p-5 text-center">Total Qty</th><th className="p-5 text-center">Action</th></tr></thead>
+            <tbody className="divide-y text-sm">
+              {loading ? <tr><td colSpan={4} className="p-10 text-center animate-pulse text-slate-300">Fetching Zone Inventory...</td></tr> : 
+               currentItems.map((i: any) => (
+                <tr key={`${i.item}-${i.spec}`} className={`hover:bg-blue-50/50 transition border-b uppercase group cursor-pointer ${i.totalQty === 0 ? 'bg-red-50/30' : ''}`} onClick={() => setBifurcationItem(i)}>
+                  <td className="p-5 pl-8 leading-tight"><div className="text-slate-800 font-bold text-[14px] flex items-center gap-2">{i.item}{i.is_manual && <span className="bg-orange-100 text-orange-600 text-[8px] px-1.5 py-0.5 rounded font-black border border-orange-200">M</span>}</div><div className="text-[9px] text-slate-400 mt-1 uppercase font-bold">{i.cat} &gt; {i.sub}</div><div className="text-[8px] text-indigo-500 mt-1 font-black tracking-widest uppercase opacity-0 group-hover:opacity-100 transition-opacity">View split-up details →</div></td>
+                  <td className="p-5 font-mono"><span className="bg-white border px-2 py-0.5 rounded-[4px] text-[10.5px] text-slate-600 font-bold shadow-sm inline-block">{i.make || '-'} | {i.model || '-'} | {i.spec}</span></td>
+                  <td className={`p-5 font-bold text-center text-[16px] whitespace-nowrap ${i.totalQty === 0 ? 'text-red-600 animate-pulse' : 'text-slate-800'}`}>{i.totalQty === 0 ? "ZERO STOCK" : `${i.totalQty} ${i.unit}`}</td>
+                  <td className="p-5 text-center"><button className="bg-indigo-50 text-indigo-700 px-4 py-1.5 rounded-lg text-[10px] font-black border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-all uppercase shadow-sm">View Split</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <div className="p-4 bg-slate-50 border-t flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
           <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 hover:bg-slate-50 transition-all">Prev</button>
           <div className="flex items-center gap-1">
@@ -205,7 +223,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
         </div>
       </section>
 
-      {/* MODALS */}
+      {/* MODALS - AS-IS UI */}
       {bifurcationItem && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-scale-in uppercase font-bold">
