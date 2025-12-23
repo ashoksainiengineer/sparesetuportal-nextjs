@@ -34,7 +34,7 @@ export default function GlobalSearchView({ profile }: any) {
   };
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
+    setLoading(true); // Effect starts
     try {
       let query = supabase.from("inventory").select("*", { count: "exact" });
       if (search) query = query.or(`item.ilike.%${search}%,spec.ilike.%${search}%`);
@@ -47,7 +47,7 @@ export default function GlobalSearchView({ profile }: any) {
       const from = (currentPage - 1) * itemsPerPage;
       const { data, count, error } = await query.range(from, from + itemsPerPage - 1).order("timestamp", { ascending: false });
       if (!error) { setItems(data || []); setTotalCount(count || 0); }
-    } catch (e) {} finally { setLoading(false); }
+    } catch (e) {} finally { setLoading(false); /* Effect ends */ }
   }, [search, selZone, selCat, selSubCat, selStock, currentPage]);
 
   useEffect(() => { fetchData(); fetchMetadata(); }, [fetchData]);
@@ -74,10 +74,9 @@ export default function GlobalSearchView({ profile }: any) {
     return Object.values(groups).sort((a: any, b: any) => (a.totalQty > 0 ? -1 : 1) || b.latestTS - a.latestTS);
   };
 
-  const formatTS = (ts: any) => new Date(Number(ts)).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
-
   return (
-    <div className="space-y-6 animate-fade-in font-roboto font-bold uppercase tracking-tight">
+    // ADDED: Smooth transition and blur effect based on 'loading' state
+    <div className={`space-y-6 animate-fade-in font-roboto font-bold uppercase tracking-tight transition-all duration-500 ${loading ? 'opacity-60 blur-[1px] pointer-events-none' : 'opacity-100 blur-0'}`}>
       <section className="bg-slate-900 py-4 px-6 rounded-2xl border-b-4 border-orange-500 text-white shadow-2xl">
         <div className="flex flex-col lg:flex-row items-center gap-6">
             <h2 className="text-lg font-black tracking-widest leading-none shrink-0"><i className="fa-solid fa-trophy text-orange-400 mr-2"></i> ZONE LEADERBOARD (TOP 3)</h2>
@@ -130,7 +129,7 @@ export default function GlobalSearchView({ profile }: any) {
         </div>
       </section>
 
-      {/* Bifurcate Modal */}
+      {/* Modals remain outside the blur container to be interactive */}
       {bifurcateItem && (
         <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden animate-scale-in border-t-8 border-indigo-600 uppercase font-bold">
@@ -160,7 +159,6 @@ export default function GlobalSearchView({ profile }: any) {
         </div>
       )}
 
-      {/* Request Modal */}
       {requestItem && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 uppercase font-black">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
@@ -174,7 +172,6 @@ export default function GlobalSearchView({ profile }: any) {
         </div>
       )}
 
-      {/* Summary Modal */}
       {showSummary && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-scale-in uppercase font-bold">
