@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 
-export async function POST(request) {
+export async function POST(request: Request) {
   try {
     const { name, email } = await request.json();
 
-    // Security Fix: Generate OTP on server side, not frontend
+    // Secure Server-side OTP generation
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     const serviceId = process.env.EMAILJS_SERVICE_ID;
@@ -24,7 +24,7 @@ export async function POST(request) {
       template_params: {
         to_name: name,
         to_email: email, 
-        otp_code: otp // Using server-generated OTP
+        otp_code: otp 
       }
     };
 
@@ -35,13 +35,12 @@ export async function POST(request) {
     });
 
     if (response.ok) {
-      // Return the OTP to frontend so it can be verified in state
       return NextResponse.json({ success: true, otp }, { status: 200 });
     } else {
       const errorText = await response.text();
       return NextResponse.json({ error: 'EmailJS Error', details: errorText }, { status: 500 });
     }
-  } catch (error) {
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  } catch (error: any) {
+    return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
   }
 }
