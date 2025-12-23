@@ -29,7 +29,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
 
   const fetchStore = useCallback(async () => {
     if (!profile?.unit) return;
-    setLoading(true);
+    setLoading(true); // Effect starts
     try {
       let query = supabase.from("inventory").select("*", { count: "exact" }).eq("holder_unit", profile.unit);
       if (search) query = query.or(`item.ilike.%${search}%,spec.ilike.%${search}%`);
@@ -42,12 +42,11 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
       const { data, count, error } = await query.range(from, from + itemsPerPage - 1).order("id", { ascending: false });
       if (!error) { setMyItems(data || []); setTotalCount(count || 0); }
     } catch (e) { console.error("Fetch failed", e); }
-    finally { setLoading(false); }
+    finally { setLoading(false); /* Effect ends */ }
   }, [profile?.unit, search, selCat, selSub, selEngineer, currentPage]);
 
   useEffect(() => { fetchStore(); }, [fetchStore]);
 
-  // --- RESTORED: FULL AUTO-SELECT DROPDOWN LOGIC ---
   useEffect(() => {
     if (form.isManual) return;
     const cats = [...new Set(masterCatalog.map(i => i.cat))].sort();
@@ -129,7 +128,8 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
   };
 
   return (
-    <div className="animate-fade-in space-y-6 pb-20 font-roboto font-bold uppercase tracking-tight">
+    // ADDED: Smooth transition and blur effect based on 'loading' state
+    <div className={`animate-fade-in space-y-6 pb-20 font-roboto font-bold uppercase tracking-tight transition-all duration-500 ${loading ? 'opacity-60 blur-[1px] pointer-events-none' : 'opacity-100 blur-0'}`}>
       <div className="bg-white p-6 rounded-xl border shadow-sm flex justify-between items-center border-t-4 border-orange-500">
         <div><h2 className="text-xl font-black text-slate-800 uppercase tracking-widest leading-none">My Local Store</h2><p className="text-[10px] font-black bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-2 inline-block uppercase">ZONE: {profile?.unit}</p></div>
       </div>
@@ -168,7 +168,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
         </div>
       </section>
 
-      {/* Split-up Modal */}
+      {/* Modals are outside the blurred container */}
       {bifurcationItem && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-scale-in uppercase font-bold">
@@ -178,7 +178,6 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
           </div>
         </div>)}
 
-      {/* Add/Edit Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-scale-in uppercase font-bold">
@@ -206,7 +205,6 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
           </div>
         </div>)}
 
-      {/* Consume Modal */}
       {consumeItem && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[10001] flex items-center justify-center p-4 uppercase font-bold">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 relative animate-scale-in uppercase font-bold">
@@ -217,7 +215,6 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
           </div>
         </div>)}
 
-      {/* Summary Modal */}
       {showSummary && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 uppercase font-bold">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-scale-in uppercase font-bold">
