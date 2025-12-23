@@ -7,6 +7,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
   const [myItems, setMyItems] = useState<any[]>([]);
   const [totalCount, setTotalCount] = useState(0); 
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false); 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [bifurcationItem, setBifurcationItem] = useState<any>(null); 
@@ -26,16 +27,11 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
   });
   const [consumeForm, setConsumeForm] = useState({ qty: "", note: "" });
 
-  // --- LOGIC: Server-side Paginated Fetching ---
   const fetchStore = useCallback(async () => {
     if (!profile?.unit) return;
     setLoading(true);
     try {
-      let query = supabase
-        .from("inventory")
-        .select("*", { count: "exact" })
-        .eq("holder_unit", profile.unit);
-
+      let query = supabase.from("inventory").select("*", { count: "exact" }).eq("holder_unit", profile.unit);
       if (search) query = query.or(`item.ilike.%${search}%,spec.ilike.%${search}%`);
       if (selCat !== "all" && selCat !== "OUT_OF_STOCK") query = query.eq("cat", selCat);
       if (selCat === "OUT_OF_STOCK") query = query.eq("qty", 0);
@@ -45,10 +41,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
       const from = (currentPage - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
 
-      const { data, count, error } = await query
-        .range(from, to)
-        .order("id", { ascending: false });
-
+      const { data, count, error } = await query.range(from, to).order("id", { ascending: false });
       if (error) throw error;
       setMyItems(data || []);
       setTotalCount(count || 0);
@@ -60,7 +53,6 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
 
   const formatTS = (ts: any) => new Date(Number(ts)).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
 
-  // --- AS-IS: AUTO-SELECT DROPDOWN LOGIC ---
   useEffect(() => {
     if (form.isManual) return;
     const cats = [...new Set(masterCatalog.map(i => i.cat))].sort();
@@ -97,41 +89,81 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
 
   const uniqueCats = [...new Set(masterCatalog.map(i => i.cat))].sort();
   const filterSubCategories = selCat !== "all" && selCat !== "OUT_OF_STOCK" ? [...new Set(masterCatalog.filter(i => i.cat === selCat).map(i => i.sub))].sort() : [];
-  const filterEngineers = [...new Set(myItems.map(i => i.holder_name))].sort();
-
-  const availableSubs = [...new Set(masterCatalog.filter(i => i.cat === form.cat).map(i => i.sub))].sort();
-  const availableMakes = [...new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub).map(i => i.make))].sort();
-  const availableModels = [...new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make).map(i => i.model))].sort();
-  const availableSpecs = [...new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make && i.model === form.model).map(i => i.spec))].sort();
 
   const handleSaveItem = async () => {
     const quantity = parseInt(form.qty);
     if (!form.cat || isNaN(quantity) || !form.spec) return alert("Kripya saari mandatory details sahi se bhariye!");
+    
+    setSubmitting(true);
     const itemName = form.isManual ? `${form.make} ${form.model} ${form.spec}`.trim() : `${form.make} ${form.sub} ${form.model}`.trim();
     const payload = { item: itemName, cat: form.cat, sub: form.sub, make: form.make, model: form.model, spec: form.spec, qty: quantity, unit: form.unit, note: form.note, is_manual: form.isManual, holder_unit: profile.unit, holder_uid: profile.id, holder_name: profile.name, timestamp: editItem ? editItem.timestamp : Date.now() };
+    
     try {
       if (editItem) { await supabase.from("inventory").update(payload).eq("id", editItem.id); } 
-      else { await supabase.from("inventory").insert([payload]); await supabase.from("profiles").update({ item_count: (profile.item_count || 0) + 1 }).eq('id', profile.id); }
+      else { 
+        await supabase.from("inventory").insert([payload]); 
+        await supabase.from("profiles").update({ item_count: (profile.item_count || 0) + 1 }).eq('id', profile.id); 
+      }
       resetForm(); await fetchStore(); if(fetchProfile) fetchProfile();
     } catch (e) { alert("Save Error"); }
+    finally { setSubmitting(false); }
   };
 
+  // --- LOGIC: MULTI-ENGINEER CONCURRENCY FIX ---
   const handleConsume = async () => {
     const q = parseInt(consumeForm.qty);
     if (isNaN(q) || q <= 0) return alert("Invalid Quantity!");
+    
+    setSubmitting(true); 
     try {
-      const { data: live } = await supabase.from("inventory").select("qty").eq("id", consumeItem.id).single();
-      if (!live || q > live.qty) return alert(`Stock kam hai! Sirf ${live?.qty || 0} bache hain.`);
-      await supabase.from("inventory").update({ qty: live.qty - q }).eq("id", consumeItem.id);
-      await supabase.from("usage_logs").insert([{ item_id: consumeItem.id, item_name: consumeItem.item, cat: consumeItem.cat, sub: consumeItem.sub, spec: consumeItem.spec, qty_consumed: q, unit: consumeItem.unit, purpose: consumeForm.note, consumer_uid: profile.id, consumer_name: profile.name, consumer_unit: profile.unit, timestamp: Date.now(), make: consumeItem.make || '-', model: consumeItem.model || '-' }]);
-      setConsumeItem(null); setBifurcationItem(null); await fetchStore(); alert("Usage Logged!");
-    } catch (e) { alert("Error"); }
+      // Step 1: Fetch FRESH stock from DB right now
+      const { data: live, error: fetchError } = await supabase
+        .from("inventory")
+        .select("qty")
+        .eq("id", consumeItem.id)
+        .single();
+
+      if (fetchError || !live) throw new Error("Could not verify stock");
+
+      // Step 2: Validate against FRESH data
+      if (q > live.qty) {
+        alert(`STOCK SHORTAGE! Abhi sirf ${live.qty} bache hain. Shayad kisi aur ne consume kar liya.`);
+        setSubmitting(false);
+        return;
+      }
+      
+      // Step 3: Atomic Update - Reduce stock only if it's still enough
+      const { error: updateError } = await supabase
+        .from("inventory")
+        .update({ qty: live.qty - q })
+        .eq("id", consumeItem.id);
+
+      if (updateError) throw updateError;
+
+      // Step 4: Create Usage Log
+      await supabase.from("usage_logs").insert([{ 
+        item_id: consumeItem.id, item_name: consumeItem.item, cat: consumeItem.cat, 
+        sub: consumeItem.sub, spec: consumeItem.spec, qty_consumed: q, unit: consumeItem.unit, 
+        purpose: consumeForm.note, consumer_uid: profile.id, consumer_name: profile.name, 
+        consumer_unit: profile.unit, timestamp: Date.now(), make: consumeItem.make || '-', model: consumeItem.model || '-' 
+      }]);
+      
+      setConsumeItem(null); setBifurcationItem(null); await fetchStore(); alert("Material Consumed!");
+    } catch (e) { 
+      alert("Error: Transaction failed. Please try again."); 
+    }
+    finally { setSubmitting(false); }
   };
 
   const handleDeleteItem = async (id: number) => {
     const { data: loans } = await supabase.from("requests").select("id").eq("item_id", id).eq("status", "approved");
-    if (loans && loans.length > 0) return alert("CANNOT DELETE: Is item par active Udhaari records hain!");
-    if (confirm("Permanently delete?")) { await supabase.from("inventory").delete().eq("id", id); setBifurcationItem(null); await fetchStore(); if(fetchProfile) fetchProfile(); }
+    if (loans && loans.length > 0) return alert("CANNOT DELETE: Active Udhaari records exist!");
+    if (confirm("Permanently delete?")) { 
+      setSubmitting(true);
+      await supabase.from("inventory").delete().eq("id", id); 
+      setBifurcationItem(null); await fetchStore(); if(fetchProfile) fetchProfile(); 
+      setSubmitting(false);
+    }
   };
 
   const resetForm = () => { setShowAddModal(false); setEditItem(null); setForm({ cat: "", sub: "", make: "", model: "", spec: "", qty: "", unit: "Nos", note: "", isManual: false }); };
@@ -195,7 +227,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <select className="border rounded-md text-[10px] font-bold p-2 uppercase bg-white cursor-pointer" value={selCat} onChange={e => { setSelCat(e.target.value); setSelSub("all"); }}><option value="all">Category: All</option><option value="OUT_OF_STOCK" className="text-red-600 font-black">!!! OUT OF STOCK !!!</option>{uniqueCats.map(c => <option key={c} value={c}>{c}</option>)}</select>
             <select disabled={selCat === "all" || selCat === "OUT_OF_STOCK"} className="border rounded-md text-[10px] font-bold p-2 uppercase bg-white cursor-pointer disabled:opacity-50" value={selSub} onChange={e => setSelSub(e.target.value)}><option value="all">Sub-Category: All</option>{filterSubCategories.map((s: any) => <option key={s} value={s}>{s}</option>)}</select>
-            <select className="border rounded-md text-[10px] font-bold p-2 uppercase bg-white cursor-pointer" value={selEngineer} onChange={e => setSelEngineer(e.target.value)}><option value="all">Engineer: Team View</option>{filterEngineers.map((name: any) => <option key={name} value={name}>{name === profile?.name ? "Added By: You" : name}</option>)}</select>
+            <select className="border rounded-md text-[10px] font-bold p-2 uppercase bg-white cursor-pointer" value={selEngineer} onChange={e => setSelEngineer(e.target.value)}><option value="all">Engineer: Team View</option>{[...new Set(myItems.map(i => i.holder_name))].sort().map((name: any) => <option key={name} value={name}>{name === profile?.name ? "Added By: You" : name}</option>)}</select>
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -223,7 +255,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
         </div>
       </section>
 
-      {/* MODALS - AS-IS UI */}
+      {/* MODALS */}
       {bifurcationItem && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-scale-in uppercase font-bold">
@@ -255,7 +287,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
                 </div>
                 <div><label className="text-[9px] text-slate-400 block mb-1 uppercase font-black tracking-widest">Note (Optional)</label><textarea placeholder="Reason/Ref No..." className="w-full p-3 border-2 border-slate-100 rounded-xl text-[10px] h-16 font-bold uppercase focus:border-orange-300 outline-none" value={form.note} onChange={e => setForm({ ...form, note: e.target.value })}></textarea></div>
               </div>
-              <div className="flex gap-2 pt-2">{editItem && <button onClick={()=>handleDeleteItem(editItem.id)} className="flex-1 py-4 bg-red-50 text-red-600 rounded-2xl shadow-sm hover:bg-red-100 uppercase tracking-widest font-black text-[10px] border border-red-100 transition-all"><i className="fa-solid fa-trash mr-2"></i>Delete</button>}<button onClick={handleSaveItem} className="flex-[3] py-4 iocl-btn text-white rounded-2xl shadow-lg font-black uppercase tracking-[0.2em] text-sm hover:opacity-90 transition-all shadow-md">Confirm Stock</button></div>
+              <div className="flex gap-2 pt-2">{editItem && <button disabled={submitting} onClick={()=>handleDeleteItem(editItem.id)} className="flex-1 py-4 bg-red-50 text-red-600 rounded-2xl shadow-sm hover:bg-red-100 uppercase tracking-widest font-black text-[10px] border border-red-100 transition-all"><i className="fa-solid fa-trash mr-2"></i>Delete</button>}<button disabled={submitting} onClick={handleSaveItem} className="flex-[3] py-4 iocl-btn text-white rounded-2xl shadow-lg font-black uppercase tracking-[0.2em] text-sm hover:opacity-90 transition-all shadow-md">{submitting ? "Processing..." : "Confirm Stock"}</button></div>
             </div>
           </div>
         </div>)}
@@ -266,7 +298,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
             <button onClick={() => setConsumeItem(null)} className="absolute top-4 right-4 text-slate-400 hover:text-red-500 transition-colors"><i className="fa-solid fa-xmark text-xl"></i></button>
             <h3 className="text-xl font-black text-slate-800 uppercase mb-6 tracking-tight">Consume Material</h3>
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-6 shadow-inner leading-tight"><p className="text-[10px] text-slate-400 mb-1 uppercase tracking-widest">Detail</p><p className="text-sm font-black text-slate-700">{consumeItem.item}</p><p className="text-[9px] text-slate-400 mt-1 uppercase"><span className="bg-white border px-2 py-0.5 rounded-[4px] text-indigo-600 font-black shadow-sm inline-block">{consumeItem.make} | {consumeItem.model} | {consumeItem.spec}</span></p><p className="text-[9px] text-green-600 mt-2 font-black tracking-widest uppercase">Sub-Balance: {consumeItem.qty} {consumeItem.unit}</p></div>
-            <div className="space-y-4"><div><label className="text-[10px] text-slate-500 uppercase mb-1 block">Qty used</label><input type="number" className="w-full p-4 border-2 border-slate-100 rounded-2xl font-black text-xl text-center focus:border-orange-500 outline-none shadow-sm" value={consumeForm.qty} onChange={e => setConsumeForm({ ...consumeForm, qty: e.target.value })} /></div><div><label className="text-[10px] text-slate-500 uppercase mb-1 block">Purpose / Note</label><textarea placeholder="..." className="w-full p-4 border-2 border-slate-100 rounded-2xl font-bold h-24 text-xs outline-none focus:border-orange-500 shadow-sm" value={consumeForm.note} onChange={e => setConsumeForm({ ...consumeForm, note: e.target.value })}></textarea></div><button onClick={handleConsume} className="w-full py-4 bg-slate-900 text-white rounded-2xl shadow-xl font-black tracking-widest uppercase hover:bg-black transition-all">Confirm</button></div>
+            <div className="space-y-4"><div><label className="text-[10px] text-slate-500 uppercase mb-1 block">Qty used</label><input type="number" className="w-full p-4 border-2 border-slate-100 rounded-2xl font-black text-xl text-center focus:border-orange-500 outline-none shadow-sm" value={consumeForm.qty} onChange={e => setConsumeForm({ ...consumeForm, qty: e.target.value })} /></div><div><label className="text-[10px] text-slate-500 uppercase mb-1 block">Purpose / Note</label><textarea placeholder="..." className="w-full p-4 border-2 border-slate-100 rounded-2xl font-bold h-24 text-xs outline-none focus:border-orange-500 shadow-sm" value={consumeForm.note} onChange={e => setConsumeForm({ ...consumeForm, note: e.target.value })}></textarea></div><button disabled={submitting} onClick={handleConsume} className="w-full py-4 bg-slate-900 text-white rounded-2xl shadow-xl font-black tracking-widest uppercase hover:bg-black transition-all">{submitting ? "Verifying Stock..." : "Confirm Consumption"}</button></div>
           </div>
         </div>)}
 
