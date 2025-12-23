@@ -5,7 +5,6 @@ import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Toolti
 import { Bar } from "react-chartjs-2";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 
-// Register Chart components for Next.js 15 / Chart.js 4
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ChartDataLabels);
 
 export default function MonthlyAnalysisView({ profile }: any) {
@@ -13,7 +12,6 @@ export default function MonthlyAnalysisView({ profile }: any) {
   const [chartConfigs, setChartConfigs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Set default month to current
   useEffect(() => {
     const d = new Date();
     setSelectedMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
@@ -24,7 +22,6 @@ export default function MonthlyAnalysisView({ profile }: any) {
     setLoading(true);
     
     const [year, month] = selectedMonth.split("-");
-    // Precise timestamp calculation for the start and end of the month
     const startTs = new Date(parseInt(year), parseInt(month) - 1, 1, 0, 0, 0, 0).getTime();
     const endTs = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999).getTime();
 
@@ -40,7 +37,6 @@ export default function MonthlyAnalysisView({ profile }: any) {
       const report: any = {};
 
       logs?.forEach((log) => {
-        // Keeping your existing logic: Skip manual entries as requested
         if (log.is_manual === true || log.cat === 'Manual Entry' || !log.cat) return;
         
         const cat = log.cat;
@@ -60,7 +56,6 @@ export default function MonthlyAnalysisView({ profile }: any) {
         const labels = Object.keys(subDataMap).sort();
         const values = labels.map(l => subDataMap[l].total);
         
-        // Find primary unit for each bar
         const barUnits = labels.map(l => {
             const sortedUnits = Object.entries(subDataMap[l].units).sort((a: any, b: any) => (b[1] as number) - (a[1] as number));
             return sortedUnits.length > 0 ? sortedUnits[0][0] : 'Nos';
@@ -87,7 +82,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
       });
       setChartConfigs(charts);
     } catch (e) { 
-        console.error("Analysis Fetch Error:", e); 
+        console.error(e); 
     } finally { 
         setLoading(false); 
     }
@@ -95,8 +90,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
 
   useEffect(() => {
     fetchGlobalConsumption();
-    // Real-time listener for usage updates
-    const channel = supabase.channel('monthly_sync_v2').on('postgres_changes', { event: '*', schema: 'public', table: 'usage_logs' }, () => {
+    const channel = supabase.channel('monthly_sync_final').on('postgres_changes', { event: '*', schema: 'public', table: 'usage_logs' }, () => {
         fetchGlobalConsumption();
     }).subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -104,14 +98,13 @@ export default function MonthlyAnalysisView({ profile }: any) {
 
   return (
     <div className="animate-fade-in space-y-8 pb-20 font-roboto font-bold uppercase tracking-tight">
-      {/* Header: Exact Same UI */}
       <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center border-t-4 border-orange-500">
         <div>
           <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest leading-none">Monthly Analysis</h2>
           <p className="text-[10px] text-slate-400 mt-2 lowercase font-black tracking-[0.1em]">Monthly Material Usage Across All Zones</p>
         </div>
         <div className="flex items-center gap-3">
-            <button onClick={fetchGlobalConsumption} disabled={loading} className="bg-slate-50 text-slate-400 p-2.5 rounded-xl hover:text-indigo-600 transition-all border border-slate-100 disabled:opacity-50">
+            <button onClick={fetchGlobalConsumption} disabled={loading} className="bg-slate-50 text-slate-400 p-2.5 rounded-xl hover:text-indigo-600 transition-all border border-slate-100">
                 <i className={`fa-solid fa-sync ${loading ? 'animate-spin' : ''}`}></i>
             </button>
             <input type="month" className="bg-slate-50 text-slate-800 p-2.5 rounded-xl outline-none font-black text-[11px] cursor-pointer border border-slate-200" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} />
@@ -155,8 +148,8 @@ export default function MonthlyAnalysisView({ profile }: any) {
                             tooltip: {
                                 backgroundColor: '#1e293b',
                                 padding: 10,
-                                // Correct v4 property is borderRadius
-                                borderRadius: 8,
+                                // REVERTED: changed borderRadius to cornerRadius for compatibility
+                                cornerRadius: 8,
                                 displayColors: false,
                                 titleFont: { size: 12, weight: 'bold' },
                                 bodyFont: { size: 11, weight: 'bold' }
