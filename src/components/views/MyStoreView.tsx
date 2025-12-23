@@ -13,13 +13,18 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
   const [bifurcationItem, setBifurcationItem] = useState<any>(null); 
   const [editItem, setEditItem] = useState<any>(null);
   const [consumeItem, setConsumeItem] = useState<any>(null);
+
   const [search, setSearch] = useState("");
   const [selCat, setSelCat] = useState("all");
   const [selSub, setSelSub] = useState("all");
   const [selEngineer, setSelEngineer] = useState("all");
+
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
-  const [form, setForm] = useState({ cat: "", sub: "", make: "", model: "", spec: "", qty: "", unit: "Nos", note: "", isManual: false });
+
+  const [form, setForm] = useState({
+    cat: "", sub: "", make: "", model: "", spec: "", qty: "", unit: "Nos", note: "", isManual: false
+  });
   const [consumeForm, setConsumeForm] = useState({ qty: "", note: "" });
 
   const fetchStore = useCallback(async () => {
@@ -32,6 +37,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
       if (selCat === "OUT_OF_STOCK") query = query.eq("qty", 0);
       if (selSub !== "all") query = query.eq("sub", selSub);
       if (selEngineer !== "all") query = query.eq("holder_name", selEngineer);
+
       const from = (currentPage - 1) * itemsPerPage;
       const { data, count, error } = await query.range(from, from + itemsPerPage - 1).order("id", { ascending: false });
       if (!error) { setMyItems(data || []); setTotalCount(count || 0); }
@@ -41,6 +47,28 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
 
   useEffect(() => { fetchStore(); }, [fetchStore]);
 
+  useEffect(() => {
+    if (form.isManual) return;
+    const cats = [...new Set(masterCatalog.map(i => i.cat))].sort();
+    if (cats.length === 1 && !form.cat) setForm(p => ({ ...p, cat: cats[0] }));
+    if (form.cat) {
+      const subs = [...new Set(masterCatalog.filter(i => i.cat === form.cat).map(i => i.sub))].sort();
+      if (subs.length === 1 && !form.sub) setForm(p => ({ ...p, sub: subs[0] }));
+      if (form.sub) {
+        const makes = [...new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub).map(i => i.make))].sort();
+        if (makes.length === 1 && !form.make) setForm(p => ({ ...p, make: makes[0] }));
+        if (form.make) {
+          const models = [...new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make).map(i => i.model))].sort();
+          if (models.length === 1 && !form.model) setForm(p => ({ ...p, model: models[0] }));
+          if (form.model) {
+            const specs = [...new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub && i.make === form.make && i.model === form.model).map(i => i.spec))].sort();
+            if (specs.length === 1 && !form.spec) setForm(p => ({ ...p, spec: specs[0] }));
+          }
+        }
+      }
+    }
+  }, [form.cat, form.sub, form.make, form.model, form.isManual]);
+
   const uniqueCats = [...new Set(masterCatalog.map(i => i.cat))].sort();
   const availableSubs = [...new Set(masterCatalog.filter(i => i.cat === form.cat).map(i => i.sub))].sort();
   const availableMakes = [...new Set(masterCatalog.filter(i => i.cat === form.cat && i.sub === form.sub).map(i => i.make))].sort();
@@ -49,15 +77,15 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
 
   const handleConsume = async () => {
     const q = parseInt(consumeForm.qty);
-    if (isNaN(q) || q <= 0) return alert("Invalid Qty!");
+    if (isNaN(q) || q <= 0) return alert("Invalid Quantity!");
     setSubmitting(true);
     try {
       const { data: live } = await supabase.from("inventory").select("qty").eq("id", consumeItem.id).single();
       if (!live || q > live.qty) { alert(`Stock shortage! Only ${live?.qty || 0} left.`); setSubmitting(false); return; }
       await supabase.from("inventory").update({ qty: live.qty - q }).eq("id", consumeItem.id);
       await supabase.from("usage_logs").insert([{ item_id: consumeItem.id, item_name: consumeItem.item, cat: consumeItem.cat, sub: consumeItem.sub, spec: consumeItem.spec, qty_consumed: q, unit: consumeItem.unit, purpose: consumeForm.note, consumer_uid: profile.id, consumer_name: profile.name, consumer_unit: profile.unit, timestamp: Date.now(), make: consumeItem.make || '-', model: consumeItem.model || '-' }]);
-      setConsumeItem(null); setBifurcationItem(null); await fetchStore(); alert("Logged!");
-    } catch (e) { alert("Error"); } finally { setSubmitting(false); }
+      setConsumeItem(null); setBifurcationItem(null); await fetchStore(); alert("Usage Logged!");
+    } catch (e) {} finally { setSubmitting(false); }
   };
 
   const handleSaveItem = async () => {
@@ -100,7 +128,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
   };
 
   return (
-    <div className={`animate-fade-in space-y-6 pb-20 font-roboto font-bold uppercase tracking-tight transition-all duration-500 ${loading ? 'opacity-60 blur-[1px] pointer-events-none' : 'opacity-100 blur-0'}`}>
+    <div className="animate-fade-in space-y-6 pb-20 font-roboto font-bold uppercase tracking-tight">
       <div className="bg-white p-6 rounded-xl border shadow-sm flex justify-between items-center border-t-4 border-orange-500">
         <div><h2 className="text-xl font-black text-slate-800 uppercase tracking-widest leading-none">My Local Store</h2><p className="text-[10px] font-black bg-blue-50 text-blue-700 px-2 py-0.5 rounded mt-2 inline-block uppercase font-black">ZONE: {profile?.unit}</p></div>
       </div>
@@ -128,16 +156,17 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
                 <td className="p-5 text-center font-black text-slate-800 text-[16px] whitespace-nowrap uppercase font-black">{i.qty} {i.unit}</td>
                 <td className="p-5 text-center font-black"><button onClick={(e)=>{ e.stopPropagation(); setConsumeItem(i); }} className="bg-orange-600 text-white px-4 py-1.5 rounded-lg text-[10px] font-black uppercase uppercase tracking-widest uppercase font-black">Consume</button></td>
               </tr>
-            )) : <tr><td colSpan={3} className="p-20 text-center text-slate-300 font-black uppercase tracking-widest uppercase font-black">No Items in your zone</td></tr>}
+            )) : <tr><td colSpan={4} className="p-20 text-center text-slate-300 font-black uppercase tracking-widest uppercase font-black">No Items in your zone</td></tr>}
         </tbody></table></div>
         
         <div className="p-4 bg-slate-50 border-t flex justify-between items-center text-[10px] font-black uppercase uppercase tracking-widest uppercase font-black">
-          <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 uppercase font-black font-black">Prev</button>
+          <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1 || loading} className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 uppercase font-black font-black">Prev</button>
           <span className="font-black uppercase">Page {currentPage} of {Math.ceil(totalCount / itemsPerPage) || 1}</span>
-          <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(totalCount/itemsPerPage)))} disabled={currentPage >= Math.ceil(totalCount/itemsPerPage)} className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 uppercase font-black font-black">Next</button>
+          <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(totalCount/itemsPerPage)))} disabled={currentPage >= Math.ceil(totalCount/itemsPerPage) || loading} className="px-5 py-2 bg-white border-2 rounded-lg shadow-sm disabled:opacity-30 uppercase font-black font-black">Next</button>
         </div>
       </section>
 
+      {/* Modal Split-up */}
       {bifurcationItem && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-scale-in uppercase font-bold">
@@ -145,7 +174,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
             <div className="p-0 max-h-[60vh] overflow-y-auto font-black uppercase"><table className="w-full text-left text-xs uppercase font-black"><thead className="bg-slate-50 border-b text-[10px] text-slate-400 tracking-widest font-black uppercase font-black"><tr><th className="p-4 pl-6 uppercase">Added By</th><th className="p-4 text-center uppercase tracking-widest">Audit Date</th><th className="p-4 text-center uppercase tracking-widest">Qty</th><th className="p-4 text-center uppercase tracking-widest">Action</th></tr></thead><tbody className="divide-y uppercase font-black">
                 {bifurcationItem.records.filter((r:any) => r.qty > 0).map((r: any) => (<tr key={r.id} className="hover:bg-slate-50 transition-colors uppercase font-black"><td className="p-4 pl-6 leading-tight uppercase font-black"><span className={`px-2 py-1 rounded text-[10px] font-black block w-fit uppercase ${r.holder_uid === profile?.id ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-slate-100 text-slate-600'}`}>{r.holder_uid === profile?.id ? "YOU" : r.holder_name}</span>{r.note && <p className="text-[8px] text-slate-400 lowercase italic truncate max-w-[150px] mt-1 uppercase font-black">note: {r.note}</p>}</td><td className="p-4 text-center text-[10px] text-slate-500 font-bold uppercase font-black">{formatTS(r.timestamp)}</td><td className="p-4 text-center font-black text-slate-800 text-[14px] uppercase font-black">{r.qty} {r.unit}</td><td className="p-4 text-center flex justify-center gap-2 uppercase font-black"><button onClick={(e)=>{ e.stopPropagation(); setConsumeItem(r); }} className="bg-orange-600 text-white px-3 py-1.5 rounded text-[9px] font-black uppercase shadow-sm uppercase tracking-widest uppercase font-black">Consume</button><button onClick={(e) => { e.stopPropagation(); setEditItem(r); setForm({ cat: r.cat, sub: r.sub, make: r.make, model: r.model, spec: r.spec, qty: r.qty.toString(), unit: r.unit, note: r.note || "", isManual: r.is_manual }); setShowAddModal(true); }} className="bg-slate-800 text-white px-3 py-1.5 rounded text-[9px] font-black uppercase shadow-sm uppercase tracking-widest uppercase font-black">Edit</button></td></tr>))}
             </tbody></table></div>
-            <div className="p-4 bg-slate-50 text-center uppercase font-black"><button onClick={() => setBifurcationItem(null)} className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-600 transition-all uppercase font-black">Close Details</button></div>
+            <div className="p-4 bg-slate-50 text-center uppercase font-black font-black"><button onClick={() => setBifurcationItem(null)} className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-600 transition-all uppercase font-black">Close Details</button></div>
           </div>
         </div>)}
 
@@ -176,6 +205,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
           </div>
         </div>)}
 
+      {/* Modal - Consume */}
       {consumeItem && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[10001] flex items-center justify-center p-4 uppercase font-black">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 relative animate-scale-in uppercase font-bold font-black">
@@ -186,6 +216,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
           </div>
         </div>)}
 
+      {/* Modal - Summary */}
       {showSummary && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 uppercase font-black">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-scale-in uppercase font-bold font-black">
