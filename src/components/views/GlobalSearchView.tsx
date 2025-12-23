@@ -1,11 +1,13 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function GlobalSearchView({ profile }: any) {
   const [items, setItems] = useState<any[]>([]);
+  const [totalCount, setTotalCount] = useState(0); // Tracking total for pagination
   const [contributors, setContributors] = useState<any[]>([]);
   const [search, setSearch] = useState(""); 
+  const [loading, setLoading] = useState(false);
   
   // Filters State
   const [selZone, setSelZone] = useState("all");
@@ -23,39 +25,84 @@ export default function GlobalSearchView({ profile }: any) {
   const [reqForm, setReqForm] = useState({ qty: "", comment: "" });
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => { fetchAll(); }, []);
+  // --- OPTIMIZED: Server-side Data Fetching ---
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from("inventory")
+        .select("*", { count: "exact" });
 
-  // RESTORED: Leaderboard logic with non-zero check
-  useEffect(() => {
-    if (items.length > 0) {
+      // Apply Server-side Search
+      if (search) {
+        query = query.or(`item.ilike.%${search}%,spec.ilike.%${search}%`);
+      }
+
+      // Apply Server-side Filters
+      if (selZone !== "all") query = query.eq("holder_unit", selZone);
+      if (selCat !== "all" && selCat !== "OUT_OF_STOCK") query = query.eq("cat", selCat);
+      if (selSubCat !== "all") query = query.eq("sub", selSubCat);
+      
+      if (selCat === "OUT_OF_STOCK" || selStock === "out") {
+        query = query.eq("qty", 0);
+      } else if (selStock === "available") {
+        query = query.gt("qty", 0);
+      }
+
+      // Server-side Pagination
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+      
+      const { data, count, error } = await query
+        .range(from, to)
+        .order("timestamp", { ascending: false });
+
+      if (error) throw error;
+      setItems(data || []);
+      setTotalCount(count || 0);
+    } catch (e) {
+      console.error("Fetch error:", e);
+    } finally {
+      setLoading(false);
+    }
+  }, [search, selZone, selCat, selSubCat, selStock, currentPage]);
+
+  // RESTORED: Leaderboard logic (Separate small query for accuracy)
+  const fetchLeaderboard = async () => {
+    const { data } = await supabase.from("inventory").select("holder_unit, qty");
+    if (data) {
       const zoneMap: any = {};
-      items.forEach(i => {
+      data.forEach(i => {
         if (Number(i.qty) > 0) {
           zoneMap[i.holder_unit] = (zoneMap[i.holder_unit] || 0) + 1;
         }
       });
-      const sortedZones = Object.keys(zoneMap).map(unit => ({ unit, total: zoneMap[unit] })).sort((a, b) => b.total - a.total).slice(0, 4);
+      const sortedZones = Object.keys(zoneMap)
+        .map(unit => ({ unit, total: zoneMap[unit] }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 4);
       setContributors(sortedZones);
     }
-  }, [items]);
-
-  useEffect(() => { setCurrentPage(1); }, [search, selZone, selCat, selSubCat, selStock]);
-
-  const fetchAll = async () => { 
-    try { 
-      const { data } = await supabase.from("inventory").select("*"); 
-      if (data) setItems(data); 
-    } catch(e){} 
   };
+
+  useEffect(() => { 
+    fetchData(); 
+    fetchLeaderboard();
+  }, [fetchData]);
+
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1); }, [search, selZone, selCat, selSubCat, selStock]);
 
   const formatTS = (ts: any) => new Date(Number(ts)).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
 
-  // RESTORED: Export to Sheet functionality
-  const exportToSheet = () => {
-    const groupedForExport = getGroupedData(true); 
-    const headers = ["Material", "Specification", "Make", "Model", "Total Qty", "Unit", "Category", "Sub-Category", "Mode"];
-    const rows = groupedForExport.map((i: any) => [
-      `"${i.item || ''}"`, `"${i.spec || ''}"`, `"${i.make || ''}"`, `"${i.model || ''}"`, i.totalQty, `"${i.unit || ''}"`, `"${i.cat || ''}"`, `"${i.sub || ''}"`, i.is_manual ? "Manual" : "Catalog"
+  const exportToSheet = async () => {
+    // Fetch all records for export (filtered but not paginated)
+    const { data } = await supabase.from("inventory").select("*");
+    if (!data) return;
+    
+    const headers = ["Material", "Specification", "Make", "Model", "Qty", "Unit", "Category", "Sub-Category", "Zone"];
+    const rows = data.map((i: any) => [
+      `"${i.item || ''}"`, `"${i.spec || ''}"`, `"${i.make || ''}"`, `"${i.model || ''}"`, i.qty, `"${i.unit || ''}"`, `"${i.cat || ''}"`, `"${i.sub || ''}"`, `"${i.holder_unit || ''}"`
     ]);
     let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
     const encodedUri = encodeURI(csvContent);
@@ -67,18 +114,9 @@ export default function GlobalSearchView({ profile }: any) {
     document.body.removeChild(link);
   };
 
-  const getGroupedData = (ignoreStockFilter = false) => {
-    const filtered = items.filter((i: any) => {
-      const matchesSearch = (i.item.toLowerCase().includes(search.toLowerCase()) || i.spec.toLowerCase().includes(search.toLowerCase()));
-      const matchesZone = (selZone === "all" || i.holder_unit === selZone);
-      const matchesSub = (selSubCat === "all" || i.sub === selSubCat);
-      let matchesCat = (selCat === "all" || i.cat === selCat);
-      if (selCat === "OUT_OF_STOCK") matchesCat = true; 
-      return matchesSearch && matchesZone && matchesCat && matchesSub;
-    });
-
+  const getGroupedData = () => {
     const groups: any = {};
-    filtered.forEach(item => {
+    items.forEach(item => {
       const key = `${item.item}-${item.spec}-${item.make}-${item.model}-${item.unit}`.toLowerCase();
       if (!groups[key]) { groups[key] = { ...item, totalQty: 0, occurrences: [], latestTS: 0 }; }
       groups[key].totalQty += Number(item.qty);
@@ -87,28 +125,19 @@ export default function GlobalSearchView({ profile }: any) {
       if (itemTS > groups[key].latestTS) groups[key].latestTS = itemTS;
     });
 
-    let result = Object.values(groups);
-    if (selCat === "OUT_OF_STOCK") result = result.filter((g: any) => g.totalQty === 0);
-    else if (!ignoreStockFilter && selStock === "out") result = result.filter((g: any) => g.totalQty <= 0);
-    else if (!ignoreStockFilter && selStock === "available") result = result.filter((g: any) => g.totalQty > 0);
-    
-    // SORTING LOGIC: NON-ZERO FIRST, THEN LATEST TIMESTAMP
-    return result.sort((a: any, b: any) => {
+    return Object.values(groups).sort((a: any, b: any) => {
         if (a.totalQty > 0 && b.totalQty === 0) return -1;
         if (a.totalQty === 0 && b.totalQty > 0) return 1;
         return b.latestTS - a.latestTS;
     });
   };
 
-  const groupedItems = getGroupedData();
-  const totalPages = Math.ceil(groupedItems.length / itemsPerPage) || 1;
-  const currentItems = groupedItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const currentItems = getGroupedData();
+  const totalPages = Math.ceil(totalCount / itemsPerPage) || 1;
 
-  // RESTORED: Summary logic respects Zone Filter & Only Non-Zero
   const getSummaryData = () => {
     const summary: any = {};
-    const itemsForSummary = items.filter(i => (selZone === "all" || i.holder_unit === selZone));
-    itemsForSummary.forEach(i => {
+    items.forEach(i => {
       if (Number(i.qty) > 0) {
         const key = `${i.cat} > ${i.sub}`;
         if (!summary[key]) summary[key] = { cat: i.cat, sub: i.sub, total: 0, unit: i.unit || 'Nos' };
@@ -127,12 +156,11 @@ export default function GlobalSearchView({ profile }: any) {
             txn_id: initialTxnId,
             item_id: requestItem.id, item_name: requestItem.item, item_spec: requestItem.spec, item_unit: requestItem.unit, req_qty: Number(reqForm.qty), req_comment: reqForm.comment, from_name: profile.name, from_uid: profile.id, from_unit: profile.unit, to_name: requestItem.holder_name, to_uid: requestItem.holder_uid, to_unit: requestItem.holder_unit, status: 'pending', viewed_by_requester: false
         }]);
-        if (!error) { alert("Request Sent!"); setRequestItem(null); setReqForm({ qty: "", comment: "" }); }
+        if (!error) { alert("Request Sent!"); setRequestItem(null); setReqForm({ qty: "", comment: "" }); fetchData(); }
     } catch (err) { alert("Error!"); }
     setSubmitting(false);
   };
 
-  // RESTORED: Page Number generation logic
   const getPageNumbers = () => {
     const pages = [];
     if (totalPages <= 5) { for (let i = 1; i <= totalPages; i++) pages.push(i); }
@@ -146,7 +174,6 @@ export default function GlobalSearchView({ profile }: any) {
 
   return (
     <div className="space-y-6 animate-fade-in font-roboto font-bold uppercase tracking-tight">
-      {/* ZONE LEADERBOARD SECTION */}
       <section className="bg-slate-900 py-4 px-6 rounded-2xl border-b-4 border-orange-500 shadow-2xl overflow-hidden text-white">
         <div className="relative z-10 flex flex-col lg:flex-row items-center gap-6">
             <h2 className="text-lg font-black tracking-widest leading-none shrink-0"><i className="fa-solid fa-trophy text-orange-400 mr-2"></i> ZONE LEADERBOARD</h2>
@@ -164,11 +191,13 @@ export default function GlobalSearchView({ profile }: any) {
         </div>
       </section>
 
-      {/* FILTER & SEARCH PANEL */}
       <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b bg-slate-50/80 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="relative flex-grow md:w-80"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Search Material..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none font-black uppercase" value={search} onChange={e=>setSearch(e.target.value)} /></div>
+            <div className="relative flex-grow md:w-80">
+                <i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i>
+                <input type="text" placeholder="Search Material..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none font-black uppercase" value={search} onChange={e=>setSearch(e.target.value)} />
+            </div>
             <div className="flex gap-2">
               <button onClick={() => setShowSummary(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md flex items-center gap-2 uppercase tracking-widest hover:bg-indigo-700 transition-all"><i className="fa-solid fa-chart-pie"></i> Stock Summary</button>
               <button onClick={exportToSheet} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-[10px] font-black shadow-md flex items-center gap-2 uppercase tracking-widest hover:bg-emerald-700 transition-all"><i className="fa-solid fa-file-excel"></i> Export to Sheet</button>
@@ -182,23 +211,25 @@ export default function GlobalSearchView({ profile }: any) {
           </div>
         </div>
 
-        {/* TABLE SECTION */}
-        <div className="overflow-x-auto"><table className="w-full text-left font-bold uppercase tracking-tighter">
+        <div className="overflow-x-auto">
+            <table className="w-full text-left font-bold uppercase tracking-tight">
             <thead className="bg-slate-50 text-slate-500 text-[10px] border-b tracking-widest"><tr><th className="p-4 pl-6">Material Detail</th><th className="p-4">Spec Details</th><th className="p-4 text-center">Refinery Stock</th><th className="p-4 text-center">Status</th><th className="p-4 text-center">Action</th></tr></thead>
             <tbody className="divide-y text-sm">
-              {currentItems.map((group: any, idx: number) => (
+              {loading ? (
+                <tr><td colSpan={5} className="p-20 text-center animate-pulse text-slate-300 font-black uppercase">Fetching Refinery Data...</td></tr>
+              ) : currentItems.length > 0 ? currentItems.map((group: any, idx: number) => (
                 <tr key={idx} className={`hover:bg-slate-50 transition border-b group cursor-pointer ${group.totalQty === 0 ? 'bg-red-50/30' : ''}`} onClick={()=>{setBifurcateItem(group); setExpandedZone(null);}}>
                   <td className="p-4 pl-6 leading-tight"><div className="text-slate-800 font-bold text-[14px] flex items-center gap-2">{group.item}{group.is_manual && <span className="bg-orange-100 text-orange-600 text-[8px] px-1.5 py-0.5 rounded font-black border border-orange-200">M</span>}</div><div className="text-[10px] text-slate-400 mt-1 uppercase font-bold">{group.cat} &gt; {group.sub}</div></td>
                   <td className="p-4 font-mono"><span className="bg-white border px-2 py-1 rounded-[4px] text-[10.5px] text-slate-600 font-bold shadow-sm inline-block">{group.make} | {group.model} | {group.spec}</span></td>
                   <td className={`p-4 text-center font-bold text-[16px] whitespace-nowrap ${group.totalQty === 0 ? 'text-red-600 animate-pulse' : 'text-slate-800'}`}>{group.totalQty === 0 ? "ZERO STOCK" : `${group.totalQty} ${group.unit}`}</td>
                   <td className="p-4 text-center"><span className={`px-2 py-0.5 rounded text-[9px] font-black ${group.totalQty > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{group.totalQty > 0 ? 'AVAILABLE' : 'OUT OF STOCK'}</span></td>
                   <td className="p-4 text-center"><button className="bg-indigo-50 text-indigo-700 px-4 py-1.5 rounded-lg text-[10px] font-black border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-all uppercase shadow-sm">View Split</button></td>
-                </tr>))}
-            </tbody></table></div>
+                </tr>)) : <tr><td colSpan={5} className="p-20 text-center text-slate-300 font-black uppercase">No Spares Found</td></tr>}
+            </tbody></table>
+        </div>
 
-        {/* PAGINATION FOOTER */}
         <div className="p-4 bg-slate-50 border-t flex justify-between items-center">
-          <p className="text-[10px] text-slate-400 font-black tracking-widest uppercase">Showing {currentItems.length} Materials</p>
+          <p className="text-[10px] text-slate-400 font-black tracking-widest uppercase">Total Materials: {totalCount}</p>
           <div className="flex items-center gap-1">
             <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="w-8 h-8 flex items-center justify-center rounded border bg-white disabled:opacity-30 hover:bg-slate-50"><i className="fa-solid fa-chevron-left text-[10px]"></i></button>
             {getPageNumbers().map((p, idx) => (
@@ -209,7 +240,7 @@ export default function GlobalSearchView({ profile }: any) {
         </div>
       </section>
 
-      {/* MODALS */}
+      {/* MODALS (Identical UI) */}
       {bifurcateItem && (
         <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden animate-scale-in border-t-8 border-indigo-600 uppercase font-bold">
