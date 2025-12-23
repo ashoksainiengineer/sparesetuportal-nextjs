@@ -1,21 +1,13 @@
 "use client";
-
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function AuthView() {
   const [view, setView] = useState<"login" | "register" | "otp" | "forgot" | "reset">("login");
-  const [form, setForm] = useState({ 
-    email: "", 
-    pass: "", 
-    name: "", 
-    unit: "", 
-    enteredOtp: "", 
-    generatedOtp: ""
-  });
+  const [form, setForm] = useState({ email: "", pass: "", name: "", unit: "", enteredOtp: "", generatedOtp: "" });
   const [authLoading, setAuthLoading] = useState(false);
 
-  // --- LOGIC: CUSTOM EMAILJS OTP FLOW ---
+  // --- LOGIC: Handle Login, Register (OTP), Verify, & Password Reset ---
   const handleAuth = async () => {
     setAuthLoading(true);
     const cleanEmail = form.email.trim().toLowerCase();
@@ -26,67 +18,63 @@ export default function AuthView() {
         if (error) alert(error.message);
       } 
       else if (view === "register" || view === "forgot") {
-        // Validation
         if (view === "register" && (!form.name || !form.unit || !cleanEmail || !form.pass)) { 
-          alert("Saari details bhariye!"); setAuthLoading(false); return; 
+          alert("Kripya saari details bhariye!"); setAuthLoading(false); return; 
         }
-        if (view === "forgot" && !cleanEmail) { 
-          alert("Email ID zaroori hai!"); setAuthLoading(false); return; 
-        }
-
-        // Forgot Check
+        
         if (view === "forgot") {
-          const { data: userCheck } = await supabase.from('profiles').select('*').eq('email', cleanEmail).single();
-          if (!userCheck) { alert("Ye Email registered nahi hai!"); setAuthLoading(false); return; }
+            if (!cleanEmail) { alert("Email ID zaroori hai!"); setAuthLoading(false); return; }
+            const { data } = await supabase.from('profiles').select('name').eq('email', cleanEmail).single();
+            if (!data) { alert("User nahi mila!"); setAuthLoading(false); return; }
+            setForm(prev => ({ ...prev, name: data.name }));
         }
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         setForm(prev => ({ ...prev, generatedOtp: otp }));
 
-        const res = await fetch('/api/send-otp', { 
-          method: 'POST', 
-          headers: { 'Content-Type': 'application/json' }, 
-          body: JSON.stringify({ name: form.name || 'Engineer', email: cleanEmail, otp }) 
+        const res = await fetch('/api/send-otp', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: form.name || 'Engineer', email: cleanEmail, otp })
         });
-
-        if (res.ok) { 
-          alert("Verification OTP bhej diya gaya hai!"); 
-          setView("otp"); 
-        } else { alert("OTP bhenjne mein fail!"); }
+        if (res.ok) { alert("Verification OTP bhej diya gaya hai!"); setView("otp"); } 
+        else alert("OTP Error! Kripya dobara koshish karein.");
       } 
       else if (view === "otp") {
         if (form.enteredOtp === form.generatedOtp) {
-          if (view === "otp" && form.name && form.unit) { // Register
+          if (view === "otp" && form.name && form.unit) { // Finalizing Registration
             const { data: authData, error: authErr } = await supabase.auth.signUp({ 
               email: cleanEmail, password: form.pass, options: { data: { name: form.name, unit: form.unit } } 
             });
-            if (authErr) alert(authErr.message); 
-            else if (authData.user) {
+            if (authData.user) {
               await supabase.from("profiles").insert([{ id: authData.user.id, name: form.name, unit: form.unit, email: cleanEmail, item_count: 0 }]);
-              alert("Account Created!"); setView("login");
-            }
-          } else { // Forgot Verified
-             alert("Identity Verified! Ab naya password set karein.");
-             setView("reset");
-          }
-        } else { alert("Galat OTP!"); }
+              alert("Account Created Successfully!"); setView("login");
+            } else if (authErr) alert(authErr.message);
+          } else { setView("reset"); } // Forgot Password Identity Verified
+        } else alert("Galat OTP! Kripya sahi code dalein.");
       }
       else if (view === "reset") {
-          const { error } = await supabase.auth.updateUser({ password: form.pass });
-          if (error) alert(error.message);
-          else { alert("Password Updated! Ab login karein."); setView("login"); }
+        // Solving "Auth session missing" error using Admin API
+        const res = await fetch('/api/reset-password', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: cleanEmail, password: form.pass })
+        });
+        if (res.ok) { alert("Password badal gaya hai! Ab login karein."); setView("login"); } 
+        else {
+           const errData = await res.json();
+           alert("Reset Failed: " + errData.error);
+        }
       }
-    } catch (err) { alert("Network Error!"); }
+    } catch (err) { alert("System Error! Connection check karein."); }
     setAuthLoading(false);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter') handleAuth(); };
+  const handleKeyDown = (e: any) => { if (e.key === 'Enter') handleAuth(); };
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 login-bg font-roboto uppercase font-bold">
       <div className="w-full max-w-md login-card rounded-2xl shadow-2xl p-8 border-t-4 border-orange-500 text-center relative animate-fade-in">
         
-        {/* BRANDING: ALL ELEMENTS RESTORED */}
+        {/* BRANDING: ALL TEXTS RESTORED */}
         <div className="mb-8">
             <div className="flex justify-center mb-4 font-bold uppercase">
               <div className="iocl-logo-container" style={{ fontSize: '14px' }}>
@@ -101,27 +89,27 @@ export default function AuthView() {
         </div>
 
         <div className="space-y-4">
-          {/* 1. REGISTER ONLY FIELDS */}
+          {/* 1. REGISTER SPECIFIC FIELDS */}
           {view === "register" && (
             <>
               <div className="relative"><i className="fa-solid fa-user absolute left-4 top-3.5 text-slate-400"></i><input type="text" placeholder="Engineer Full Name" onKeyDown={handleKeyDown} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold" onChange={e=>setForm({...form, name:e.target.value})} /></div>
-              <div className="relative"><i className="fa-solid fa-building absolute left-4 top-3.5 text-slate-400"></i><select className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm bg-slate-900 text-slate-300 font-bold" onChange={e=>setForm({...form, unit:e.target.value})}><option value="">Select Your Zone</option>{["RUP - South Block", "RUP - North Block", "LAB", "MSQU", "AU-5", "BS-VI", "GR-II & NBA", "GR-I", "OM&S", "OLD SRU & CETP", "Electrical Planning", "Electrical Testing", "Electrical Workshop", "FCC", "GRE", "CGP-I", "CGP-II & TPS", "Water Block & Bitumen", "Township - Estate Office", "AC Section", "GHC", "DHUMAD"].map(z=><option key={z} value={z}>{z}</option>)}</select></div>
+              <div className="relative"><i className="fa-solid fa-building absolute left-4 top-3.5 text-slate-400"></i><select className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm bg-slate-900 text-slate-300 font-bold cursor-pointer" onChange={e=>setForm({...form, unit:e.target.value})}><option value="">Select Your Zone</option>{["RUP - South Block", "RUP - North Block", "LAB", "MSQU", "AU-5", "BS-VI", "GR-II & NBA", "GR-I", "OM&S", "OLD SRU & CETP", "Electrical Planning", "Electrical Testing", "Electrical Workshop", "FCC", "GRE", "CGP-I", "CGP-II & TPS", "Water Block & Bitumen", "Township - Estate Office", "AC Section", "GHC", "DHUMAD"].map(z=><option key={z} value={z}>{z}</option>)}</select></div>
             </>
           )}
 
-          {/* 2. DYNAMIC INPUTS (With unique keys to prevent state-overlap) */}
+          {/* 2. DYNAMIC INPUT (OTP / EMAIL / NEW PASSWORD) */}
           {view === "otp" ? (
-             <div key="view-otp" className="relative animate-scale-in">
+             <div key="otp-view" className="relative animate-scale-in">
                <i className="fa-solid fa-key absolute left-4 top-3.5 text-slate-400"></i>
                <input type="text" placeholder="######" maxLength={6} onKeyDown={handleKeyDown} className="w-full p-3 rounded-lg login-input text-center text-2xl tracking-[0.5em] font-bold text-white outline-none font-mono" onChange={e=>setForm({...form, enteredOtp:e.target.value})} />
              </div>
           ) : view === "reset" ? (
-             <div key="view-reset" className="relative animate-scale-in">
+             <div key="reset-view" className="relative animate-scale-in">
                <i className="fa-solid fa-lock absolute left-4 top-3.5 text-slate-400"></i>
                <input type="password" placeholder="Set New Password" onKeyDown={handleKeyDown} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold" onChange={e=>setForm({...form, pass:e.target.value})} />
              </div>
           ) : (
-             <div key="view-email" className="relative">
+             <div key="email-view" className="relative">
                <i className="fa-solid fa-envelope absolute left-4 top-3.5 text-slate-400"></i>
                <input type="email" value={form.email} onKeyDown={handleKeyDown} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold" placeholder="Official Email ID" onChange={e=>setForm({...form, email:e.target.value})} />
              </div>
