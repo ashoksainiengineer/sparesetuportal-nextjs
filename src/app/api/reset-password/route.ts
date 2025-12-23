@@ -10,7 +10,7 @@ export async function POST(request: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY! 
     );
 
-    // Bug Fix: Finding user ID directly from email is safer
+    // Fetch user by email securely
     const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
     
     if (listError) throw listError;
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Update password using Admin API
+    // Update password using Admin powers
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
       targetUser.id,
       { password: password }
