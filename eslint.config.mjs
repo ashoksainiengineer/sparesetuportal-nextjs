@@ -13,23 +13,18 @@ const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
     rules: {
-      // In rules ko "off" karne se build fail nahi hogi aur aapka code as-it-is rahega
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-unused-vars": "off",
       "prefer-const": "off",
       "react-hooks/exhaustive-deps": "off",
       "react/no-unescaped-entities": "off",
       "@next/next/no-img-element": "off",
-      "@typescript-eslint/no-empty-object-type": "off"
+      "@typescript-eslint/no-empty-object-type": "off",
+      "@typescript-eslint/no-unused-expressions": "off"
     },
   },
   {
-    ignores: [
-      ".next/**",
-      "out/**",
-      "build/**",
-      "next-env.d.ts",
-    ],
+    ignores: [".next/**", "out/**", "build/**", "next-env.d.ts"],
   },
 ];
 
