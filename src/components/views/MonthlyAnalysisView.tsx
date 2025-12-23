@@ -5,6 +5,7 @@ import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Toolti
 import { Bar } from "react-chartjs-2";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 
+// Register Chart components for Next.js 15 / Chart.js 4
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ChartDataLabels);
 
 export default function MonthlyAnalysisView({ profile }: any) {
@@ -12,6 +13,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
   const [chartConfigs, setChartConfigs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Set default month to current
   useEffect(() => {
     const d = new Date();
     setSelectedMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
@@ -20,23 +22,35 @@ export default function MonthlyAnalysisView({ profile }: any) {
   const fetchGlobalConsumption = useCallback(async () => {
     if (!selectedMonth) return;
     setLoading(true);
+    
     const [year, month] = selectedMonth.split("-");
-    const startTs = new Date(parseInt(year), parseInt(month) - 1, 1).getTime();
-    const endTs = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59).getTime();
+    // Precise timestamp calculation for the start and end of the month
+    const startTs = new Date(parseInt(year), parseInt(month) - 1, 1, 0, 0, 0, 0).getTime();
+    const endTs = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999).getTime();
 
     try {
-      const { data: logs, error } = await supabase.from("usage_logs").select("*").gte("timestamp", startTs).lte("timestamp", endTs);
+      const { data: logs, error } = await supabase
+        .from("usage_logs")
+        .select("*")
+        .gte("timestamp", startTs)
+        .lte("timestamp", endTs);
+
       if (error) throw error;
+
       const report: any = {};
 
       logs?.forEach((log) => {
+        // Keeping your existing logic: Skip manual entries as requested
         if (log.is_manual === true || log.cat === 'Manual Entry' || !log.cat) return;
+        
         const cat = log.cat;
         const sub = log.sub || 'General';
         const qty = Number(log.qty_consumed || 0);
         const unit = log.unit || 'Nos';
+
         if (!report[cat]) report[cat] = {};
         if (!report[cat][sub]) report[cat][sub] = { total: 0, units: {} };
+
         report[cat][sub].total += qty;
         report[cat][sub].units[unit] = (report[cat][sub].units[unit] || 0) + qty;
       });
@@ -45,11 +59,15 @@ export default function MonthlyAnalysisView({ profile }: any) {
         const subDataMap = report[catName];
         const labels = Object.keys(subDataMap).sort();
         const values = labels.map(l => subDataMap[l].total);
+        
+        // Find primary unit for each bar
         const barUnits = labels.map(l => {
-            const sortedUnits = Object.entries(subDataMap[l].units).sort((a:any, b:any) => (b[1] as number) - (a[1] as number));
+            const sortedUnits = Object.entries(subDataMap[l].units).sort((a: any, b: any) => (b[1] as number) - (a[1] as number));
             return sortedUnits.length > 0 ? sortedUnits[0][0] : 'Nos';
         });
+
         const colors = ['#38bdf8', '#4f46e5', '#9333ea', '#ec4899', '#f43f5e'];
+        
         return {
           category: catName, 
           total: values.reduce((a, b) => a + b, 0), 
@@ -68,12 +86,17 @@ export default function MonthlyAnalysisView({ profile }: any) {
         };
       });
       setChartConfigs(charts);
-    } catch (e) { console.error(e); } finally { setLoading(false); }
+    } catch (e) { 
+        console.error("Analysis Fetch Error:", e); 
+    } finally { 
+        setLoading(false); 
+    }
   }, [selectedMonth]);
 
   useEffect(() => {
     fetchGlobalConsumption();
-    const channel = supabase.channel('monthly_sync').on('postgres_changes', { event: '*', schema: 'public', table: 'usage_logs' }, () => {
+    // Real-time listener for usage updates
+    const channel = supabase.channel('monthly_sync_v2').on('postgres_changes', { event: '*', schema: 'public', table: 'usage_logs' }, () => {
         fetchGlobalConsumption();
     }).subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -81,13 +104,14 @@ export default function MonthlyAnalysisView({ profile }: any) {
 
   return (
     <div className="animate-fade-in space-y-8 pb-20 font-roboto font-bold uppercase tracking-tight">
+      {/* Header: Exact Same UI */}
       <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center border-t-4 border-orange-500">
         <div>
           <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest leading-none">Monthly Analysis</h2>
           <p className="text-[10px] text-slate-400 mt-2 lowercase font-black tracking-[0.1em]">Monthly Material Usage Across All Zones</p>
         </div>
         <div className="flex items-center gap-3">
-            <button onClick={fetchGlobalConsumption} className="bg-slate-50 text-slate-400 p-2.5 rounded-xl hover:text-indigo-600 transition-all border border-slate-100">
+            <button onClick={fetchGlobalConsumption} disabled={loading} className="bg-slate-50 text-slate-400 p-2.5 rounded-xl hover:text-indigo-600 transition-all border border-slate-100 disabled:opacity-50">
                 <i className={`fa-solid fa-sync ${loading ? 'animate-spin' : ''}`}></i>
             </button>
             <input type="month" className="bg-slate-50 text-slate-800 p-2.5 rounded-xl outline-none font-black text-[11px] cursor-pointer border border-slate-200" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} />
@@ -99,7 +123,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
       ) : chartConfigs.length > 0 ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {chartConfigs.map((cfg, i) => (
-            <div key={i} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm transition-all">
+            <div key={i} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm transition-all hover:shadow-md">
               <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-3">
                     <i className="fa-solid fa-layer-group text-orange-500 text-sm"></i>
@@ -131,16 +155,18 @@ export default function MonthlyAnalysisView({ profile }: any) {
                             tooltip: {
                                 backgroundColor: '#1e293b',
                                 padding: 10,
-                                // FIXED: changed borderRadius to cornerRadius for Chart.js Tooltip
-                                cornerRadius: 8,
-                                displayColors: false
+                                // Correct v4 property is borderRadius
+                                borderRadius: 8,
+                                displayColors: false,
+                                titleFont: { size: 12, weight: 'bold' },
+                                bodyFont: { size: 11, weight: 'bold' }
                             }
                         },
                         scales: {
                             y: { 
                                 beginAtZero: true, 
                                 grace: '25%', 
-                                grid: { color: '#f1f5f9', drawTicks: true }, 
+                                grid: { color: '#f1f5f9' }, 
                                 border: { display: true, color: '#e2e8f0' },
                                 ticks: { font: { size: 10, weight: 'bold' }, color: '#94a3b8', padding: 8 } 
                             },
