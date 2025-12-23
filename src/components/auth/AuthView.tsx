@@ -4,11 +4,10 @@ import { supabase } from "@/lib/supabase";
 
 export default function AuthView() {
   const [view, setView] = useState<"login" | "register" | "otp" | "forgot" | "reset">("login");
-  const [flow, setFlow] = useState<"reg" | "reset">("reg"); // Bug Fix: Track current process
+  const [flow, setFlow] = useState<"reg" | "reset">("reg");
   const [form, setForm] = useState({ email: "", pass: "", name: "", unit: "", enteredOtp: "", generatedOtp: "" });
   const [authLoading, setAuthLoading] = useState(false);
 
-  // Helper to update state safely
   const updateForm = (updates: Partial<typeof form>) => {
     setForm(prev => ({ ...prev, ...updates }));
   };
@@ -34,11 +33,8 @@ export default function AuthView() {
             if (!data) { alert("User nahi mila!"); setAuthLoading(false); return; }
             currentName = data.name;
             setFlow("reset");
-        } else {
-            setFlow("reg");
-        }
+        } else { setFlow("reg"); }
 
-        // Logic: Send request WITHOUT OTP (Backend will generate it)
         const res = await fetch('/api/send-otp', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: currentName || 'Engineer', email: cleanEmail })
@@ -46,12 +42,10 @@ export default function AuthView() {
 
         if (res.ok) { 
           const resData = await res.json();
-          updateForm({ generatedOtp: resData.otp, name: currentName }); // Save OTP from server
+          updateForm({ generatedOtp: resData.otp, name: currentName });
           alert("Verification OTP bhej diya gaya hai!"); 
           setView("otp"); 
-        } else {
-          alert("OTP Error! Kripya dobara koshish karein.");
-        }
+        } else alert("OTP Error! Kripya dobara koshish karein.");
       } 
       else if (view === "otp") {
         if (form.enteredOtp === form.generatedOtp && form.generatedOtp !== "") {
@@ -63,15 +57,10 @@ export default function AuthView() {
               await supabase.from("profiles").insert([{ id: authData.user.id, name: form.name, unit: form.unit, email: cleanEmail, item_count: 0 }]);
               alert("Account Created Successfully!"); setView("login");
             } else if (authErr) alert(authErr.message);
-          } else { 
-            setView("reset"); 
-          }
-        } else {
-          alert("Galat OTP! Kripya sahi code dalein.");
-        }
+          } else { setView("reset"); }
+        } else alert("Galat OTP! Kripya sahi code dalein.");
       }
       else if (view === "reset") {
-        if (form.pass.length < 6) { alert("Password kam se kam 6 characters ka hona chahiye!"); setAuthLoading(false); return; }
         const res = await fetch('/api/reset-password', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: cleanEmail, password: form.pass })
@@ -79,10 +68,10 @@ export default function AuthView() {
         if (res.ok) { alert("Password badal gaya hai! Ab login karein."); setView("login"); } 
         else {
            const errData = await res.json();
-           alert("Reset Failed: " + (errData.error || "Unknown Error"));
+           alert("Reset Failed: " + errData.error);
         }
       }
-    } catch (err) { alert("System Error! Connection check karein."); }
+    } catch (err) { alert("System Error!"); }
     setAuthLoading(false);
   };
 
@@ -148,7 +137,7 @@ export default function AuthView() {
           <div className="mt-6 text-center border-t border-white/10 pt-4 font-bold">
             <p className="text-xs text-slate-400">
               {view==='login' ? "New User? " : "Already have an account? "}
-              <button onClick={()=>{setView(view==='login'?'register':'login'); setFlow('reg');}} className="text-white hover:text-orange-500 font-bold underline ml-1">{view==='login' ? "Create Account" : "Back to Login"}</button>
+              <button onClick={()=>setView(view==='login'?'register':'login')} className="text-white hover:text-orange-500 font-bold underline ml-1">{view==='login' ? "Create Account" : "Back to Login"}</button>
             </p>
           </div>
           
