@@ -4,13 +4,13 @@ import { supabase } from "@/lib/supabase";
 
 export default function AuthView() {
   const [view, setView] = useState<"login" | "register" | "otp" | "forgot" | "reset">("login");
-  const [flow, setFlow] = useState<"reg" | "reset">("reg"); // Bug fix: track flow
+  const [flow, setFlow] = useState<"reg" | "reset">("reg"); // Bug Fix: Track current process
   const [form, setForm] = useState({ email: "", pass: "", name: "", unit: "", enteredOtp: "", generatedOtp: "" });
   const [authLoading, setAuthLoading] = useState(false);
 
-  // Helper for state updates
-  const updateForm = (field: string, value: string) => {
-    setForm(prev => ({ ...prev, [field]: value }));
+  // Helper to update state safely
+  const updateForm = (updates: Partial<typeof form>) => {
+    setForm(prev => ({ ...prev, ...updates }));
   };
 
   const handleAuth = async () => {
@@ -27,25 +27,26 @@ export default function AuthView() {
           alert("Kripya saari details bhariye!"); setAuthLoading(false); return; 
         }
         
+        let currentName = form.name;
         if (view === "forgot") {
             if (!cleanEmail) { alert("Email ID zaroori hai!"); setAuthLoading(false); return; }
             const { data } = await supabase.from('profiles').select('name').eq('email', cleanEmail).single();
             if (!data) { alert("User nahi mila!"); setAuthLoading(false); return; }
-            updateForm("name", data.name);
+            currentName = data.name;
             setFlow("reset");
         } else {
             setFlow("reg");
         }
 
-        // Logic: Backend now generates the OTP for security
+        // Logic: Send request WITHOUT OTP (Backend will generate it)
         const res = await fetch('/api/send-otp', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: form.name || 'Engineer', email: cleanEmail })
+          body: JSON.stringify({ name: currentName || 'Engineer', email: cleanEmail })
         });
 
         if (res.ok) { 
-          const data = await res.json();
-          updateForm("generatedOtp", data.otp); // OTP received from secure backend
+          const resData = await res.json();
+          updateForm({ generatedOtp: resData.otp, name: currentName }); // Save OTP from server
           alert("Verification OTP bhej diya gaya hai!"); 
           setView("otp"); 
         } else {
@@ -53,12 +54,12 @@ export default function AuthView() {
         }
       } 
       else if (view === "otp") {
-        if (form.enteredOtp === form.generatedOtp) {
+        if (form.enteredOtp === form.generatedOtp && form.generatedOtp !== "") {
           if (flow === "reg") { 
             const { data: authData, error: authErr } = await supabase.auth.signUp({ 
               email: cleanEmail, password: form.pass, options: { data: { name: form.name, unit: form.unit } } 
             });
-            if (authData.user) {
+            if (authData?.user) {
               await supabase.from("profiles").insert([{ id: authData.user.id, name: form.name, unit: form.unit, email: cleanEmail, item_count: 0 }]);
               alert("Account Created Successfully!"); setView("login");
             } else if (authErr) alert(authErr.message);
@@ -70,6 +71,7 @@ export default function AuthView() {
         }
       }
       else if (view === "reset") {
+        if (form.pass.length < 6) { alert("Password kam se kam 6 characters ka hona chahiye!"); setAuthLoading(false); return; }
         const res = await fetch('/api/reset-password', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: cleanEmail, password: form.pass })
@@ -77,7 +79,7 @@ export default function AuthView() {
         if (res.ok) { alert("Password badal gaya hai! Ab login karein."); setView("login"); } 
         else {
            const errData = await res.json();
-           alert("Reset Failed: " + errData.error);
+           alert("Reset Failed: " + (errData.error || "Unknown Error"));
         }
       }
     } catch (err) { alert("System Error! Connection check karein."); }
@@ -89,7 +91,6 @@ export default function AuthView() {
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 login-bg font-roboto uppercase font-bold">
       <div className="w-full max-w-md login-card rounded-2xl shadow-2xl p-8 border-t-4 border-orange-500 text-center relative animate-fade-in">
-        
         <div className="mb-8">
             <div className="flex justify-center mb-4 font-bold uppercase">
               <div className="iocl-logo-container" style={{ fontSize: '14px' }}>
@@ -106,30 +107,30 @@ export default function AuthView() {
         <div className="space-y-4">
           {view === "register" && (
             <>
-              <div className="relative"><i className="fa-solid fa-user absolute left-4 top-3.5 text-slate-400"></i><input type="text" placeholder="Engineer Full Name" onKeyDown={handleKeyDown} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold" onChange={e=>updateForm("name", e.target.value)} /></div>
-              <div className="relative"><i className="fa-solid fa-building absolute left-4 top-3.5 text-slate-400"></i><select className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm bg-slate-900 text-slate-300 font-bold cursor-pointer" onChange={e=>updateForm("unit", e.target.value)}><option value="">Select Your Zone</option>{["RUP - South Block", "RUP - North Block", "LAB", "MSQU", "AU-5", "BS-VI", "GR-II & NBA", "GR-I", "OM&S", "OLD SRU & CETP", "Electrical Planning", "Electrical Testing", "Electrical Workshop", "FCC", "GRE", "CGP-I", "CGP-II & TPS", "Water Block & Bitumen", "Township - Estate Office", "AC Section", "GHC", "DHUMAD"].map(z=><option key={z} value={z}>{z}</option>)}</select></div>
+              <div className="relative"><i className="fa-solid fa-user absolute left-4 top-3.5 text-slate-400"></i><input type="text" placeholder="Engineer Full Name" onKeyDown={handleKeyDown} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold" onChange={e=>updateForm({name: e.target.value})} /></div>
+              <div className="relative"><i className="fa-solid fa-building absolute left-4 top-3.5 text-slate-400"></i><select className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm bg-slate-900 text-slate-300 font-bold cursor-pointer" onChange={e=>updateForm({unit: e.target.value})}><option value="">Select Your Zone</option>{["RUP - South Block", "RUP - North Block", "LAB", "MSQU", "AU-5", "BS-VI", "GR-II & NBA", "GR-I", "OM&S", "OLD SRU & CETP", "Electrical Planning", "Electrical Testing", "Electrical Workshop", "FCC", "GRE", "CGP-I", "CGP-II & TPS", "Water Block & Bitumen", "Township - Estate Office", "AC Section", "GHC", "DHUMAD"].map(z=><option key={z} value={z}>{z}</option>)}</select></div>
             </>
           )}
 
           {view === "otp" ? (
              <div key="otp-view" className="relative animate-scale-in">
                <i className="fa-solid fa-key absolute left-4 top-3.5 text-slate-400"></i>
-               <input type="text" placeholder="######" maxLength={6} onKeyDown={handleKeyDown} className="w-full p-3 rounded-lg login-input text-center text-2xl tracking-[0.5em] font-bold text-white outline-none font-mono" onChange={e=>updateForm("enteredOtp", e.target.value)} />
+               <input type="text" placeholder="######" maxLength={6} onKeyDown={handleKeyDown} className="w-full p-3 rounded-lg login-input text-center text-2xl tracking-[0.5em] font-bold text-white outline-none font-mono" onChange={e=>updateForm({enteredOtp: e.target.value})} />
              </div>
           ) : view === "reset" ? (
              <div key="reset-view" className="relative animate-scale-in">
                <i className="fa-solid fa-lock absolute left-4 top-3.5 text-slate-400"></i>
-               <input type="password" placeholder="Set New Password" onKeyDown={handleKeyDown} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold" onChange={e=>updateForm("pass", e.target.value)} />
+               <input type="password" placeholder="Set New Password" onKeyDown={handleKeyDown} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold" onChange={e=>updateForm({pass: e.target.value})} />
              </div>
           ) : (
              <div key="email-view" className="relative">
                <i className="fa-solid fa-envelope absolute left-4 top-3.5 text-slate-400"></i>
-               <input type="email" value={form.email} onKeyDown={handleKeyDown} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold" placeholder="Official Email ID" onChange={e=>updateForm("email", e.target.value)} />
+               <input type="email" value={form.email} onKeyDown={handleKeyDown} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold" placeholder="Official Email ID" onChange={e=>updateForm({email: e.target.value})} />
              </div>
           )}
 
           {(view === "login" || view === "register") && (
-            <div className="relative"><i className="fa-solid fa-lock absolute left-4 top-3.5 text-slate-400"></i><input type="password" placeholder="Password" onKeyDown={handleKeyDown} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold" onChange={e=>updateForm("pass", e.target.value)} /></div>
+            <div className="relative"><i className="fa-solid fa-lock absolute left-4 top-3.5 text-slate-400"></i><input type="password" placeholder="Password" onKeyDown={handleKeyDown} className="w-full pl-10 pr-4 py-3 rounded-lg login-input outline-none text-sm font-bold" onChange={e=>updateForm({pass: e.target.value})} /></div>
           )}
 
           {view === "login" && (
@@ -147,7 +148,7 @@ export default function AuthView() {
           <div className="mt-6 text-center border-t border-white/10 pt-4 font-bold">
             <p className="text-xs text-slate-400">
               {view==='login' ? "New User? " : "Already have an account? "}
-              <button onClick={()=>setView(view==='login'?'register':'login')} className="text-white hover:text-orange-500 font-bold underline ml-1">{view==='login' ? "Create Account" : "Back to Login"}</button>
+              <button onClick={()=>{setView(view==='login'?'register':'login'); setFlow('reg');}} className="text-white hover:text-orange-500 font-bold underline ml-1">{view==='login' ? "Create Account" : "Back to Login"}</button>
             </p>
           </div>
           
