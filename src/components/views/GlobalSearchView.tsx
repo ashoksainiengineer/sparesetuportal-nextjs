@@ -66,7 +66,7 @@ export default function GlobalSearchView({ profile }: any) {
     const groups: any = {};
     items.forEach(item => {
       const key = `${item.item}-${item.spec}-${item.make}-${item.model}-${item.unit}`.toLowerCase();
-      if (!groups[key]) { groups[key] = { ...item, totalQty: 0, occurrences: [], latestTS: 0 }; }
+      if (!groups[key]) groups[key] = { ...item, totalQty: 0, occurrences: [], latestTS: 0 };
       groups[key].totalQty += Number(item.qty);
       groups[key].occurrences.push(item);
       if (Number(item.timestamp) > groups[key].latestTS) groups[key].latestTS = Number(item.timestamp);
@@ -74,18 +74,19 @@ export default function GlobalSearchView({ profile }: any) {
     return Object.values(groups).sort((a: any, b: any) => (a.totalQty > 0 ? -1 : 1) || b.latestTS - a.latestTS);
   };
 
+  const formatTS = (ts: any) => new Date(Number(ts)).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+
   return (
-    <div className={`space-y-6 animate-fade-in font-roboto font-bold uppercase tracking-tight transition-all duration-500 ${loading ? 'opacity-60 blur-[1px]' : 'opacity-100 blur-0'}`}>
+    <div className="space-y-6 animate-fade-in font-roboto font-bold uppercase tracking-tight">
       <section className="bg-slate-900 py-4 px-6 rounded-2xl border-b-4 border-orange-500 text-white shadow-2xl">
         <div className="flex flex-col lg:flex-row items-center gap-6">
             <h2 className="text-lg font-black tracking-widest leading-none shrink-0 uppercase"><i className="fa-solid fa-trophy text-orange-400 mr-2"></i> ZONE LEADERBOARD (TOP 3)</h2>
-            <div className="flex gap-3 overflow-x-auto w-full py-1 no-scrollbar">
+            <div className="flex gap-3 overflow-x-auto w-full py-1">
                 {contributors.map((c, idx) => (
                     <div key={idx} className="min-w-[180px] flex-1 bg-white/5 border border-white/10 rounded-xl p-3 flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center text-xs border border-orange-500/30 font-black">#{idx+1}</div>
                         <div className="flex-1 truncate"><p className="text-[12px] font-black truncate uppercase">{c.unit}</p><p className="text-green-400 text-[10px] font-black uppercase">{c.total} Items</p></div>
-                    </div>
-                ))}
+                    </div>))}
             </div>
         </div>
       </section>
@@ -108,7 +109,7 @@ export default function GlobalSearchView({ profile }: any) {
         </div>
 
         <div className="overflow-x-auto"><table className="w-full text-left font-bold uppercase tracking-tight"><thead className="bg-slate-50 text-slate-500 text-[10px] border-b tracking-widest uppercase"><tr><th className="p-4 pl-6">Material Detail</th><th className="p-4">Spec Details</th><th className="p-4 text-center">Refinery Stock</th><th className="p-4 text-center">Status</th><th className="p-4 text-center">Action</th></tr></thead><tbody className="divide-y text-sm">
-              {loading && items.length === 0 ? <tr><td colSpan={5} className="p-20 text-center animate-pulse text-slate-300 font-black uppercase">Fetching Data...</td></tr> : 
+              {loading && items.length === 0 ? <tr><td colSpan={5} className="p-20 text-center animate-pulse text-slate-300 font-black uppercase">Fetching Spares...</td></tr> : 
                getGroupedData().map((group: any, idx: number) => (
                 <tr key={idx} className={`hover:bg-slate-50 transition border-b group cursor-pointer ${group.totalQty === 0 ? 'bg-red-50/30' : ''}`} onClick={()=>setBifurcateItem(group)}>
                   <td className="p-4 pl-6 leading-tight"><div className="text-slate-800 font-bold text-[14px] uppercase">{group.item}</div><div className="text-[10px] text-slate-400 mt-1 uppercase font-black">{group.cat} &gt; {group.sub}</div></td>
@@ -128,6 +129,7 @@ export default function GlobalSearchView({ profile }: any) {
         </div>
       </section>
 
+      {/* Modal - Bifurcate */}
       {bifurcateItem && (
         <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden animate-scale-in border-t-8 border-indigo-600 uppercase font-bold">
@@ -157,6 +159,7 @@ export default function GlobalSearchView({ profile }: any) {
         </div>
       )}
 
+      {/* Modal - Request */}
       {requestItem && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 uppercase font-black">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
@@ -164,17 +167,18 @@ export default function GlobalSearchView({ profile }: any) {
             <div className="p-6 space-y-4 font-bold uppercase"><div className="bg-orange-50 p-4 rounded-xl border border-orange-100 leading-tight uppercase"><p className="text-[10px] text-orange-600 font-black mb-1 uppercase tracking-widest">Target: {requestItem.holder_name} ({requestItem.holder_unit})</p><p className="text-sm font-bold text-slate-800 leading-tight uppercase">{requestItem.item}</p></div>
               <div><label className="text-[10px] text-slate-500 mb-1 block uppercase">Requested Qty</label><input type="number" placeholder="Qty" className="w-full p-3 border-2 border-slate-100 rounded-xl font-black text-slate-800 focus:border-orange-500 outline-none uppercase" value={reqForm.qty} onChange={e=>setReqForm({...reqForm, qty:e.target.value})} /></div>
               <div><label className="text-[10px] text-slate-500 mb-1 block uppercase">Comment / Purpose</label><textarea placeholder="..." className="w-full p-3 border-2 border-slate-100 rounded-xl font-bold text-xs h-24 text-slate-800 focus:border-orange-500 outline-none uppercase" value={reqForm.comment} onChange={e=>setReqForm({...reqForm, comment:e.target.value})}></textarea></div>
-              <button onClick={handleSendRequest} disabled={submitting} className="w-full py-4 bg-[#ff6b00] text-white rounded-2xl shadow-lg uppercase tracking-widest text-sm hover:bg-orange-600 transition-all shadow-md uppercase">{submitting ? "Processing..." : "Submit Request"}</button>
+              <button onClick={handleSendRequest} disabled={submitting} className="w-full py-4 bg-[#ff6b00] text-white rounded-2xl shadow-lg uppercase tracking-[0.2em] text-sm hover:bg-orange-600 transition-all shadow-md uppercase">{submitting ? "Processing..." : "Submit Request"}</button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Modal - Summary */}
       {showSummary && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 uppercase font-black">
             <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-scale-in uppercase font-bold uppercase">
                 <div className="p-6 border-b bg-indigo-50 flex justify-between items-center"><h3 className="font-black text-indigo-900 text-lg tracking-tight tracking-widest uppercase"><i className="fa-solid fa-boxes-stacked mr-2"></i> Stock Summary</h3><button onClick={()=>setShowSummary(false)} className="text-slate-400 hover:text-red-500 transition-colors uppercase"><i className="fa-solid fa-xmark text-xl"></i></button></div>
-                <div className="p-6 max-h-[60vh] overflow-y-auto font-black uppercase"><table className="w-full text-left text-xs font-bold uppercase"><thead className="border-b text-slate-400 uppercase tracking-widest text-[10px] uppercase"><tr><th className="pb-3 uppercase">Category &gt; Sub-Category</th><th className="pb-3 text-right uppercase">Balance Total</th></tr></thead><tbody className="divide-y uppercase font-black">
+                <div className="p-6 max-h-[60vh] overflow-y-auto font-black uppercase"><table className="w-full text-left text-xs font-bold uppercase"><thead className="border-b text-slate-400 uppercase tracking-widest text-[10px] uppercase"><tr><th className="pb-3 uppercase font-black">Category &gt; Sub-Category</th><th className="pb-3 text-right uppercase font-black">Balance Total</th></tr></thead><tbody className="divide-y uppercase font-black">
                   {[...new Set(metaItems.map(i => `${i.cat} > ${i.sub}`))].sort().map((key, idx) => {
                     const [cat, sub] = key.split(' > ');
                     const total = metaItems.filter(i => i.cat === cat && i.sub === sub).reduce((sum, curr) => sum + Number(curr.qty), 0);
