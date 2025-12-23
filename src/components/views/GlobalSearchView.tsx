@@ -66,13 +66,15 @@ export default function GlobalSearchView({ profile }: any) {
     const groups: any = {};
     items.forEach(item => {
       const key = `${item.item}-${item.spec}-${item.make}-${item.model}-${item.unit}`.toLowerCase();
-      if (!groups[key]) groups[key] = { ...item, totalQty: 0, occurrences: [], latestTS: 0 };
+      if (!groups[key]) { groups[key] = { ...item, totalQty: 0, occurrences: [], latestTS: 0 }; }
       groups[key].totalQty += Number(item.qty);
       groups[key].occurrences.push(item);
       if (Number(item.timestamp) > groups[key].latestTS) groups[key].latestTS = Number(item.timestamp);
     });
     return Object.values(groups).sort((a: any, b: any) => (a.totalQty > 0 ? -1 : 1) || b.latestTS - a.latestTS);
   };
+
+  const formatTS = (ts: any) => new Date(Number(ts)).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
 
   return (
     <div className="space-y-6 animate-fade-in font-roboto font-bold uppercase tracking-tight">
@@ -122,7 +124,7 @@ export default function GlobalSearchView({ profile }: any) {
           <p className="text-slate-400 font-black tracking-widest uppercase">Total Materials: {totalCount}</p>
           <div className="flex items-center gap-1">
             <button onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => Math.max(prev - 1, 1)); }} disabled={currentPage === 1} className="w-8 h-8 rounded border bg-white disabled:opacity-30">{"<"}</button>
-            <span className="px-2">Page {currentPage} of {Math.ceil(totalCount / itemsPerPage) || 1}</span>
+            <span className="px-2 font-black uppercase">Page {currentPage} of {Math.ceil(totalCount / itemsPerPage) || 1}</span>
             <button onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => Math.min(prev + 1, Math.ceil(totalCount / itemsPerPage))); }} disabled={currentPage >= Math.ceil(totalCount / itemsPerPage)} className="w-8 h-8 rounded border bg-white disabled:opacity-30">{">"}</button>
           </div>
         </div>
@@ -166,7 +168,7 @@ export default function GlobalSearchView({ profile }: any) {
             <div className="p-6 space-y-4 font-bold uppercase"><div className="bg-orange-50 p-4 rounded-xl border border-orange-100 leading-tight"><p className="text-[10px] text-orange-600 font-black mb-1 uppercase tracking-widest">Target: {requestItem.holder_name}</p><p className="text-sm font-bold text-slate-800 leading-tight">{requestItem.item}</p></div>
               <div><label className="text-[10px] text-slate-500 mb-1 block">Qty</label><input type="number" className="w-full p-3 border-2 border-slate-100 rounded-xl font-black text-slate-800 outline-none" value={reqForm.qty} onChange={e=>setReqForm({...reqForm, qty:e.target.value})} /></div>
               <div><label className="text-[10px] text-slate-500 mb-1 block">Comment</label><textarea className="w-full p-3 border-2 border-slate-100 rounded-xl font-bold text-xs h-24 text-slate-800 outline-none uppercase" value={reqForm.comment} onChange={e=>setReqForm({...reqForm, comment:e.target.value})}></textarea></div>
-              <button onClick={handleSendRequest} disabled={submitting} className="w-full py-4 bg-[#ff6b00] text-white rounded-2xl shadow-lg uppercase tracking-widest text-sm hover:bg-orange-600 transition-all shadow-md">{submitting ? "Processing..." : "Submit Request"}</button>
+              <button onClick={handleSendRequest} disabled={submitting} className="w-full py-4 bg-[#ff6b00] text-white rounded-2xl shadow-lg uppercase tracking-[0.2em] text-sm hover:bg-orange-600 transition-all shadow-md">{submitting ? "Processing..." : "Submit Request"}</button>
             </div>
           </div>
         </div>
