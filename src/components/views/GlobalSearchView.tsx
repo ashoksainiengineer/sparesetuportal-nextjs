@@ -76,7 +76,7 @@ export default function GlobalSearchView({ profile }: any) {
       if (error) throw error;
       setItems(data || []);
       setTotalCount(count || 0);
-    } cath (e: any) { console.error("Fetch error:", e); }
+    } catch (e: any) { console.error("Fetch error:", e); }
     finally { setLoading(false); }
   }, [debouncedSearch, selZone, selCat, selSubCat, selStock, currentPage]);
 
