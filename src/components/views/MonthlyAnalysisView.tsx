@@ -34,7 +34,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
         .select("*")
         .gte("timestamp", startTs)
         .lte("timestamp", endTs)
-        .eq("is_manual", false); // <--- YE LINE ADD KI HAI (DB Level Filter)
+        .eq("is_manual", false);
 
       if (error) throw error;
       setLogs(data || []);
@@ -56,7 +56,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
     const report: any = {};
     
     logs.forEach((log) => {
-      // Safety Filter: Client side par bhi check rakha hai
+      // Safety Filter
       if (log.is_manual || log.cat === 'Manual Entry' || !log.cat) return;
       
       const rawCat = log.cat.trim().toUpperCase();
@@ -170,7 +170,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
                                 offset: 5,
                                 color: '#1e293b',
                                 font: { weight: 'bold', size: 10 },
-                                formatter: (val, ctx: any) => {
+                                formatter: (val: any, ctx: any) => {
                                     const units = ctx.dataset.units || [];
                                     const unit = units[ctx.dataIndex] || '';
                                     return `${formatQuantity(val, unit)} ${unit}`;
@@ -181,8 +181,8 @@ export default function MonthlyAnalysisView({ profile }: any) {
                                 padding: 12,
                                 cornerRadius: 8,
                                 displayColors: false,
-                                titleFont: { size: 11, weight: 'bold' },
-                                bodyFont: { size: 12, weight: 'bold' },
+                                titleFont: { size: 11, weight: 'bold' as 'bold' },
+                                bodyFont: { size: 12, weight: 'bold' as 'bold' },
                                 callbacks: {
                                     label: (ctx: any) => {
                                         const units = ctx.dataset.units || [];
@@ -197,12 +197,12 @@ export default function MonthlyAnalysisView({ profile }: any) {
                                 beginAtZero: true, 
                                 grace: '25%', 
                                 grid: { color: '#f1f5f9' }, 
-                                ticks: { font: { size: 10, weight: 'bold' }, color: '#94a3b8', padding: 8 } 
+                                ticks: { font: { size: 10, weight: 'bold' as 'bold' }, color: '#94a3b8', padding: 8 } 
                             },
                             x: { 
                                 grid: { display: false }, 
                                 border: { display: true, color: '#e2e8f0', width: 2 },
-                                ticks: { font: { size: 10, weight: 'bold' }, color: '#64748b', padding: 10 } 
+                                ticks: { font: { size: 10, weight: 'bold' as 'bold' }, color: '#64748b', padding: 10 } 
                             }
                         }
                     }} 
