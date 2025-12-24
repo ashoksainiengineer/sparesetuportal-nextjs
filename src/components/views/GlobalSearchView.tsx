@@ -173,7 +173,7 @@ export default function GlobalSearchView({ profile }: any) {
         setRequestItem(null); 
         setReqForm({ qty: "", comment: "" }); 
 
-    } catch (err) { 
+    } catch (err: any) { 
         console.error("Request Error:", err);
         alert("Error: Could not send request. Please try again."); 
     } finally {
