@@ -54,7 +54,7 @@ export default function GlobalSearchView({ profile }: any) {
           .sort((a: any, b: any) => b.total - a.total);
         setContributors(sortedZones.slice(0, 3)); 
       }
-    } catch (e: any) { console.error("Meta Fetch Error"); }
+    } catch (e: any) { console.error("Meta Fetch Error"); } // Corrected spelling to 'catch'
   };
 
   const fetchData = useCallback(async () => {
@@ -88,101 +88,67 @@ export default function GlobalSearchView({ profile }: any) {
   useEffect(() => { setCurrentPage(1); }, [debouncedSearch, selZone, selCat, selSubCat, selStock]);
 
   const handleSendRequest = async () => {
-  if (!reqForm.qty || Number(reqForm.qty) <= 0) { 
-    alert("Enter valid quantity!"); 
-    return; 
-  }
-  setSubmitting(true);
-  try {
-    // 1. LIVE AVAILABILITY CHECK
-    const { data: liveStock, error: invErr } = await supabase
-      .from("inventory")
-      .select("qty")
-      .eq("id", requestItem.id)
-      .single();
-
-    if (invErr || !liveStock) {
-      alert("Error: This item has been removed from the store!");
-      setRequestItem(null);
-      setSubmitting(false);
-      return;
+    if (!reqForm.qty || Number(reqForm.qty) <= 0) { 
+        alert("Enter valid quantity!"); 
+        return; 
     }
-
-    if (Number(reqForm.qty) > liveStock.qty) {
-      alert(`Wait! Only ${liveStock.qty} items are left. Someone just consumed/borrowed it.`);
-      setReqForm({ ...reqForm, qty: liveStock.qty.toString() });
-      setSubmitting(false);
-      return;
-    }
-
-    // 2. PROCEED WITH REQUEST
-    const initialTxnId = `#TXN-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 99)}`;
-    const { error } = await supabase.from("requests").insert([{
-      txn_id: initialTxnId,
-      item_id: requestItem.id, 
-      item_name: requestItem.item, 
-      item_spec: requestItem.spec, 
-      item_unit: requestItem.unit, 
-      req_qty: Number(reqForm.qty), 
-      req_comment: reqForm.comment, 
-      from_name: profile.name, 
-      from_uid: profile.id, 
-      from_unit: profile.unit, 
-      to_name: requestItem.holder_name, 
-      to_uid: requestItem.holder_uid, 
-      to_unit: requestItem.holder_unit, 
-      status: 'pending', 
-      viewed_by_requester: false
-    }]);
     
-    if (!error) { 
-      alert("Request Sent Successfully!"); 
-      setRequestItem(null); 
-      setReqForm({ qty: "", comment: "" }); 
-    }
-  } catch (err: any) { 
-    console.error("Request Error:", err);
-    alert(`Error: ${err.message || "Could not send request"}`); 
-  } finally {
-    setSubmitting(false);
-  }
-};
+    setSubmitting(true);
+    
+    try {
+        // 1. LIVE AVAILABILITY CHECK
+        const { data: liveStock, error: invErr } = await supabase
+            .from("inventory")
+            .select("qty")
+            .eq("id", requestItem.id)
+            .single();
 
-        // 3. PROCEED WITH REQUEST: Agar validation pass ho gayi, tabhi insert karein
-        const initialTxnId = `#TXN-${Date.now().toString().slice(-6)}-${Math.floor(Math.random()*99)}`;
+        if (invErr || !liveStock) {
+            alert("Error: This item has been removed from the store!");
+            setRequestItem(null);
+            return;
+        }
+
+        if (Number(reqForm.qty) > liveStock.qty) {
+            alert(`Wait! Only ${liveStock.qty} items are left. Someone just consumed/borrowed it.`);
+            setReqForm({ ...reqForm, qty: liveStock.qty.toString() });
+            return;
+        }
+
+        // 2. PROCEED WITH REQUEST: Cleanup duplicate logic and ensure single block
+        const initialTxnId = `#TXN-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 99)}`;
         
         const { error } = await supabase.from("requests").insert([{
             txn_id: initialTxnId,
-            item_id: requestItem.id, 
-            item_name: requestItem.item, 
-            item_spec: requestItem.spec, 
-            item_unit: requestItem.unit, 
-            req_qty: Number(reqForm.qty), 
-            req_comment: reqForm.comment, 
-            from_name: profile.name, 
-            from_uid: profile.id, 
-            from_unit: profile.unit, 
-            to_name: requestItem.holder_name, 
-            to_uid: requestItem.holder_uid, 
-            to_unit: requestItem.holder_unit, 
-            status: 'pending', 
+            item_id: requestItem.id,
+            item_name: requestItem.item,
+            item_spec: requestItem.spec,
+            item_unit: requestItem.unit,
+            req_qty: Number(reqForm.qty),
+            req_comment: reqForm.comment,
+            from_name: profile.name,
+            from_uid: profile.id,
+            from_unit: profile.unit,
+            to_name: requestItem.holder_name,
+            to_uid: requestItem.holder_uid,
+            to_unit: requestItem.holder_unit,
+            status: 'pending',
             viewed_by_requester: false
         }]);
 
         if (error) throw error;
 
-        // Success: Clear form and close modal
         alert("Request Sent Successfully!"); 
         setRequestItem(null); 
         setReqForm({ qty: "", comment: "" }); 
 
     } catch (err: any) { 
         console.error("Request Error:", err);
-        alert("Error: Could not send request. Please try again."); 
+        alert(`Error: ${err.message || "Could not send request"}`); 
     } finally {
         setSubmitting(false);
     }
-};
+  };
 
   const getGroupedData = useMemo(() => {
     const groups: any = {};
@@ -201,7 +167,6 @@ export default function GlobalSearchView({ profile }: any) {
     });
   }, [items]);
 
-  // Restored Summary Data Logic
   const getSummaryData = () => {
     const summary: any = {};
     metaItems.forEach((i: any) => {
@@ -219,7 +184,6 @@ export default function GlobalSearchView({ profile }: any) {
 
   return (
     <div className="space-y-6 animate-fade-in font-roboto font-bold uppercase tracking-tight">
-      {/* 🏆 LEADERBOARD */}
       <section className="bg-slate-900 py-4 px-6 rounded-2xl border-b-4 border-orange-500 shadow-2xl overflow-hidden text-white">
         <div className="flex flex-col lg:flex-row items-center gap-6">
             <h2 className="text-lg font-black tracking-widest leading-none shrink-0 uppercase"><i className="fa-solid fa-trophy text-orange-400 mr-2"></i> ZONE LEADERBOARD</h2>
@@ -234,14 +198,12 @@ export default function GlobalSearchView({ profile }: any) {
         </div>
       </section>
 
-      {/* 🔍 SEARCH & FILTER BAR */}
       <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden font-black">
         <div className="p-4 border-b bg-slate-50/80 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="relative flex-grow md:w-80 font-black"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i><input type="text" placeholder="Search Materials..." className="w-full pl-9 pr-4 py-2 border rounded-md text-sm outline-none font-black uppercase" value={search} onChange={e=>setSearch(e.target.value)} /></div>
             <div className="flex gap-2">
               <button onClick={() => setShowSummary(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase shadow-md flex items-center gap-2 hover:bg-indigo-700 transition-all tracking-widest"><i className="fa-solid fa-chart-pie"></i> Stock Summary</button>
-              {/* Restored Export Functionality */}
               <button onClick={async () => {
                 const { data } = await supabase.from("inventory").select("*");
                 if (!data) return;
@@ -271,7 +233,7 @@ export default function GlobalSearchView({ profile }: any) {
             <thead className="bg-slate-50 text-slate-500 text-[10px] border-b tracking-widest uppercase"><tr><th className="p-4 pl-6 uppercase">Material Detail</th><th className="p-4 uppercase">Spec Details</th><th className="p-4 text-center uppercase">Refinery Stock</th><th className="p-4 text-center uppercase">Status</th><th className="p-4 text-center uppercase">Action</th></tr></thead>
             <tbody className="divide-y text-sm">
               {loading && items.length === 0 ? (
-                <tr><td colSpan={5} className="p-20 text-center animate-pulse text-slate-300 font-black uppercase tracking-widest font-black">Connecting Database...</td></tr>
+                <tr><td colSpan={5} className="p-20 text-center animate-pulse text-slate-300 font-black uppercase tracking-widest">Connecting Database...</td></tr>
               ) : getGroupedData.map((group: any, idx: number) => (
                 <tr key={idx} className={`hover:bg-slate-50 transition border-b group cursor-pointer ${group.totalQty === 0 ? 'bg-red-50/30' : ''}`} onClick={()=>{setBifurcateItem(group); setExpandedZone(null);}}>
                   <td className="p-4 pl-6 leading-tight uppercase font-black"><div className="text-slate-800 font-bold text-[14px] flex items-center gap-2 font-black">{group.item}{group.is_manual && <span className="bg-orange-100 text-orange-600 text-[8px] px-1.5 py-0.5 rounded font-black border border-orange-200">M</span>}</div><div className="text-[10px] text-slate-400 mt-1 uppercase font-black">{group.cat} &gt; {group.sub}</div></td>
@@ -297,7 +259,6 @@ export default function GlobalSearchView({ profile }: any) {
         </div>
       </section>
 
-      {/* MODAL: Split View Details */}
       {bifurcateItem && (
         <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden animate-scale-in border-t-8 border-indigo-600 uppercase font-bold">
@@ -327,7 +288,6 @@ export default function GlobalSearchView({ profile }: any) {
         </div>
       )}
 
-      {/* RESTORED MODAL: Stock Summary */}
       {showSummary && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
@@ -354,7 +314,6 @@ export default function GlobalSearchView({ profile }: any) {
         </div>
       )}
 
-      {/* RESTORED MODAL: Request Form */}
       {requestItem && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[10001] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 relative animate-scale-in">
