@@ -27,7 +27,9 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
             if (t) setTaken(t);
             if (gh) setGivenHistory(gh); 
             if (th) setTakenHistory(th);
-        } catch(e: any){}
+        } catch(e: any){
+            console.error("Fetch All Error:", e.message);
+        }
     };
 
     useEffect(() => {
@@ -40,70 +42,73 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
 
     const formatTS = (ts: any) => new Date(Number(ts)).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
 
-const handleProcess = async () => {
-    const { type, data } = actionModal;
-    const actionQty = Number(form.qty || data.req_qty);
-    if (!form.comment.trim()) return alert("Log comment required!");
+    const handleProcess = async () => {
+        const { type, data } = actionModal;
+        const actionQty = Number(form.qty || data.req_qty);
+        if (!form.comment.trim()) return alert("Log comment required!");
+        if (actionQty <= 0) return alert("Invalid Qty!");
 
-    try {
-        // 1. Sabse pehle Requests table se is entry ka TAaza status fetch karo
-        const { data: liveReq, error: reqErr } = await supabase
-            .from("requests")
-            .select("*")
-            .eq("id", data.id)
-            .single();
+        try {
+            // 1. LIVE REQUEST CHECK
+            const { data: liveReq, error: reqErr } = await supabase.from("requests").select("*").eq("id", data.id).single();
+            if (reqErr || !liveReq) return alert("ALERT: Record not found in database!");
 
-        if (reqErr || !liveReq) {
-            return alert("ALERT: Ye request ab database mein nahi mil rahi (Deleted)!");
-        }
+            if (type === 'approve' && liveReq.status !== 'pending') return alert(`CONFLICT: Already ${liveReq.status}!`);
+            if (type === 'verify' && liveReq.status !== 'return_requested') return alert("CONFLICT: Status changed!");
 
-        // 2. Check karo ki status badal toh nahi gaya
-        if (type === 'approve' && liveReq.status !== 'pending') {
-            return alert(`CONFLICT: Ye request pehle hi ${liveReq.status} ho chuki hai!`);
-        }
-
-        // 3. Inventory ka LIVE balance check (Sirf Approve ke liye)
-        const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
-        
-        if (type === 'approve') {
-            if (!inv) return alert("ERROR: Ye material inventory se delete ho chuka hai!");
-            if (actionQty > inv.qty) {
-                return alert(`STOCK ALERT: Sirf ${inv.qty} bache hain. Kisi ne abhi consume kar liya!`);
-            }
-
-            // Sab sahi hai, toh Issue karo
-            const persistentTxnId = data.txn_id || `#TXN-${Date.now().toString().slice(-6)}`;
-            await supabase.from("requests").update({ 
-                status: 'approved', approve_comment: form.comment, txn_id: persistentTxnId, 
-                to_uid: profile.id, to_name: profile.name, req_qty: actionQty, viewed_by_requester: false 
-            }).eq("id", data.id);
-
-            await supabase.from("inventory").update({ qty: inv.qty - actionQty }).eq("id", data.item_id);
-            alert("Material Issued!");
-        } 
-        
-        // 4. VERIFY RETURN: Yahan bhi parent record ka balance check zaroori hai
-        else if (type === 'verify') {
-            if (liveReq.status !== 'return_requested') return alert("Return status has changed!");
-
-            const parentId = data.approve_comment?.match(/VERIFY_LINK_ID:(\d+)/)?.[1];
-            if (parentId) {
-                const { data: parent } = await supabase.from("requests").select("req_qty").eq("id", parentId).single();
-                if (!parent) return alert("Parent record missing!");
-                if (data.req_qty > parent.req_qty) return alert("Limit Exceeded!");
-                
-                // Partial Return Balance Update
-                const newBal = parent.req_qty - data.req_qty;
-                if (newBal <= 0) await supabase.from("requests").delete().eq("id", parentId);
-                else await supabase.from("requests").update({ req_qty: newBal }).eq("id", parentId);
-            }
+            // 2. LIVE INVENTORY CHECK
+            const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
             
-            await supabase.from("requests").update({ status: 'returned', approve_comment: `Verified: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
-            if (inv) await supabase.from("inventory").update({ qty: inv.qty + data.req_qty }).eq("id", data.item_id);
+            if (type === 'approve') {
+                if (!inv) return alert("ERROR: Material deleted from inventory!");
+                if (actionQty > inv.qty) return alert(`STOCK ALERT: Only ${inv.qty} left!`);
+
+                const persistentTxnId = data.txn_id || `#TXN-${Date.now().toString().slice(-6)}`;
+                await supabase.from("requests").update({ 
+                    status: 'approved', approve_comment: form.comment, txn_id: persistentTxnId, 
+                    to_uid: profile.id, to_name: profile.name, req_qty: actionQty, viewed_by_requester: false 
+                }).eq("id", data.id);
+
+                await supabase.from("inventory").update({ qty: inv.qty - actionQty }).eq("id", data.item_id);
+                alert("Material Issued Successfully!");
+            } 
+            else if (type === 'verify') {
+                const parentId = data.approve_comment?.match(/VERIFY_LINK_ID:(\d+)/)?.[1];
+                if (parentId) {
+                    const { data: parent } = await supabase.from("requests").select("req_qty").eq("id", parentId).single();
+                    if (parent) {
+                        const newBal = parent.req_qty - data.req_qty;
+                        if (newBal <= 0) await supabase.from("requests").delete().eq("id", parentId);
+                        else await supabase.from("requests").update({ req_qty: newBal }).eq("id", parentId);
+                    }
+                }
+                await supabase.from("requests").update({ status: 'returned', approve_comment: `Verified: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
+                if (inv) await supabase.from("inventory").update({ qty: inv.qty + data.req_qty }).eq("id", data.item_id);
+                alert("Return Verified!");
+            }
+            else if (type === 'reject') {
+                await supabase.from("requests").update({ status: 'rejected', approve_comment: form.comment, viewed_by_requester: false }).eq("id", data.id);
+                alert("Request Rejected.");
+            }
+            else if (type === 'return') {
+                const verifyLinkId = `VERIFY_LINK_ID:${data.id}`;
+                await supabase.from("requests").insert([{
+                    item_id: data.item_id, item_name: data.item_name, item_spec: data.item_spec, item_unit: data.item_unit,
+                    req_qty: actionQty, req_comment: form.comment, approve_comment: verifyLinkId,
+                    from_name: profile.name, from_uid: profile.id, from_unit: profile.unit,
+                    to_name: data.to_name, to_uid: data.to_uid, to_unit: data.to_unit,
+                    status: 'return_requested', viewed_by_requester: false, txn_id: data.txn_id
+                }]);
+                alert("Return Initiated!");
+            }
+        } catch(e: any) { 
+            alert("Transaction error: " + e.message); 
+        } finally {
+            setActionModal(null); 
+            setForm({comment:"", qty:""});
+            fetchAll();
         }
-    } catch(e: any) { alert("Transaction error occurred."); }
-    setActionModal(null); setForm({comment:"", qty:""});
-};
+    };
 
     const sortedHistory = [...givenHistory, ...takenHistory].sort((a,b) => Number(b.timestamp) - Number(a.timestamp));
     const currentArchiveLogs = sortedHistory.slice((archivePage - 1) * logsPerPage, archivePage * logsPerPage);
@@ -128,7 +133,6 @@ const handleProcess = async () => {
                     <div className="p-4 space-y-4 h-[500px] overflow-y-auto bg-slate-50/20">{taken.map(r => (<div key={r.id} className="p-4 border-2 border-slate-100 bg-white rounded-2xl relative shadow-sm hover:border-red-100 transition-colors uppercase font-bold"><div className="text-slate-800 font-bold text-[14px] tracking-tight mb-1">{r.item_name}</div><div className="text-[10px] text-slate-400 mb-3 uppercase tracking-tighter">{r.item_spec}</div><div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg mb-3"><div><p className="text-[9px] font-bold text-slate-400 uppercase">Source</p><p className="text-[12.5px] font-black text-slate-700 uppercase tracking-tighter">{r.to_unit} ({r.to_name})</p></div><div className="text-right font-black text-red-600 font-mono text-[14px]">{r.req_qty} {r.item_unit}</div></div><div className="text-[9px] font-mono text-slate-400 mb-3 space-y-1 bg-slate-50/50 p-2 rounded border border-dashed tracking-tighter"><p><span className="font-black text-red-600/70">TXN:</span> {r.txn_id || '--'}</p><p><span className="font-black text-red-600/70">TAKEN ON:</span> {formatTS(r.timestamp)}</p></div><button onClick={()=>setActionModal({type:'return', data:r})} className="w-full py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow-md hover:bg-slate-800 transition">Initiate Return</button></div>))}</div></section>
             </div>
 
-            {/* SECTION 3: RETURN & UDHAARI LOGS - FULLY RESTORED UI */}
             <div className="pt-10 space-y-6">
                 <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
                     <div className="p-6 bg-slate-800 text-white flex flex-col items-center justify-center font-bold">
@@ -155,18 +159,13 @@ const handleProcess = async () => {
                                           <p className="text-slate-800 font-bold text-[12.5px] tracking-tight">{h.item_name}</p>
                                           <p className="text-[8.5px] text-slate-400 mt-1.5 uppercase">SPEC: {h.item_spec}</p>
                                         </td>
-                                        
-                                        {/* RESTORED QTY FORMATTING */}
                                         <td className="p-4 text-center font-black whitespace-nowrap">
                                           <div className="flex flex-col items-center gap-1 leading-none">
                                             <span className="text-[9.5px] text-blue-600/80 tracking-tighter">UDH: {h.req_qty} {h.item_unit}</span>
                                             <span className={`text-[9.5px] tracking-tighter ${h.status === 'returned' ? 'text-green-600' : 'text-slate-300'}`}>RET: {h.status === 'returned' ? h.req_qty : 0} {h.item_unit}</span>
                                           </div>
                                         </td>
-                                        
                                         <td className="p-4 leading-tight"><p className="text-blue-500">BORR: {h.from_name}</p><p className="text-red-500 mt-1">LEND: {h.to_name}</p></td>
-                                        
-                                        {/* RESTORED FULL AUDIT TIMELINE */}
                                         <td className="p-4 leading-none space-y-1.5 font-bold tracking-tighter text-[8px]">
                                             <p><span className="opacity-50">1. REQUEST BY:</span> {h.from_name} ({h.from_unit}) on {formatTS(h.timestamp)}</p>
                                             <p><span className="opacity-50">2. APPROVED BY:</span> {h.to_name} on {formatTS(h.timestamp)}</p>
@@ -177,7 +176,6 @@ const handleProcess = async () => {
                                                 </>
                                             )}
                                         </td>
-                                        
                                         <td className="p-4 text-center"><span className={`px-2.5 py-1 rounded-full text-[8.5px] font-black tracking-widest ${h.status==='returned' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{h.status}</span></td>
                                     </tr>
                                 ))}
@@ -192,7 +190,6 @@ const handleProcess = async () => {
                 </div>
             </div>
 
-            {/* ACTION MODAL - RESTORED ORIGINAL UI */}
             {actionModal && (
               <div className="fixed top-0 left-0 w-full h-full bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
                 <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
