@@ -54,7 +54,7 @@ export default function GlobalSearchView({ profile }: any) {
           .sort((a: any, b: any) => b.total - a.total);
         setContributors(sortedZones.slice(0, 3)); 
       }
-    } catch (e) { console.error("Meta Fetch Error"); }
+    } catch (e: any) { console.error("Meta Fetch Error"); }
   };
 
   const fetchData = useCallback(async () => {
@@ -76,7 +76,7 @@ export default function GlobalSearchView({ profile }: any) {
       if (error) throw error;
       setItems(data || []);
       setTotalCount(count || 0);
-    } catch (e) { console.error("Fetch error:", e); }
+    } catch (e: any) { console.error("Fetch error:", e); }
     finally { setLoading(false); }
   }, [debouncedSearch, selZone, selCat, selSubCat, selStock, currentPage]);
 
