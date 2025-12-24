@@ -31,7 +31,7 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
             
             setPending(p || []); setGiven(g || []); setTaken(t || []);
             setGivenHistory(gh || []); setTakenHistory(th || []);
-        } catch(e){}
+        } catch(e: any){}
     }, [profile.unit]);
 
     useEffect(() => {
