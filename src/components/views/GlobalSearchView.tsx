@@ -88,39 +88,62 @@ export default function GlobalSearchView({ profile }: any) {
   useEffect(() => { setCurrentPage(1); }, [debouncedSearch, selZone, selCat, selSubCat, selStock]);
 
   const handleSendRequest = async () => {
-    // 1. Basic Validation: Check if fields are empty or invalid
     if (!reqForm.qty || Number(reqForm.qty) <= 0) { 
-        alert("Please enter a valid quantity!"); 
+        alert("Enter valid quantity!"); 
         return; 
     }
-    
     setSubmitting(true);
-    
     try {
-        // 2. LIVE AVAILABILITY CHECK: Request bhejne se theek pehle current stock fetch karo
-        // Ye check karta hai ki item delete toh nahi hua ya stock khatam toh nahi ho gaya
+        // 1. LIVE AVAILABILITY CHECK
         const { data: liveStock, error: invErr } = await supabase
             .from("inventory")
             .select("qty")
             .eq("id", requestItem.id)
             .single();
 
-        // Agar item inventory table mein nahi milta
         if (invErr || !liveStock) {
-            alert("Error: This item has been removed from the store by the owner!");
+            alert("Error: This item has been removed from the store!");
             setRequestItem(null);
-            setSubmitting(false);
             return;
         }
 
-        // Agar maangi gayi quantity live stock se zyada hai
         if (Number(reqForm.qty) > liveStock.qty) {
-            alert(`Stock Alert: Only ${liveStock.qty} units are available now. Someone might have consumed or borrowed the rest.`);
-            // Form ki quantity ko automatically available quantity par set kar dete hain
-            setReqForm({ ...reqForm, qty: liveStock.qty.toString() });
-            setSubmitting(false);
+            alert(`Wait! Only ${liveStock.qty} items are left.`);
+            setReqForm({...reqForm, qty: liveStock.qty.toString()});
             return;
         }
+
+        // 2. PROCEED WITH REQUEST
+        const initialTxnId = `#TXN-${Date.now().toString().slice(-6)}-${Math.floor(Math.random()*99)}`;
+        const { error } = await supabase.from("requests").insert([{
+            txn_id: initialTxnId,
+            item_id: requestItem.id, 
+            item_name: requestItem.item, 
+            item_spec: requestItem.spec, 
+            item_unit: requestItem.unit, 
+            req_qty: Number(reqForm.qty), 
+            req_comment: reqForm.comment, 
+            from_name: profile.name, 
+            from_uid: profile.id, 
+            from_unit: profile.unit, 
+            to_name: requestItem.holder_name, 
+            to_uid: requestItem.holder_uid, 
+            to_unit: requestItem.holder_unit, 
+            status: 'pending', 
+            viewed_by_requester: false
+        }]);
+        
+        if (!error) { 
+            alert("Request Sent Successfully!"); 
+            setRequestItem(null); 
+            setReqForm({ qty: "", comment: "" }); 
+        }
+    } catch (err: any) { 
+        alert(`Error: ${err.message || "Failed to send request"}`); 
+    } finally {
+        setSubmitting(false);
+    }
+};
 
         // 3. PROCEED WITH REQUEST: Agar validation pass ho gayi, tabhi insert karein
         const initialTxnId = `#TXN-${Date.now().toString().slice(-6)}-${Math.floor(Math.random()*99)}`;
