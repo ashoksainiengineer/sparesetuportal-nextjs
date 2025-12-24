@@ -113,7 +113,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
         await supabase.from("profiles").update({ item_count: (profile.item_count || 0) + 1 }).eq('id', profile.id);
       }
       resetForm(); await fetchStore(); if(fetchProfile) fetchProfile();
-    } catch (e: any) { alert("Save Error"); } finally { setSubmitting(false); }
+    } catch (err: any) { alert("Save Error"); } finally { setSubmitting(false); }
   };
 
   const handleDeleteItem = async (id: number) => {
