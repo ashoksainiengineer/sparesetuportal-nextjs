@@ -192,7 +192,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
       setConsumeForm({ qty: "", note: "" });
       await fetchStore(); 
 
-    } catch (e) { 
+    } catch (e: any) { 
       alert(`System Error: ${e.message}`); 
     } finally { 
       setSubmitting(false); 
