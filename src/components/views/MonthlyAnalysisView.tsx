@@ -68,7 +68,7 @@ export default function MonthlyAnalysisView({ profile }: any) {
         };
       });
       setChartConfigs(charts);
-    } catch (e) { console.error(e); } finally { setLoading(false); }
+    } catch (e: any) { console.error(e); } finally { setLoading(false); }
   }, [selectedMonth]);
 
   useEffect(() => {
