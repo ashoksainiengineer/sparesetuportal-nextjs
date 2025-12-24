@@ -59,7 +59,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
       if (error) throw error;
       setMyItems(data || []);
       setTotalCount(count || 0);
-    } catch (e) { console.error("Fetch failed", e); }
+    } catch (e: any) { console.error("Fetch failed", e); }
     finally { setLoading(false); }
   }, [profile?.unit, debouncedSearch, selCat, selSub, selEngineer, currentPage]);
 
@@ -113,7 +113,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
         await supabase.from("profiles").update({ item_count: (profile.item_count || 0) + 1 }).eq('id', profile.id);
       }
       resetForm(); await fetchStore(); if(fetchProfile) fetchProfile();
-    } catch (e) { alert("Save Error"); } finally { setSubmitting(false); }
+    } catch (e: any) { alert("Save Error"); } finally { setSubmitting(false); }
   };
 
   const handleDeleteItem = async (id: number) => {
@@ -122,7 +122,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
     try {
         await supabase.from("inventory").delete().eq("id", id);
         resetForm(); await fetchStore(); if(fetchProfile) fetchProfile();
-    } catch (e) { alert("Delete failed"); } finally { setSubmitting(false); }
+    } catch (e: any) { alert("Delete failed"); } finally { setSubmitting(false); }
   };
 
  const handleConsume = async () => {
@@ -192,7 +192,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
       setConsumeForm({ qty: "", note: "" });
       await fetchStore(); 
 
-    } catch (e) { 
+    } catch (e: any) { 
       alert(`System Error: ${e.message}`); 
     } finally { 
       setSubmitting(false); 
