@@ -54,7 +54,7 @@ export default function GlobalSearchView({ profile }: any) {
           .sort((a: any, b: any) => b.total - a.total);
         setContributors(sortedZones.slice(0, 3)); 
       }
-    } cath (e: any) { console.error("Meta Fetch Error"); }
+    } catch (e: any) { console.error("Meta Fetch Error"); }
   };
 
   const fetchData = useCallback(async () => {
