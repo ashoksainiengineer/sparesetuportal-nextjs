@@ -88,57 +88,73 @@ export default function GlobalSearchView({ profile }: any) {
   useEffect(() => { setCurrentPage(1); }, [debouncedSearch, selZone, selCat, selSubCat, selStock]);
 
   const handleSendRequest = async () => {
-    const requestedQty = Number(reqForm.qty);
-    if (profile.unit === requestItem.holder_unit) { 
-        alert("Action Denied: You cannot request from your own zone."); 
-        return; 
-    }
-    if (!reqForm.qty || isNaN(requestedQty) || requestedQty <= 0) { 
-        alert("Error: Enter valid quantity!"); 
+    // 1. Basic Validation: Check if fields are empty or invalid
+    if (!reqForm.qty || Number(reqForm.qty) <= 0) { 
+        alert("Please enter a valid quantity!"); 
         return; 
     }
     
     setSubmitting(true);
+    
     try {
-        const { data: liveCheck } = await supabase.from("inventory").select("qty").eq("id", requestItem.id).single();
-        if (!liveCheck || requestedQty > liveCheck.qty) { 
-            alert(`Stock Shortage!`); 
-            setSubmitting(false); 
-            fetchData(); 
-            return; 
+        // 2. LIVE AVAILABILITY CHECK: Request bhejne se theek pehle current stock fetch karo
+        // Ye check karta hai ki item delete toh nahi hua ya stock khatam toh nahi ho gaya
+        const { data: liveStock, error: invErr } = await supabase
+            .from("inventory")
+            .select("qty")
+            .eq("id", requestItem.id)
+            .single();
+
+        // Agar item inventory table mein nahi milta
+        if (invErr || !liveStock) {
+            alert("Error: This item has been removed from the store by the owner!");
+            setRequestItem(null);
+            setSubmitting(false);
+            return;
         }
 
-        // Transaction ID will persist throughout the return/partial return lifecycle
+        // Agar maangi gayi quantity live stock se zyada hai
+        if (Number(reqForm.qty) > liveStock.qty) {
+            alert(`Stock Alert: Only ${liveStock.qty} units are available now. Someone might have consumed or borrowed the rest.`);
+            // Form ki quantity ko automatically available quantity par set kar dete hain
+            setReqForm({ ...reqForm, qty: liveStock.qty.toString() });
+            setSubmitting(false);
+            return;
+        }
+
+        // 3. PROCEED WITH REQUEST: Agar validation pass ho gayi, tabhi insert karein
         const initialTxnId = `#TXN-${Date.now().toString().slice(-6)}-${Math.floor(Math.random()*99)}`;
         
-        const { error: insErr } = await supabase.from("requests").insert([{ 
-            txn_id: initialTxnId, 
+        const { error } = await supabase.from("requests").insert([{
+            txn_id: initialTxnId,
             item_id: requestItem.id, 
             item_name: requestItem.item, 
             item_spec: requestItem.spec, 
             item_unit: requestItem.unit, 
-            req_qty: requestedQty, 
-            req_comment: `1. REQUESTED BY: ${profile.name} (${profile.unit}) | NOTE: ${reqForm.comment}`, 
+            req_qty: Number(reqForm.qty), 
+            req_comment: reqForm.comment, 
             from_name: profile.name, 
             from_uid: profile.id, 
             from_unit: profile.unit, 
-            to_name: requestItem.holder_name, // Requested specifically from Engineer A
+            to_name: requestItem.holder_name, 
             to_uid: requestItem.holder_uid, 
-            to_unit: requestItem.holder_unit, // Visible to all in A's Zone (A, B, etc.)
+            to_unit: requestItem.holder_unit, 
             status: 'pending', 
-            viewed_by_requester: false 
+            viewed_by_requester: false
         }]);
 
-        if (!insErr) { 
-            alert("Request sent successfully to Zone " + requestItem.holder_unit); 
-            setRequestItem(null); 
-            setReqForm({ qty: "", comment: "" }); 
-            fetchData(); 
-        }
+        if (error) throw error;
+
+        // Success: Clear form and close modal
+        alert("Request Sent Successfully!"); 
+        setRequestItem(null); 
+        setReqForm({ qty: "", comment: "" }); 
+
     } catch (err) { 
-        alert("System Connectivity Issue!"); 
-    } finally { 
-        setSubmitting(false); 
+        console.error("Request Error:", err);
+        alert("Error: Could not send request. Please try again."); 
+    } finally {
+        setSubmitting(false);
     }
 };
 
