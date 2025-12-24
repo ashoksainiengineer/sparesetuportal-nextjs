@@ -27,7 +27,7 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
             if (t) setTaken(t);
             if (gh) setGivenHistory(gh); 
             if (th) setTakenHistory(th);
-        } catch(e){}
+        } catch(e: any){}
     };
 
     useEffect(() => {
@@ -101,7 +101,7 @@ const handleProcess = async () => {
             await supabase.from("requests").update({ status: 'returned', approve_comment: `Verified: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
             if (inv) await supabase.from("inventory").update({ qty: inv.qty + data.req_qty }).eq("id", data.item_id);
         }
-    } catch(e) { alert("Transaction error occurred."); }
+    } catch(e: any) { alert("Transaction error occurred."); }
     setActionModal(null); setForm({comment:"", qty:""});
 };
 
