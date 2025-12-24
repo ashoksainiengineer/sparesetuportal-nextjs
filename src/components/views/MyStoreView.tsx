@@ -33,7 +33,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
       const { data, error } = await supabase.from("inventory").select("*").eq("holder_unit", profile.unit).order("id", { ascending: false });
       if (error) throw error;
       if (data) setMyItems(data);
-    } catch (e: any) { console.error("Fetch failed", e); }
+    } catch (e) { console.error("Fetch failed", e); }
   };
 
   const formatTS = (ts: any) => new Date(Number(ts)).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
@@ -110,7 +110,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
       if (editItem) { await supabase.from("inventory").update(payload).eq("id", editItem.id); } 
       else { await supabase.from("inventory").insert([payload]); await supabase.from("profiles").update({ item_count: (profile.item_count || 0) + 1 }).eq('id', profile.id); }
       resetForm(); await fetchStore(); if(fetchProfile) fetchProfile();
-    } catch (e: any) { alert("Save Error"); }
+    }  { alert("Save Error"); }
   };
 
   const handleConsume = async () => {
@@ -122,7 +122,7 @@ export default function MyStoreView({ profile, fetchProfile }: any) {
       await supabase.from("inventory").update({ qty: live.qty - q }).eq("id", consumeItem.id);
       await supabase.from("usage_logs").insert([{ item_id: consumeItem.id, item_name: consumeItem.item, cat: consumeItem.cat, sub: consumeItem.sub, spec: consumeItem.spec, qty_consumed: q, unit: consumeItem.unit, purpose: consumeForm.note, consumer_uid: profile.id, consumer_name: profile.name, consumer_unit: profile.unit, timestamp: Date.now(), make: consumeItem.make || '-', model: consumeItem.model || '-' }]);
       setConsumeItem(null); setBifurcationItem(null); await fetchStore(); alert("Usage Logged!");
-    } catch (e: any) { alert("Error"); }
+    } cath (e) { alert("Error"); }
   };
 
   const handleDeleteItem = async (id: number) => {
