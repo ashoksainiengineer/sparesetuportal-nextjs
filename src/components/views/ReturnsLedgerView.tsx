@@ -40,42 +40,38 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
 
     const formatTS = (ts: any) => new Date(Number(ts)).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
 
-   const handleProcess = async () => {
+const handleProcess = async () => {
     const { type, data } = actionModal;
     const actionQty = Number(form.qty || data.req_qty);
     if (!form.comment.trim()) return alert("Log comment required!");
-    if (actionQty <= 0) return alert("Invalid Qty!");
 
     try {
-        // STEP 1: Sabse pehle Request ki CURRENT LIVE state fetch karo
-        const { data: liveRequest, error: reqErr } = await supabase
+        // 1. Sabse pehle Requests table se is entry ka TAaza status fetch karo
+        const { data: liveReq, error: reqErr } = await supabase
             .from("requests")
             .select("*")
             .eq("id", data.id)
             .single();
 
-        if (reqErr || !liveRequest) {
-            alert("DATA SYNC ERROR: This request record was deleted or not found!");
-            setActionModal(null);
-            return;
+        if (reqErr || !liveReq) {
+            return alert("ALERT: Ye request ab database mein nahi mil rahi (Deleted)!");
         }
 
-        // STEP 2: Operation-specific Live Checks
+        // 2. Check karo ki status badal toh nahi gaya
+        if (type === 'approve' && liveReq.status !== 'pending') {
+            return alert(`CONFLICT: Ye request pehle hi ${liveReq.status} ho chuki hai!`);
+        }
+
+        // 3. Inventory ka LIVE balance check (Sirf Approve ke liye)
+        const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
         
-        // --- CASE A: APPROVE / ISSUE ---
         if (type === 'approve') {
-            if (liveRequest.status !== 'pending') {
-                return alert(`CONFLICT: This request is already ${liveRequest.status.toUpperCase()}!`);
-            }
-
-            // Inventory ka live balance check karo
-            const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
-            if (!inv) return alert("ITEM DELETED: This material no longer exists in your inventory!");
+            if (!inv) return alert("ERROR: Ye material inventory se delete ho chuka hai!");
             if (actionQty > inv.qty) {
-                return alert(`STOCK SHORTAGE: Only ${inv.qty} left. Someone might have consumed it just now!`);
+                return alert(`STOCK ALERT: Sirf ${inv.qty} bache hain. Kisi ne abhi consume kar liya!`);
             }
 
-            // Agar sab sahi hai, tab update karo
+            // Sab sahi hai, toh Issue karo
             const persistentTxnId = data.txn_id || `#TXN-${Date.now().toString().slice(-6)}`;
             await supabase.from("requests").update({ 
                 status: 'approved', approve_comment: form.comment, txn_id: persistentTxnId, 
@@ -83,49 +79,30 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
             }).eq("id", data.id);
 
             await supabase.from("inventory").update({ qty: inv.qty - actionQty }).eq("id", data.item_id);
-            alert("Material Issued Successfully!");
-        }
-
-        // --- CASE B: VERIFY RETURN ---
+            alert("Material Issued!");
+        } 
+        
+        // 4. VERIFY RETURN: Yahan bhi parent record ka balance check zaroori hai
         else if (type === 'verify') {
-            if (liveRequest.status !== 'return_requested') {
-                return alert("CONFLICT: Return status has changed or already verified!");
-            }
+            if (liveReq.status !== 'return_requested') return alert("Return status has changed!");
 
             const parentId = data.approve_comment?.match(/VERIFY_LINK_ID:(\d+)/)?.[1];
             if (parentId) {
                 const { data: parent } = await supabase.from("requests").select("req_qty").eq("id", parentId).single();
-                if (!parent) return alert("PARENT ERROR: The original borrowing record was deleted!");
-                if (data.req_qty > parent.req_qty) return alert("QUANTITY MISMATCH: Return qty exceeds borrowed balance!");
+                if (!parent) return alert("Parent record missing!");
+                if (data.req_qty > parent.req_qty) return alert("Limit Exceeded!");
                 
-                // Balance Update Logic
+                // Partial Return Balance Update
                 const newBal = parent.req_qty - data.req_qty;
                 if (newBal <= 0) await supabase.from("requests").delete().eq("id", parentId);
                 else await supabase.from("requests").update({ req_qty: newBal }).eq("id", parentId);
             }
-
-            await supabase.from("requests").update({ status: 'returned', approve_comment: `Verified: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
             
-            const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
+            await supabase.from("requests").update({ status: 'returned', approve_comment: `Verified: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
             if (inv) await supabase.from("inventory").update({ qty: inv.qty + data.req_qty }).eq("id", data.item_id);
-            alert("Return Verified & Stock Updated!");
         }
-
-        // --- CASE C: REJECT ---
-        else if (type === 'reject') {
-            if (liveRequest.status === 'approved' || liveRequest.status === 'returned') {
-                return alert("CANNOT REJECT: The material has already been issued or returned!");
-            }
-            await supabase.from("requests").update({ status: 'rejected', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
-            alert("Request Rejected.");
-        }
-
-    } catch(e) { 
-        alert("Operation failed due to a database error."); 
-    }
-    setActionModal(null); 
-    setForm({comment:"", qty:""});
-    fetchAll(); // Refresh local state
+    } catch(e) { alert("Transaction error occurred."); }
+    setActionModal(null); setForm({comment:"", qty:""});
 };
 
     const sortedHistory = [...givenHistory, ...takenHistory].sort((a,b) => Number(b.timestamp) - Number(a.timestamp));
