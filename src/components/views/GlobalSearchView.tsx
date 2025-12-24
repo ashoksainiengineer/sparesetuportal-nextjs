@@ -88,61 +88,64 @@ export default function GlobalSearchView({ profile }: any) {
   useEffect(() => { setCurrentPage(1); }, [debouncedSearch, selZone, selCat, selSubCat, selStock]);
 
   const handleSendRequest = async () => {
-    if (!reqForm.qty || Number(reqForm.qty) <= 0) { 
-        alert("Enter valid quantity!"); 
-        return; 
+  if (!reqForm.qty || Number(reqForm.qty) <= 0) { 
+    alert("Enter valid quantity!"); 
+    return; 
+  }
+  setSubmitting(true);
+  try {
+    // 1. LIVE AVAILABILITY CHECK
+    const { data: liveStock, error: invErr } = await supabase
+      .from("inventory")
+      .select("qty")
+      .eq("id", requestItem.id)
+      .single();
+
+    if (invErr || !liveStock) {
+      alert("Error: This item has been removed from the store!");
+      setRequestItem(null);
+      setSubmitting(false);
+      return;
     }
-    setSubmitting(true);
-    try {
-        // 1. LIVE AVAILABILITY CHECK
-        const { data: liveStock, error: invErr } = await supabase
-            .from("inventory")
-            .select("qty")
-            .eq("id", requestItem.id)
-            .single();
 
-        if (invErr || !liveStock) {
-            alert("Error: This item has been removed from the store!");
-            setRequestItem(null);
-            return;
-        }
-
-        if (Number(reqForm.qty) > liveStock.qty) {
-            alert(`Wait! Only ${liveStock.qty} items are left.`);
-            setReqForm({...reqForm, qty: liveStock.qty.toString()});
-            return;
-        }
-
-        // 2. PROCEED WITH REQUEST
-        const initialTxnId = `#TXN-${Date.now().toString().slice(-6)}-${Math.floor(Math.random()*99)}`;
-        const { error } = await supabase.from("requests").insert([{
-            txn_id: initialTxnId,
-            item_id: requestItem.id, 
-            item_name: requestItem.item, 
-            item_spec: requestItem.spec, 
-            item_unit: requestItem.unit, 
-            req_qty: Number(reqForm.qty), 
-            req_comment: reqForm.comment, 
-            from_name: profile.name, 
-            from_uid: profile.id, 
-            from_unit: profile.unit, 
-            to_name: requestItem.holder_name, 
-            to_uid: requestItem.holder_uid, 
-            to_unit: requestItem.holder_unit, 
-            status: 'pending', 
-            viewed_by_requester: false
-        }]);
-        
-        if (!error) { 
-            alert("Request Sent Successfully!"); 
-            setRequestItem(null); 
-            setReqForm({ qty: "", comment: "" }); 
-        }
-    } catch (err: any) { 
-        alert(`Error: ${err.message || "Failed to send request"}`); 
-    } finally {
-        setSubmitting(false);
+    if (Number(reqForm.qty) > liveStock.qty) {
+      alert(`Wait! Only ${liveStock.qty} items are left. Someone just consumed/borrowed it.`);
+      setReqForm({ ...reqForm, qty: liveStock.qty.toString() });
+      setSubmitting(false);
+      return;
     }
+
+    // 2. PROCEED WITH REQUEST
+    const initialTxnId = `#TXN-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 99)}`;
+    const { error } = await supabase.from("requests").insert([{
+      txn_id: initialTxnId,
+      item_id: requestItem.id, 
+      item_name: requestItem.item, 
+      item_spec: requestItem.spec, 
+      item_unit: requestItem.unit, 
+      req_qty: Number(reqForm.qty), 
+      req_comment: reqForm.comment, 
+      from_name: profile.name, 
+      from_uid: profile.id, 
+      from_unit: profile.unit, 
+      to_name: requestItem.holder_name, 
+      to_uid: requestItem.holder_uid, 
+      to_unit: requestItem.holder_unit, 
+      status: 'pending', 
+      viewed_by_requester: false
+    }]);
+    
+    if (!error) { 
+      alert("Request Sent Successfully!"); 
+      setRequestItem(null); 
+      setReqForm({ qty: "", comment: "" }); 
+    }
+  } catch (err: any) { 
+    console.error("Request Error:", err);
+    alert(`Error: ${err.message || "Could not send request"}`); 
+  } finally {
+    setSubmitting(false);
+  }
 };
 
         // 3. PROCEED WITH REQUEST: Agar validation pass ho gayi, tabhi insert karein
