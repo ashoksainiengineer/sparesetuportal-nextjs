@@ -40,57 +40,86 @@ export default function ReturnsLedgerView({ profile, onAction }: any) {
 
     const formatTS = (ts: any) => new Date(Number(ts)).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
 
-    const handleProcess = async () => {
-        const { type, data } = actionModal;
-        const actionQty = Number(form.qty || data.req_qty);
-        if (!form.comment.trim()) return alert("Log comment required!");
-        if (actionQty <= 0) return alert("Invalid Qty!");
+const handleProcess = async () => {
+    const { type, data } = actionModal;
+    const actionQty = Number(form.qty || data.req_qty);
+    if (!form.comment.trim()) return alert("Log comment required!");
+    if (actionQty <= 0) return alert("Invalid Qty!");
 
-        try {
-            // --- BULLETPROOF LOGIC ---
-            if (type === 'approve') {
-                const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
-                if (!inv || actionQty > inv.qty) return alert("INSUFFICIENT STOCK!");
-                
-                const persistentTxnId = data.txn_id || `#TXN-${Date.now().toString().slice(-6)}`;
-                
-                await supabase.from("requests").update({ 
-                    status: 'approved', approve_comment: form.comment, txn_id: persistentTxnId, 
-                    to_uid: profile.id, to_name: profile.name, req_qty: actionQty, viewed_by_requester: false 
-                }).eq("id", data.id);
+    try {
+        if (type === 'approve') {
+            const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
+            if (!inv || actionQty > inv.qty) return alert("INSUFFICIENT STOCK!");
+            
+            const persistentTxnId = data.txn_id || `#TXN-${Date.now().toString().slice(-6)}`;
+            
+            await supabase.from("requests").update({ 
+                status: 'approved', approve_comment: form.comment, txn_id: persistentTxnId, 
+                to_uid: profile.id, to_name: profile.name, req_qty: actionQty, viewed_by_requester: false 
+            }).eq("id", data.id);
 
-                await supabase.from("inventory").update({ qty: inv.qty - actionQty }).eq("id", data.item_id);
-                alert("Material Issued Successfully!");
-            } 
-            else if (type === 'return') {
-                await supabase.from("requests").insert([{ 
-                    item_id: data.item_id, item_name: data.item_name, item_spec: data.item_spec, item_unit: data.item_unit, req_qty: actionQty, status: 'return_requested', return_comment: form.comment, from_uid: profile.id, from_name: profile.name, from_unit: profile.unit, to_uid: data.to_uid, to_name: data.to_name, to_unit: data.to_unit, viewed_by_requester: false, 
-                    approve_comment: `VERIFY_LINK_ID:${data.id}`,
-                    txn_id: data.txn_id 
-                }]);
-                alert("Return Initiated!");
-            }
-            else if (type === 'verify') {
-                const parentId = data.approve_comment?.match(/VERIFY_LINK_ID:(\d+)/)?.[1];
-                if (parentId) {
-                    const { data: parent } = await supabase.from("requests").select("req_qty").eq("id", parentId).single();
-                    if (!parent || data.req_qty > parent.req_qty) return alert("LIMIT EXCEEDED!");
-                    
+            await supabase.from("inventory").update({ qty: inv.qty - actionQty }).eq("id", data.item_id);
+            alert("Material Issued Successfully!");
+        } 
+        else if (type === 'return') {
+            // Return request insert karna
+            await supabase.from("requests").insert([{ 
+                item_id: data.item_id, item_name: data.item_name, item_spec: data.item_spec, item_unit: data.item_unit, 
+                req_qty: actionQty, status: 'return_requested', return_comment: form.comment, 
+                from_uid: profile.id, from_name: profile.name, from_unit: profile.unit, 
+                to_uid: data.to_uid, to_name: data.to_name, to_unit: data.to_unit, viewed_by_requester: false, 
+                approve_comment: `VERIFY_LINK_ID:${data.id}`, // Parent ID link karna
+                txn_id: data.txn_id 
+            }]);
+            alert("Return Initiated!");
+        }
+        else if (type === 'verify') {
+            // 1. Parent Udhaari record (Approved wala) ko update ya delete karna
+            const parentId = data.approve_comment?.match(/VERIFY_LINK_ID:(\d+)/)?.[1];
+            if (parentId) {
+                const { data: parent } = await supabase.from("requests").select("req_qty").eq("id", parentId).single();
+                if (parent) {
                     const newBal = parent.req_qty - data.req_qty;
-                    if (newBal <= 0) await supabase.from("requests").delete().eq("id", parentId);
-                    else await supabase.from("requests").update({ req_qty: newBal }).eq("id", parentId);
+                    if (newBal <= 0) {
+                        await supabase.from("requests").delete().eq("id", parentId);
+                    } else {
+                        await supabase.from("requests").update({ req_qty: newBal }).eq("id", parentId);
+                    }
                 }
-                await supabase.from("requests").update({ status: 'returned', approve_comment: `Verified: ${form.comment}`, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
-                const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
-                if (inv) await supabase.from("inventory").update({ qty: inv.qty + data.req_qty }).eq("id", data.item_id);
             }
-            else if (type === 'reject') {
-                await supabase.from("requests").update({ status: 'rejected', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
-            }
-        } catch(e){ alert("Operation failed."); }
-        setActionModal(null); setForm({comment:"", qty:""});
-    };
 
+            // 2. Current Return Request ko 'returned' mark karna (taaki pending se hat jaye)
+            await supabase.from("requests").update({ 
+                status: 'returned', 
+                approve_comment: `Verified: ${form.comment}`, 
+                to_uid: profile.id, 
+                to_name: profile.name, 
+                viewed_by_requester: false 
+            }).eq("id", data.id);
+
+            // 3. Stock wapas inventory mein add karna
+            const { data: inv } = await supabase.from("inventory").select("qty").eq("id", data.item_id).single();
+            if (inv) {
+                await supabase.from("inventory").update({ qty: inv.qty + data.req_qty }).eq("id", data.item_id);
+            }
+            alert("Return Verified & Stock Updated!");
+        }
+        else if (type === 'reject') {
+            await supabase.from("requests").update({ status: 'rejected', approve_comment: form.comment, to_uid: profile.id, to_name: profile.name, viewed_by_requester: false }).eq("id", data.id);
+        }
+
+        // --- Sabse Important: Manual Refresh ---
+        await fetchAll(); 
+        if(onAction) onAction();
+
+    } catch(e){ 
+        console.error(e);
+        alert("Operation failed."); 
+    }
+    setActionModal(null); 
+    setForm({comment:"", qty:""});
+};
+    
     const sortedHistory = [...givenHistory, ...takenHistory].sort((a,b) => Number(b.timestamp) - Number(a.timestamp));
     const currentArchiveLogs = sortedHistory.slice((archivePage - 1) * logsPerPage, archivePage * logsPerPage);
 
